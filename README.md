@@ -15,6 +15,12 @@ metadata joins, filtering choices, task definitions, split rules, and metrics.
 Those choices can materially change a result, especially when biological
 relatedness or experimental batches leak across train and test sets.
 
+Published evidence suggests that split design can materially change apparent biological ML performance: when pathology tiles from the same subject cross train/test boundaries, scores can be inflated by up to 41% ([Bussola et al.](https://arxiv.org/abs/1909.06539)); PPI models can perform near random under dissimilar-proteome partitions ([Bernett et al.](https://pmc.ncbi.nlm.nih.gov/articles/PMC10939362/)); and on an NCI-60 benchmark, Transformer-CNN hit rate was 67.67% with random splitting versus 33.27% with UMAP-based splitting ([Guo et al.](https://pmc.ncbi.nlm.nih.gov/articles/PMC12153141/)). These magnitudes and even the direction of change are task- and dataset-dependent, and a harder split may represent the intended distribution shift rather than leakage alone; this is why the project treats split choice and post-split audits as first-class protocol decisions.
+
+![Train-test similarity and model performance under four data-splitting methods](docs/assets/split-protocol-impact.png)
+
+*Redrawn from [Guo et al. (2025), Figures 2b and 7a](https://doi.org/10.1186/s13321-025-01039-8). Distribution shapes and box-plot summaries were digitized from the published figures. The source article is licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).*
+
 The intended workflow is:
 
 ```text
@@ -63,10 +69,66 @@ not a permanent restriction.
 
 ## Status
 
-This repository is in project setup. The public API shown in product discussions
-is directional and not yet available. The next milestone is a narrow,
-end-to-end single-cell benchmark that proves the protocol model before the
-dataset catalog expands.
+The repository now includes a narrow, fixture-scale TMS Aorta technical canary.
+It exercises content-addressed artifact ingest, canonical loading,
+train-independent preparation, explicit animal-held-out splitting, train-only
+fitting, leakage auditing, and evaluation without downloading the large public
+dataset during CI.
+
+TMS Aorta's `animal-held-out-v1` split is a package-defined
+`PRODUCT_PROTOCOL` with the `CANARY` role. It is not a literature reference,
+recommended scientific split, model recommendation, or state-of-the-art claim.
+
+## Quickstart
+
+Reopen a previously verified content-addressed artifact and run the shared
+Python pipeline:
+
+```python
+from pathlib import Path
+
+import bioml_data as bio
+
+artifact = bio.load_artifact_receipt(
+    Path(".cache/sha256/ab/<full-sha256>/manifest.json")
+)
+dataset = bio.load_dataset("tms-aorta", artifact=artifact)
+receipt = bio.run_tms_aorta_canary(
+    artifact,
+    split_protocol="animal-held-out-v1",
+    seed=17,
+)
+
+assert receipt.artifact_identity == dataset.artifact.artifact_id
+```
+
+The shared runner follows the lifecycle
+`load_dataset → train-independent prepare → explicit split → train-fitted apply
+→ audit → evaluate`. The split protocol has no default: passing `None` raises
+`MissingSplitProtocolError` before any fitted state is created.
+
+Run the same pipeline from the command line:
+
+```bash
+uv run bioml-data \
+  --artifact-manifest .cache/sha256/ab/<full-sha256>/manifest.json \
+  --split-protocol animal-held-out-v1 \
+  --seed 17
+```
+
+Both surfaces emit the same deterministic identity chain: artifact, split
+assignment, preparation receipt, leakage-audit report, metric protocol, and
+evaluation receipt identities. The CLI writes the receipt as JSON.
+
+Generic HTTP retrieval is available through `download_artifact()`. Callers must
+provide an `ArtifactRequest` containing a byte size and SHA-256 obtained from a
+trusted upstream manifest or release. The package does not guess or manufacture
+an upstream TMS checksum. Downloads are streamed through the same immutable
+artifact cache and are published only after size and checksum verification.
+
+See [the TMS Aorta dataset and protocol contract](docs/tms-aorta.md) for the
+canary's exact role, split behavior, preparation parameters, audit coverage, and
+current upstream-pin limitation.
 
 See [core product decisions](docs/core-decisions.md) for the current conceptual
 model and [development](docs/development.md) for local setup and quality checks.

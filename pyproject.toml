@@ -8,7 +8,26 @@ version = "0.0.0"
 description = "Reproducible data protocols for trustworthy biological machine learning."
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "anndata>=0.12",
+    "httpx2[brotli,http2,zstd]>=2.12.0",
+    "pydantic>=2.11",
+    "rich>=14",
+    "typer>=0.16",
+]
+
+[project.scripts]
+bioml-data = "bioml_data._cli:app"
+
+[project.optional-dependencies]
+notebook = [
+    "ipykernel>=7",
+    "matplotlib>=3.10",
+    "nbclient>=0.10",
+    "nbformat>=5.10",
+    "scanpy>=1.11",
+    "scipy>=1.16",
+]
 
 [project.urls]
 Documentation = "https://github.com/leevimth/bioml-data#readme"
@@ -20,6 +39,7 @@ dev = [
     "basedpyright>=1.31",
     "pytest>=8.4",
     "ruff>=0.12",
+    "scipy-stubs>=1.16",
 ]
 
 [tool.basedpyright]
@@ -57,6 +77,7 @@ fixable = ["ALL"]
 unfixable = []
 
 [tool.ruff.lint.per-file-ignores]
+"examples/**/*.ipynb" = ["S101", "T201"]
 "tests/**/*.py" = ["ARG", "D", "PLR2004", "S101", "SLF001"]
 
 [tool.ruff.lint.pydocstyle]

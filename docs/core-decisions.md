@@ -80,9 +80,9 @@ before any train-fitted transformation.
 
 ## Initial modality and use cases
 
-Single-cell is the first major modality to validate, subject to a final dataset
-selection. It forces the toolkit to handle study, donor, batch, and biological
-replicate boundaries rather than treating observations as independent rows.
+Single-cell is the first major modality to validate. It forces the toolkit to
+handle study, donor, batch, and biological replicate boundaries rather than
+treating observations as independent rows.
 
 - Cell-type annotation is the **technical canary**. It validates ingestion,
   canonical schemas, study-aware splitting, and evaluation on a tractable task.
@@ -94,6 +94,36 @@ replicate boundaries rather than treating observations as independent rows.
 Protein sequence remains a likely follow-on modality. Homology-aware splitting
 is one instance of the broader split-protocol and relatedness-audit model, not a
 special case that should define the entire architecture.
+
+### First implementation target
+
+Tabula Muris Senis Aorta is the first technical canary. Its canonical sparse
+adapter, product-defined animal-held-out split, preparation lifecycle, leakage
+audit, and evaluation receipt are executable for an explicitly pinned processed
+artifact. The catalog entry remains `planned` for public retrieval until an
+exact upstream file, publisher checksum, byte size, and source-specific license
+are pinned. The package does not infer those values from an unpinned download.
+
+The implementation order after the common contracts is artifact provenance,
+dataset-specific split capabilities, the TMS Aorta adapter, train-fitted
+preprocessing, and an end-to-end evaluation receipt.
+
+## Public API and protocol selection
+
+The dataset entry point is `bioml_data.load_dataset()`. It resolves a versioned,
+immutable dataset definition before downloading or preparing data. When a
+catalog contains more than one version, callers must select a version rather
+than silently receiving a moving `latest` definition.
+
+Task and split protocol are separate selections. Split planning requires both
+to be explicit; there is no default split. Literature-reused behavior is labeled
+as a reference protocol, while a biologically safer alternative may be exposed
+as a robustness protocol. Neither label claims that one protocol is universally
+correct, and the package must not choose between them silently.
+
+Small reference models may be used as executable sanity checks. Their results
+verify that a protocol can run end to end; they are not model recommendations or
+leaderboard claims.
 
 ## Versioned protocol identity
 
@@ -112,7 +142,6 @@ new protocol version. Documentation-only corrections do not.
 
 These items are deliberately not decided yet:
 
-- Which public single-cell dataset will be the first end-to-end canary?
 - Which perturbation benchmark and held-out axes best represent the flagship?
 - What minimum metadata quality is required before a dataset is supported?
 - Which artifact formats form the stable public interchange boundary?
