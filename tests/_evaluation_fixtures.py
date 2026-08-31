@@ -3,7 +3,7 @@
 from dataclasses import replace
 
 from bioml_data import _preparation as preparation
-from bioml_data._evaluation import tms_aorta_canary_protocol
+from bioml_data import tms_aorta_canary_protocol
 from bioml_data._evaluation_models import (
     EvaluationRequest,
     LabelRecord,

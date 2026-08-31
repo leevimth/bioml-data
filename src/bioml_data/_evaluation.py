@@ -2,7 +2,6 @@
 
 from hashlib import sha256
 
-from bioml_data._domain import ProtocolId, TaskId
 from bioml_data._evaluation_metrics import (
     bootstrap_uncertainty,
     group_median,
@@ -15,41 +14,9 @@ from bioml_data._evaluation_models import (
     EvaluationReceiptIdentity,
     EvaluationRequest,
     LabelRecord,
-    MetricEvidence,
-    MetricName,
-    MetricProtocol,
     PredictionRecord,
-    ResamplingProtocol,
-    ResamplingUnit,
-    UncertaintyMethod,
 )
 from bioml_data._evaluation_validation import validate
-
-_TMS_CANARY_RESAMPLING_SEED = 23
-_TMS_CANARY_BOOTSTRAP_REPLICATES = 64
-_TMS_CANARY_CONFIDENCE_LEVEL = 0.95
-
-
-def tms_aorta_canary_protocol(
-    eligible_labels: tuple[str, ...],
-) -> MetricProtocol:
-    """Define the product canary; this is not a literature reference protocol."""
-    return MetricProtocol(
-        protocol_id=ProtocolId("tms-aorta-mouse-macro-f1-canary"),
-        version="v1",
-        task=TaskId("cell-type-annotation-v1"),
-        metric=MetricName.MACRO_F1,
-        aggregation=AggregationLevel.GROUP,
-        evidence=MetricEvidence.PRODUCT_PROTOCOL,
-        eligible_labels=eligible_labels,
-        resampling=ResamplingProtocol(
-            method=UncertaintyMethod.BOOTSTRAP,
-            unit=ResamplingUnit.GROUP,
-            seed=_TMS_CANARY_RESAMPLING_SEED,
-            replicates=_TMS_CANARY_BOOTSTRAP_REPLICATES,
-            confidence_level=_TMS_CANARY_CONFIDENCE_LEVEL,
-        ),
-    )
 
 
 def evaluate(request: EvaluationRequest) -> EvaluationReceipt:
@@ -116,3 +83,6 @@ def _receipt_identity(
         *label_rows,
     )
     return EvaluationReceiptIdentity(sha256("\0".join(fields).encode()).hexdigest())
+
+
+__all__ = ["evaluate"]

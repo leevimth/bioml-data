@@ -10,34 +10,13 @@ from typing import Final, final, override
 import httpx2
 
 from bioml_data._artifacts import ArtifactCache, ArtifactReceipt, ArtifactRequest
-from bioml_data._catalog import load_dataset
-from bioml_data._domain import DatasetName, DatasetSnapshotIdentity, DatasetVersion
+from bioml_data._dataset_download_models import DatasetDownloadPin, Sha256Provenance
+from bioml_data._domain import DatasetSnapshotIdentity
 from bioml_data._http_artifacts import HttpArtifactDownload, download_artifact
+from bioml_data.datasets._registry import DATASET_REGISTRY
+from bioml_data.datasets.tms_aorta._definition import TMS_AORTA_DOWNLOAD_PIN
 
-
-@unique
-class Sha256Provenance(StrEnum):
-    """Evidence source for a catalog SHA-256 value."""
-
-    PROJECT_VERIFIED = "project_verified_against_official_size_and_md5"
-
-
-@dataclass(frozen=True, slots=True)
-class DatasetDownloadPin:
-    """Immutable upstream file identity and checksum evidence."""
-
-    dataset: DatasetSnapshotIdentity
-    article_id: str
-    article_doi: str
-    release: str
-    file_id: str
-    source_uri: str
-    filename: str
-    byte_size: int
-    official_md5: str
-    sha256: str
-    sha256_provenance: Sha256Provenance
-    license: str
+_DOWNLOAD_PINS: Final = (TMS_AORTA_DOWNLOAD_PIN,)
 
 
 @unique
@@ -83,24 +62,15 @@ class DatasetDownloadUnavailableError(Exception):
         return f"dataset download is unavailable for {self.dataset!r}"
 
 
-_TMS_AORTA_PIN: Final = DatasetDownloadPin(
-    dataset=DatasetSnapshotIdentity(
-        name=DatasetName("tms-aorta"),
-        version=DatasetVersion("figshare-project-64982"),
-    ),
-    article_id="12654728",
-    article_doi="10.6084/m9.figshare.12654728.v1",
-    release="v1",
-    file_id="23872460",
-    source_uri="https://ndownloader.figshare.com/files/23872460",
-    filename="tabula-muris-senis-facs-processed-official-annotations-Aorta.h5ad",
-    byte_size=44_547_302,
-    official_md5="4b1c150cf856a7406b3293ebdacd72c6",
-    sha256=("0fbf73145f2b50f956b9946aa2fa17e5fce0e40ddfc5ba922a1d503d65ced3c3"),
-    sha256_provenance=Sha256Provenance.PROJECT_VERIFIED,
-    license="MIT",
-)
-_DOWNLOAD_PINS: Final = (_TMS_AORTA_PIN,)
+@dataclass(frozen=True, slots=True)
+class DuplicateDatasetDownloadPinError(Exception):
+    """Raised when the compatibility index has ambiguous exact snapshot pins."""
+
+    dataset: DatasetSnapshotIdentity
+
+    @override
+    def __str__(self) -> str:
+        return f"duplicate dataset download pins for {self.dataset!r}"
 
 
 def get_dataset_download_pin(
@@ -108,13 +78,17 @@ def get_dataset_download_pin(
     *,
     version: str | None = None,
 ) -> DatasetDownloadPin:
-    """Resolve the pinned upstream file for a catalog dataset snapshot."""
-    definition = load_dataset(name, version=version)
+    """Resolve the verified HTTP compatibility pin for an exact snapshot."""
+    registration = DATASET_REGISTRY.resolve(name, version=version)
     matching = tuple(
-        pin for pin in _DOWNLOAD_PINS if pin.dataset == definition.snapshot
+        pin for pin in _DOWNLOAD_PINS if pin.dataset == registration.definition.snapshot
     )
+    if len(matching) > 1:
+        raise DuplicateDatasetDownloadPinError(dataset=registration.definition.snapshot)
     if not matching:
-        raise DatasetDownloadUnavailableError(dataset=definition.snapshot)
+        raise DatasetDownloadUnavailableError(
+            dataset=registration.definition.snapshot,
+        )
     return matching[0]
 
 
@@ -161,3 +135,16 @@ def download_pinned_dataset(
         artifact=artifact,
         outcome=DatasetDownloadOutcome.DOWNLOADED,
     )
+
+
+__all__ = [
+    "DatasetDownloadOutcome",
+    "DatasetDownloadPin",
+    "DatasetDownloadReceipt",
+    "DatasetDownloadUnavailableError",
+    "DuplicateDatasetDownloadPinError",
+    "Sha256Provenance",
+    "download_dataset",
+    "download_pinned_dataset",
+    "get_dataset_download_pin",
+]
