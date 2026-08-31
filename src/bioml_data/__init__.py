@@ -47,7 +47,7 @@ from bioml_data._domain import (
     UnknownTaskError,
     UnsupportedSplitProtocolError,
 )
-from bioml_data._evaluation import evaluate, tms_aorta_canary_protocol
+from bioml_data._evaluation import evaluate
 from bioml_data._evaluation_models import (
     EvaluationReceipt,
     EvaluationRequest,
@@ -88,6 +88,7 @@ from bioml_data._split import (
     SplitAssigner,
     SplitAssignmentReceipt,
 )
+from bioml_data.datasets.tms_aorta._protocols import tms_aorta_canary_protocol
 
 __version__: Final = version("bioml-data")
 

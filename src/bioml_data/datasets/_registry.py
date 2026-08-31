@@ -13,8 +13,7 @@ from bioml_data._domain import (
     parse_dataset_name,
     parse_dataset_version,
 )
-from bioml_data._split_capability_models import SplitCapability
-from bioml_data.datasets._capabilities import bind_registry_capabilities
+from bioml_data.datasets._capability_index import publish_registry_capabilities
 from bioml_data.datasets._models import (
     DatasetMaterialization,
     DatasetRegistration,
@@ -38,11 +37,11 @@ class DatasetCapabilityMismatchError(Exception):
     """Raised when a registered capability leaves its dataset definition."""
 
     snapshot: DatasetSnapshotIdentity
-    capability: SplitCapability
+    detail: str
 
     @override
     def __str__(self) -> str:
-        return f"split capability is incoherent with {self.snapshot!r}"
+        return f"split capability is incoherent with {self.snapshot!r}: {self.detail}"
 
 
 @dataclass(frozen=True, slots=True)
@@ -161,22 +160,48 @@ class DatasetRegistry:
 def _validate_registration(registration: DatasetRegistration) -> None:
     definition = registration.definition
     task_ids = {task.id for task in definition.tasks}
-    split_keys = {(split.task, split.id) for split in definition.supported_splits}
+    split_definitions = {
+        (split.task, split.id): split for split in definition.supported_splits
+    }
+    if len(split_definitions) != len(definition.supported_splits):
+        raise DatasetCapabilityMismatchError(
+            snapshot=definition.snapshot,
+            detail="duplicate split definitions",
+        )
+
+    capabilities = {
+        (capability.task, capability.protocol): capability
+        for capability in registration.split_capabilities
+    }
+    if len(capabilities) != len(registration.split_capabilities):
+        raise DatasetCapabilityMismatchError(
+            snapshot=definition.snapshot,
+            detail="duplicate split capabilities",
+        )
+    if capabilities.keys() != split_definitions.keys():
+        raise DatasetCapabilityMismatchError(
+            snapshot=definition.snapshot,
+            detail="split definitions and capabilities differ",
+        )
+
     for capability in registration.split_capabilities:
+        split_definition = split_definitions[(capability.task, capability.protocol)]
         coherent = (
             capability.dataset == definition.snapshot
             and capability.task in task_ids
-            and (capability.task, capability.protocol) in split_keys
+            and capability.role == split_definition.role
+            and capability.required_columns == split_definition.required_metadata
+            and capability.grouping_column in capability.required_columns
         )
         if not coherent:
             raise DatasetCapabilityMismatchError(
                 snapshot=definition.snapshot,
-                capability=capability,
+                detail=f"contract mismatch for {capability.protocol!r}",
             )
 
 
 DATASET_REGISTRY = DatasetRegistry(registrations=(TMS_AORTA_REGISTRATION,))
-bind_registry_capabilities(DATASET_REGISTRY.registrations)
+publish_registry_capabilities(DATASET_REGISTRY.registrations)
 
 
 def available_dataset_names() -> tuple[DatasetName, ...]:

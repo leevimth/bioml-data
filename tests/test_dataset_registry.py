@@ -16,7 +16,12 @@ from bioml_data._domain import (
     ProtocolId,
     SourceReference,
     SourceUri,
+    SplitProtocolRole,
     TaskId,
+)
+from bioml_data.datasets._capability_index import (
+    SplitCapabilityIndexAlreadyPublishedError,
+    publish_registry_capabilities,
 )
 from bioml_data.datasets._models import DatasetRegistration
 from bioml_data.datasets._registry import (
@@ -76,6 +81,16 @@ def test_registry_rejects_duplicate_exact_snapshot_keys() -> None:
     # Then: ambiguous exact keys never enter the registry.
 
 
+def test_builtin_capability_index_cannot_be_republished() -> None:
+    # Given: package startup has already published the validated built-in index.
+
+    # When: another caller attempts to replace it.
+    with pytest.raises(SplitCapabilityIndexAlreadyPublishedError):
+        publish_registry_capabilities(())
+
+    # Then: live capability queries cannot be mutated after startup.
+
+
 @pytest.mark.parametrize(
     ("field", "value"),
     [
@@ -109,6 +124,60 @@ def test_registry_rejects_incoherent_split_capabilities(
         _ = DatasetRegistry(registrations=(registration,))
 
     # Then: invalid capability metadata cannot become authoritative.
+
+
+def test_registry_rejects_missing_split_capability() -> None:
+    # Given: a definition advertising a split without its executable capability.
+    registration = replace(TMS_AORTA_REGISTRATION, split_capabilities=())
+
+    # When: the incomplete registration enters the boundary.
+    with pytest.raises(DatasetCapabilityMismatchError):
+        _ = DatasetRegistry(registrations=(registration,))
+
+    # Then: advertised and executable split contracts cannot diverge.
+
+
+def test_registry_rejects_duplicate_split_capability() -> None:
+    # Given: the same split capability is registered twice.
+    capability = TMS_AORTA_REGISTRATION.split_capabilities[0]
+    registration = replace(
+        TMS_AORTA_REGISTRATION,
+        split_capabilities=(capability, capability),
+    )
+
+    # When: the ambiguous registration enters the boundary.
+    with pytest.raises(DatasetCapabilityMismatchError):
+        _ = DatasetRegistry(registrations=(registration,))
+
+    # Then: capability lookup has one exact contract per split.
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("role", SplitProtocolRole.REFERENCE),
+        ("required_columns", ("cell_id", "study_id")),
+    ],
+)
+def test_registry_rejects_split_definition_contract_mismatch(
+    field: str,
+    value: SplitProtocolRole | tuple[str, ...],
+) -> None:
+    # Given: a capability contradicting its advertised definition contract.
+    capability = replace(
+        TMS_AORTA_REGISTRATION.split_capabilities[0],
+        **{field: value},
+    )
+    registration = replace(
+        TMS_AORTA_REGISTRATION,
+        split_capabilities=(capability,),
+    )
+
+    # When: the contradictory registration enters the boundary.
+    with pytest.raises(DatasetCapabilityMismatchError):
+        _ = DatasetRegistry(registrations=(registration,))
+
+    # Then: role and required metadata share one authoritative contract.
 
 
 def test_materialize_rejects_snapshot_mismatch(tmp_path: Path) -> None:

@@ -17,7 +17,6 @@ from bioml_data._evaluation_models import (
     PredictionRecord,
 )
 from bioml_data._evaluation_validation import validate
-from bioml_data.datasets.tms_aorta._protocols import tms_aorta_canary_protocol
 
 
 def evaluate(request: EvaluationRequest) -> EvaluationReceipt:
@@ -86,4 +85,4 @@ def _receipt_identity(
     return EvaluationReceiptIdentity(sha256("\0".join(fields).encode()).hexdigest())
 
 
-__all__ = ["evaluate", "tms_aorta_canary_protocol"]
+__all__ = ["evaluate"]
