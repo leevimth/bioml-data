@@ -85,7 +85,8 @@ handle study, donor, batch, and biological replicate boundaries rather than
 treating observations as independent rows.
 
 - Cell-type annotation is the **technical canary**. It validates ingestion,
-  canonical schemas, study-aware splitting, and evaluation on a tractable task.
+  canonical schemas, animal-/group-aware splitting, and evaluation on a
+  tractable task.
 - Perturbation prediction is the **flagship use case**. Its protocol should make
   the held-out axis explicit, such as perturbation, cell context, combination,
   donor, or study, and should avoid presenting one split as universal evidence of
@@ -100,9 +101,11 @@ special case that should define the entire architecture.
 Tabula Muris Senis Aorta is the first technical canary. Its canonical sparse
 adapter, product-defined animal-held-out split, preparation lifecycle, leakage
 audit, and evaluation receipt are executable for an explicitly pinned processed
-artifact. The catalog entry remains `planned` for public retrieval until an
-exact upstream file, publisher checksum, byte size, and source-specific license
-are pinned. The package does not infer those values from an unpinned download.
+artifact. Public retrieval is pinned to an exact upstream file with its official
+byte size and MD5 plus a project-verified SHA-256. The catalog entry remains
+`planned` because adapting that upstream H5AD into the canonical
+`tms-aorta-csr-v1` artifact is not yet connected to the complete benchmark
+lifecycle.
 
 The implementation order after the common contracts is artifact provenance,
 dataset-specific split capabilities, the TMS Aorta adapter, train-fitted

@@ -2,34 +2,126 @@
 
 > Reproducible data protocols for trustworthy biological machine learning.
 
-`bioml-data` is an early-stage, open-source toolkit for turning public
-biological datasets into auditable, ML-ready benchmarks. The project focuses on
-the parts that are easy to get subtly wrong: provenance, preprocessing,
-leakage-aware splitting, and comparable evaluation.
+North-star target: turn public biological datasets into reproducible in-silico
+ML experiments.
+
+`bioml-data` is intended to become an open-source protocol layer for describing
+and executing the dataset-specific decisions between public biological data and
+a scientifically defensible machine-learning experiment. The target platform
+spans versioned, auditable protocols for source resolution, dataset
+understanding, preparation, task construction, biologically meaningful
+splitting, split auditing, and evaluation.
+
+The current implementation is deliberately narrower: a fixture-scale TMS Aorta
+technical canary proving selected contracts for verified artifacts, canonical
+sparse loading, split-aware preparation, animal-held-out assignment, leakage
+auditing, and deterministic evaluation receipts.
+
+```text
+North-star protocol layer
+
+Public biological data
+GEO / CELLxGENE / UniProt / PDB / Hugging Face / Zenodo / ...
+                         ↓
+              source resolution + provenance
+                         ↓
+                    dataset audit
+                         ↓
+                     preparation
+                         ↓
+                  task construction
+                         ↓
+                  scientific split
+                         ↓
+                     split audit
+                         ↓
+                evaluation protocol
+                         ↓
+              reproducibility receipts
+                         ↓
+          reproducible in-silico experiment
+```
 
 ## Why this project
 
-Public biological datasets are often available but not reproducible as machine
-learning benchmarks. Researchers still have to reconstruct download logic,
-metadata joins, filtering choices, task definitions, split rules, and metrics.
-Those choices can materially change a result, especially when biological
-relatedness or experimental batches leak across train and test sets.
+Access to public biological data has improved. The difficult part is still
+turning a source artifact into an experiment whose scientific choices are
+explicit and reproducible. A researcher must often determine:
 
-Published evidence suggests that split design can materially change apparent biological ML performance: when pathology tiles from the same subject cross train/test boundaries, scores can be inflated by up to 41% ([Bussola et al.](https://arxiv.org/abs/1909.06539)); PPI models can perform near random under dissimilar-proteome partitions ([Bernett et al.](https://pmc.ncbi.nlm.nih.gov/articles/PMC10939362/)); and on an NCI-60 benchmark, Transformer-CNN hit rate was 67.67% with random splitting versus 33.27% with UMAP-based splitting ([Guo et al.](https://pmc.ncbi.nlm.nih.gov/articles/PMC12153141/)). These magnitudes and even the direction of change are task- and dataset-dependent, and a harder split may represent the intended distribution shift rather than leakage alone; this is why the project treats split choice and post-split audits as first-class protocol decisions.
+- which source artifact and version to use;
+- what its metadata fields and biological units mean;
+- which observations, sequences, or features belong in the task;
+- which preparation is scientifically appropriate and which steps are fitted;
+- what the prediction target and unit of generalization are;
+- how train, validation, and test should be constructed and audited; and
+- which evaluation protocol answers the intended scientific question.
 
-![Train-test similarity and model performance under four data-splitting methods](docs/assets/split-protocol-impact.png)
+Those decisions materially affect the result, but they commonly live in
+dataset-specific scripts, notebooks, and undocumented conventions. This is the
+gap `bioml-data` aims to own.
 
-*Redrawn from [Guo et al. (2025), Figures 2b and 7a](https://doi.org/10.1186/s13321-025-01039-8). Distribution shapes and box-plot summaries were digitized from the published figures. The source article is licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).*
+## Dataset != experiment
 
-The intended workflow is:
+A public dataset describes what data exists. A `bioml-data` protocol describes
+how a specific source version becomes an experiment:
 
 ```text
-load → dataset audit → select task → task audit → prepare
-     → split → train-fitted preprocessing → split audit → evaluate
+source artifact + version
+        ↓
+canonical/raw representation
+        ↓
+quality audit + inclusion rules
+        ↓
+preparation + task definition
+        ↓
+split + train-fitted transforms
+        ↓
+evaluation protocol
+        ↓
+reproducible experiment identity
 ```
 
-The core artifact is therefore not a hosted copy of the raw data. It is a
-versioned protocol that records how a source dataset became a benchmark.
+Dataset and task remain separate concepts. One single-cell dataset may support
+cell-type annotation, batch integration, disease classification, or
+representation learning; a perturbation dataset may support response prediction,
+gene-interaction prediction, or representation learning. Each task can require a
+different preparation, split, and evaluation protocol.
+
+The long-term research interface may therefore look like the following. This is
+a direction, not a claim that every method shown is implemented today:
+
+```python
+dataset = bio.load("public-dataset")
+dataset.audit()
+prepared = dataset.prepare(protocol="standard")
+task = prepared.task("cell_type_annotation")
+train, validation, test = task.split(protocol="study-held-out")
+results = task.evaluate(predictions)
+```
+
+## Relationship to the ecosystem
+
+`bioml-data` complements existing infrastructure rather than replacing it:
+
+- GEO, CELLxGENE, UniProt, PDB, and Zenodo are authoritative data sources.
+- Hugging Face Datasets, bio-datasets, and cloud storage provide distribution,
+  serialization, loading, and caching.
+- Scanpy, scvi-tools, and other domain libraries provide established scientific
+  algorithms and preprocessing primitives.
+- OpenProblems, ProteinGym, and TDC provide task-specific benchmark ecosystems.
+- The north-star `bioml-data` platform would connect those components through
+  versioned scientific protocols, provenance, audits, and reproducibility
+  receipts.
+
+As provider integrations are added, data acquisition should remain
+provider-specific and replaceable. The project should reuse provider download,
+query, cache, revision, and streaming capabilities whenever practical, while
+recording exactly what entered an experiment. Scientific preparation should not
+need to change because the same dataset moves between storage providers.
+
+Leakage-aware splitting remains important, but it is one part of experimental
+validity alongside source provenance, dataset audit, preparation, task
+definition, distribution-shift analysis, and evaluation.
 
 ## Initial direction
 
@@ -42,30 +134,44 @@ only.
 Two initial use cases have different roles:
 
 - **Cell-type annotation** is the technical canary for validating ingestion,
-  schemas, study-aware splits, and evaluation.
-- **Perturbation prediction** is the intended flagship benchmark because it
-  better tests generalization across perturbations, cell contexts, and studies.
+  schemas, animal-/group-aware splits, and evaluation.
+- **Perturbation prediction** is the intended flagship use case for showing how
+  a protocol turns public Perturb-seq data into an experiment with explicit
+  controls, metadata harmonization, generalization-aware splits, and evaluation.
+
+The goal is not to build another perturbation leaderboard. Existing benchmark
+ecosystems can remain the evaluation backends when they already solve that part
+well.
 
 Protein sequence and other modalities remain candidates after the protocol
 abstractions are stable. Modality priority is a research-backed product decision,
 not a permanent restriction.
 
-## Initial scope
+## Target / near-term scope
 
-- Versioned references to public source artifacts and their checksums
-- Canonical dataset and task schemas
-- Deterministic preparation protocols
-- Leakage-aware split protocols and post-split audits
-- Standard evaluation protocols with uncertainty where appropriate
-- Python APIs, command-line workflows, metadata, and protocol documentation
+The following is the intended product scope, not a statement of what the
+current technical canary supports:
+
+- Provider-aware source resolution and provenance capture
+- Canonical or modality-appropriate dataset representations
+- Transparent dataset audits and inclusion rules
+- Separate, versioned preparation and task protocols
+- Biologically meaningful split protocols and post-split audits
+- Evaluation protocols and uncertainty where appropriate
+- Reproducibility receipts for source, preparation, split, and evaluation
+- Python APIs, command-line workflows, and protocol documentation
 
 ## Non-goals for the first release
 
-- Hosting or redistributing every source dataset
+- Becoming a dataset hosting, file-transfer, streaming, or generic storage system
+- Replacing Hugging Face Datasets, CELLxGENE, GEO, UniProt, PDB, or Zenodo
+- Introducing a universal biological storage or serialization format
+- Reimplementing established scientific algorithms without protocol-level value
 - Processing raw sequencing reads such as FASTQ files
-- Reimplementing specialized ambient-RNA or doublet-detection algorithms
+- Inventing opaque dataset quality or ML-readiness scores
+- Building a new leaderboard or generic model-training framework
 - Supporting every biological modality or task type at once
-- Building dashboards, private registries, or enterprise deployment features
+- Building single-cell visualization, dashboards, or enterprise deployment tools
 
 ## Status
 
@@ -110,8 +216,9 @@ The shared runner follows the lifecycle
 Run the same pipeline from the command line:
 
 ```bash
+FULL_SHA256="<full-sha256>"
 uv run bioml-data \
-  --artifact-manifest .cache/sha256/ab/<full-sha256>/manifest.json \
+  --artifact-manifest ".cache/sha256/${FULL_SHA256:0:2}/$FULL_SHA256/manifest.json" \
   --split-protocol animal-held-out-v1 \
   --seed 17
 ```
@@ -120,15 +227,27 @@ Both surfaces emit the same deterministic identity chain: artifact, split
 assignment, preparation receipt, leakage-audit report, metric protocol, and
 evaluation receipt identities. The CLI writes the receipt as JSON.
 
-Generic HTTP retrieval is available through `download_artifact()`. Callers must
-provide an `ArtifactRequest` containing a byte size and SHA-256 obtained from a
-trusted upstream manifest or release. The package does not guess or manufacture
-an upstream TMS checksum. Downloads are streamed through the same immutable
-artifact cache and are published only after size and checksum verification.
+Current acquisition is separate from `run_tms_aorta_canary`. The dataset-aware
+`download_dataset("tms-aorta", data_dir=...)` path owns the built-in TMS source
+pin and content-addressed cache. The lower-level
+`download_artifact(HttpArtifactDownload(...))` path is for callers that already
+have an `ArtifactRequest`. Both yield a verified `ArtifactReceipt` (directly or
+as `DatasetDownloadReceipt.artifact`), but neither automatically feeds or calls
+the canary runner.
+
+The built-in TMS download is the upstream raw H5AD. It must still be versionedly
+adapted into the canonical `tms-aorta-csr-v1` artifact consumed by
+`run_tms_aorta_canary`; that upstream-H5AD-to-canonical step is the current
+integration gap. The pinned TMS SHA-256 is project-verified against the official
+Figshare byte size and MD5, rather than supplied by an upstream SHA-256 manifest.
+This narrow acquisition path supports the provenance contract; it is not a
+commitment to build a generic transfer or caching framework. Future
+provider-backed datasets should reuse their provider's acquisition capabilities
+while `bioml-data` records the resulting source and artifact identity.
 
 See [the TMS Aorta dataset and protocol contract](docs/tms-aorta.md) for the
 canary's exact role, split behavior, preparation parameters, audit coverage, and
-current upstream-pin limitation.
+current upstream-H5AD-to-canonical adaptation gap.
 
 See [core product decisions](docs/core-decisions.md) for the current conceptual
 model and [development](docs/development.md) for local setup and quality checks.
