@@ -1,5 +1,6 @@
 """Dataset-level download and cache-reuse scenarios."""
 
+from dataclasses import replace
 from hashlib import sha256
 from pathlib import Path
 
@@ -10,6 +11,7 @@ import bioml_data as bio
 import bioml_data._dataset_downloads as dataset_downloads
 from bioml_data._dataset_downloads import download_pinned_dataset
 from bioml_data._domain import DatasetName, DatasetVersion
+from bioml_data.datasets._registry import DATASET_REGISTRY, DatasetRegistry
 
 
 def _fixture_pin(content: bytes) -> bio.DatasetDownloadPin:
@@ -226,7 +228,15 @@ def test_public_download_dataset_reuses_selected_cache(
             lambda _request: httpx2.Response(200, content=content),
         ),
     )
-    monkeypatch.setattr(dataset_downloads, "_DOWNLOAD_PINS", (pin,))
+    registration = replace(
+        DATASET_REGISTRY.resolve("tms-aorta"),
+        download_pin=pin,
+    )
+    monkeypatch.setattr(
+        dataset_downloads,
+        "DATASET_REGISTRY",
+        DatasetRegistry(registrations=(registration,)),
+    )
 
     # When: the public dataset API targets the same caller-selected directory.
     result = bio.download_dataset("tms-aorta", data_dir=selected)
