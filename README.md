@@ -2,16 +2,24 @@
 
 > Reproducible data protocols for trustworthy biological machine learning.
 
-Turn public biological datasets into reproducible in-silico ML experiments.
+North-star target: turn public biological datasets into reproducible in-silico
+ML experiments.
 
-`bioml-data` is an early-stage, open-source toolkit for describing and executing
-the dataset-specific decisions between public biological data and a
-scientifically defensible machine-learning experiment. It provides versioned,
-auditable protocols for source resolution, dataset understanding, preparation,
-task construction, biologically meaningful splitting, split auditing, and
-evaluation.
+`bioml-data` is intended to become an open-source protocol layer for describing
+and executing the dataset-specific decisions between public biological data and
+a scientifically defensible machine-learning experiment. The target platform
+spans versioned, auditable protocols for source resolution, dataset
+understanding, preparation, task construction, biologically meaningful
+splitting, split auditing, and evaluation.
+
+The current implementation is deliberately narrower: a fixture-scale TMS Aorta
+technical canary proving selected contracts for verified artifacts, canonical
+sparse loading, split-aware preparation, animal-held-out assignment, leakage
+auditing, and deterministic evaluation receipts.
 
 ```text
+North-star protocol layer
+
 Public biological data
 GEO / CELLxGENE / UniProt / PDB / Hugging Face / Zenodo / ...
                          ↓
@@ -138,7 +146,10 @@ Protein sequence and other modalities remain candidates after the protocol
 abstractions are stable. Modality priority is a research-backed product decision,
 not a permanent restriction.
 
-## Initial scope
+## Target / near-term scope
+
+The following is the intended product scope, not a statement of what the
+current technical canary supports:
 
 - Provider-aware source resolution and provenance capture
 - Canonical or modality-appropriate dataset representations
@@ -214,14 +225,18 @@ Both surfaces emit the same deterministic identity chain: artifact, split
 assignment, preparation receipt, leakage-audit report, metric protocol, and
 evaluation receipt identities. The CLI writes the receipt as JSON.
 
-The current canary includes verified HTTP retrieval through
-`download_artifact()`. Callers must provide an `ArtifactRequest` containing a
-byte size and SHA-256 obtained from a trusted upstream manifest or release. The
-package does not guess or manufacture an upstream TMS checksum. This narrow path
-supports the canary's provenance contract; it is not a commitment to build a
-generic transfer or caching framework. Future provider-backed datasets should
-reuse their provider's acquisition capabilities while `bioml-data` records the
-resulting source and artifact identity.
+Verified HTTP and TMS source-pin acquisition is available through the standalone
+`download_artifact()` path. It is separate from `run_tms_aorta_canary`, which
+does not download a source: the runner consumes a preverified `ArtifactReceipt`,
+including the canonical fixture receipt path used by the technical canary.
+Callers using acquisition must provide an `ArtifactRequest` containing a byte
+size and SHA-256 obtained from a trusted upstream manifest or release. The
+package does not guess or manufacture an upstream TMS checksum, and acquisition
+does not automatically feed the full canary pipeline. This narrow path supports
+the provenance contract; it is not a commitment to build a generic transfer or
+caching framework. Future provider-backed datasets should reuse their
+provider's acquisition capabilities while `bioml-data` records the resulting
+source and artifact identity.
 
 See [the TMS Aorta dataset and protocol contract](docs/tms-aorta.md) for the
 canary's exact role, split behavior, preparation parameters, audit coverage, and
