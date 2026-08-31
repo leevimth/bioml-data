@@ -249,5 +249,10 @@ See [the TMS Aorta dataset and protocol contract](docs/tms-aorta.md) for the
 canary's exact role, split behavior, preparation parameters, audit coverage, and
 current upstream-H5AD-to-canonical adaptation gap.
 
+Literature evidence for [TMS protocol roles](docs/tms-literature-protocols.md)
+and the candidate [human pancreas cross-study annotation
+reference](docs/pancreas-cross-study-annotation.md) is documented separately
+from the implemented TMS Aorta canary.
+
 See [core product decisions](docs/core-decisions.md) for the current conceptual
 model and [development](docs/development.md) for local setup and quality checks.
