@@ -109,14 +109,15 @@ results = task.evaluate(predictions)
 - Scanpy, scvi-tools, and other domain libraries provide established scientific
   algorithms and preprocessing primitives.
 - OpenProblems, ProteinGym, and TDC provide task-specific benchmark ecosystems.
-- `bioml-data` connects those components through versioned scientific protocols,
-  provenance, audits, and reproducibility receipts.
+- The north-star `bioml-data` platform would connect those components through
+  versioned scientific protocols, provenance, audits, and reproducibility
+  receipts.
 
-Data acquisition should remain provider-specific and replaceable. The project
-should reuse provider download, query, cache, revision, and streaming
-capabilities whenever practical, while recording exactly what entered an
-experiment. Scientific preparation should not need to change because the same
-dataset moves between storage providers.
+As provider integrations are added, data acquisition should remain
+provider-specific and replaceable. The project should reuse provider download,
+query, cache, revision, and streaming capabilities whenever practical, while
+recording exactly what entered an experiment. Scientific preparation should not
+need to change because the same dataset moves between storage providers.
 
 Leakage-aware splitting remains important, but it is one part of experimental
 validity alongside source provenance, dataset audit, preparation, task
@@ -133,7 +134,7 @@ only.
 Two initial use cases have different roles:
 
 - **Cell-type annotation** is the technical canary for validating ingestion,
-  schemas, study-aware splits, and evaluation.
+  schemas, animal-/group-aware splits, and evaluation.
 - **Perturbation prediction** is the intended flagship use case for showing how
   a protocol turns public Perturb-seq data into an experiment with explicit
   controls, metadata harmonization, generalization-aware splits, and evaluation.
@@ -215,8 +216,9 @@ The shared runner follows the lifecycle
 Run the same pipeline from the command line:
 
 ```bash
+FULL_SHA256="<full-sha256>"
 uv run bioml-data \
-  --artifact-manifest .cache/sha256/ab/<full-sha256>/manifest.json \
+  --artifact-manifest ".cache/sha256/${FULL_SHA256:0:2}/$FULL_SHA256/manifest.json" \
   --split-protocol animal-held-out-v1 \
   --seed 17
 ```
@@ -225,22 +227,27 @@ Both surfaces emit the same deterministic identity chain: artifact, split
 assignment, preparation receipt, leakage-audit report, metric protocol, and
 evaluation receipt identities. The CLI writes the receipt as JSON.
 
-Verified HTTP and TMS source-pin acquisition is available through the standalone
-`download_artifact()` path. It is separate from `run_tms_aorta_canary`, which
-does not download a source: the runner consumes a preverified `ArtifactReceipt`,
-including the canonical fixture receipt path used by the technical canary.
-Callers using acquisition must provide an `ArtifactRequest` containing a byte
-size and SHA-256 obtained from a trusted upstream manifest or release. The
-package does not guess or manufacture an upstream TMS checksum, and acquisition
-does not automatically feed the full canary pipeline. This narrow path supports
-the provenance contract; it is not a commitment to build a generic transfer or
-caching framework. Future provider-backed datasets should reuse their
-provider's acquisition capabilities while `bioml-data` records the resulting
-source and artifact identity.
+Current acquisition is separate from `run_tms_aorta_canary`. The dataset-aware
+`download_dataset("tms-aorta", data_dir=...)` path owns the built-in TMS source
+pin and content-addressed cache. The lower-level
+`download_artifact(HttpArtifactDownload(...))` path is for callers that already
+have an `ArtifactRequest`. Both yield a verified `ArtifactReceipt` (directly or
+as `DatasetDownloadReceipt.artifact`), but neither automatically feeds or calls
+the canary runner.
+
+The built-in TMS download is the upstream raw H5AD. It must still be versionedly
+adapted into the canonical `tms-aorta-csr-v1` artifact consumed by
+`run_tms_aorta_canary`; that upstream-H5AD-to-canonical step is the current
+integration gap. The pinned TMS SHA-256 is project-verified against the official
+Figshare byte size and MD5, rather than supplied by an upstream SHA-256 manifest.
+This narrow acquisition path supports the provenance contract; it is not a
+commitment to build a generic transfer or caching framework. Future
+provider-backed datasets should reuse their provider's acquisition capabilities
+while `bioml-data` records the resulting source and artifact identity.
 
 See [the TMS Aorta dataset and protocol contract](docs/tms-aorta.md) for the
 canary's exact role, split behavior, preparation parameters, audit coverage, and
-current upstream-pin limitation.
+current upstream-H5AD-to-canonical adaptation gap.
 
 See [core product decisions](docs/core-decisions.md) for the current conceptual
 model and [development](docs/development.md) for local setup and quality checks.
