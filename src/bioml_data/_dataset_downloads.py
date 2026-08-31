@@ -5,15 +5,18 @@ from datetime import UTC, datetime
 from enum import StrEnum, unique
 from importlib.metadata import version as package_version
 from pathlib import Path
-from typing import final, override
+from typing import Final, final, override
 
 import httpx2
 
 from bioml_data._artifacts import ArtifactCache, ArtifactReceipt, ArtifactRequest
+from bioml_data._dataset_download_models import DatasetDownloadPin, Sha256Provenance
 from bioml_data._domain import DatasetSnapshotIdentity
 from bioml_data._http_artifacts import HttpArtifactDownload, download_artifact
-from bioml_data.datasets._models import DatasetDownloadPin, Sha256Provenance
 from bioml_data.datasets._registry import DATASET_REGISTRY
+from bioml_data.datasets.tms_aorta._definition import TMS_AORTA_DOWNLOAD_PIN
+
+_DOWNLOAD_PINS: Final = (TMS_AORTA_DOWNLOAD_PIN,)
 
 
 @unique
@@ -59,18 +62,34 @@ class DatasetDownloadUnavailableError(Exception):
         return f"dataset download is unavailable for {self.dataset!r}"
 
 
+@dataclass(frozen=True, slots=True)
+class DuplicateDatasetDownloadPinError(Exception):
+    """Raised when the compatibility index has ambiguous exact snapshot pins."""
+
+    dataset: DatasetSnapshotIdentity
+
+    @override
+    def __str__(self) -> str:
+        return f"duplicate dataset download pins for {self.dataset!r}"
+
+
 def get_dataset_download_pin(
     name: str,
     *,
     version: str | None = None,
 ) -> DatasetDownloadPin:
-    """Resolve the pinned upstream file for a catalog dataset snapshot."""
+    """Resolve the verified HTTP compatibility pin for an exact snapshot."""
     registration = DATASET_REGISTRY.resolve(name, version=version)
-    if registration.download_pin is None:
+    matching = tuple(
+        pin for pin in _DOWNLOAD_PINS if pin.dataset == registration.definition.snapshot
+    )
+    if len(matching) > 1:
+        raise DuplicateDatasetDownloadPinError(dataset=registration.definition.snapshot)
+    if not matching:
         raise DatasetDownloadUnavailableError(
             dataset=registration.definition.snapshot,
         )
-    return registration.download_pin
+    return matching[0]
 
 
 def download_dataset(
@@ -123,6 +142,7 @@ __all__ = [
     "DatasetDownloadPin",
     "DatasetDownloadReceipt",
     "DatasetDownloadUnavailableError",
+    "DuplicateDatasetDownloadPinError",
     "Sha256Provenance",
     "download_dataset",
     "download_pinned_dataset",

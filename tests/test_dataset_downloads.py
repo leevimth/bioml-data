@@ -1,6 +1,5 @@
 """Dataset-level download and cache-reuse scenarios."""
 
-from dataclasses import replace
 from hashlib import sha256
 from pathlib import Path
 
@@ -9,9 +8,11 @@ import pytest
 
 import bioml_data as bio
 import bioml_data._dataset_downloads as dataset_downloads
-from bioml_data._dataset_downloads import download_pinned_dataset
+from bioml_data._dataset_downloads import (
+    DuplicateDatasetDownloadPinError,
+    download_pinned_dataset,
+)
 from bioml_data._domain import DatasetName, DatasetVersion
-from bioml_data.datasets._registry import DATASET_REGISTRY, DatasetRegistry
 
 
 def _fixture_pin(content: bytes) -> bio.DatasetDownloadPin:
@@ -58,6 +59,20 @@ def test_tms_aorta_download_pin_is_exact_and_provenance_is_explicit() -> None:
     )
     assert pin.sha256_provenance is bio.Sha256Provenance.PROJECT_VERIFIED
     assert pin.license == "MIT"
+
+
+def test_download_pin_index_rejects_duplicate_exact_snapshots(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Given: two compatibility pins for the same exact registered snapshot.
+    pin = bio.get_dataset_download_pin("tms-aorta")
+    monkeypatch.setattr(dataset_downloads, "_DOWNLOAD_PINS", (pin, pin))
+
+    # When: the exact snapshot is resolved through the compatibility index.
+    with pytest.raises(DuplicateDatasetDownloadPinError):
+        _ = bio.get_dataset_download_pin("tms-aorta")
+
+    # Then: ambiguous pins cannot be selected by tuple order.
 
 
 def test_pinned_download_uses_selected_directory_then_skips_network(
@@ -228,14 +243,10 @@ def test_public_download_dataset_reuses_selected_cache(
             lambda _request: httpx2.Response(200, content=content),
         ),
     )
-    registration = replace(
-        DATASET_REGISTRY.resolve("tms-aorta"),
-        download_pin=pin,
-    )
     monkeypatch.setattr(
         dataset_downloads,
-        "DATASET_REGISTRY",
-        DatasetRegistry(registrations=(registration,)),
+        "_DOWNLOAD_PINS",
+        (pin,),
     )
 
     # When: the public dataset API targets the same caller-selected directory.

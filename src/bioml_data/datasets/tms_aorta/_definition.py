@@ -2,6 +2,10 @@
 
 from typing import Final
 
+from bioml_data._dataset_download_models import (
+    DatasetDownloadPin,
+    Sha256Provenance,
+)
 from bioml_data._domain import (
     DatasetDefinition,
     DatasetLifecycle,
@@ -11,10 +15,6 @@ from bioml_data._domain import (
     TaskDefinition,
 )
 from bioml_data._single_cell import SingleCellSourcePin, StudyId
-from bioml_data.datasets._models import (
-    DatasetDownloadPin,
-    Sha256Provenance,
-)
 from bioml_data.datasets.tms_aorta._capabilities import (
     TMS_ANIMAL_HELD_OUT_CAPABILITY,
 )

@@ -5,7 +5,6 @@ from typing import ClassVar
 from pydantic import BaseModel, ConfigDict
 
 from bioml_data._artifacts import ArtifactId, ArtifactReceipt
-from bioml_data._catalog import load_dataset
 from bioml_data._domain import DatasetSnapshotIdentity, ProtocolId
 from bioml_data._evaluation import evaluate
 from bioml_data._evaluation_models import (
@@ -43,6 +42,7 @@ from bioml_data._split import (
     SplitAssignmentReceipt,
     SplitPartition,
 )
+from bioml_data.datasets.tms_aorta._adapter import load_tms_aorta
 from bioml_data.datasets.tms_aorta._identity import TMS_CELL_TYPE_TASK
 from bioml_data.datasets.tms_aorta._protocols import (
     TMS_AORTA_PREPARATION_PROTOCOL_ID,
@@ -82,7 +82,7 @@ def run_tms_aorta_canary(
     seed: int,
 ) -> BenchmarkRunReceipt:
     """Run the small product-canary path through the shared protocol stages."""
-    dataset = load_dataset("tms-aorta", artifact=artifact)
+    dataset = load_tms_aorta(artifact)
     preparation = prepare_train_independent(
         dataset,
         protocol=_preparation_protocol(dataset),
