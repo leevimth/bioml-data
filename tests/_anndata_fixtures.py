@@ -20,19 +20,50 @@ def store_tms_aorta_h5ad(cache_root: Path, source_path: Path) -> ArtifactReceipt
                 [0.0, 3.0, 0.0],
                 [2.0, 1.0, 0.0],
                 [0.0, 0.0, 5.0],
+                [1.0, 1.0, 1.0],
+                [3.0, 0.0, 1.0],
             ],
         ),
     )
     dataset = ad.AnnData(X=matrix)
-    dataset.obs_names = ["cell-1", "cell-2", "cell-3", "cell-4"]
+    dataset.obs_names = [
+        "cell-1",
+        "cell-2",
+        "cell-3",
+        "cell-4",
+        "cell-5",
+        "cell-6",
+    ]
     dataset.var_names = ["GeneA", "GeneB", "GeneC"]
-    dataset.obs["mouse.id"] = ["mouse-1", "mouse-1", "mouse-2", "mouse-2"]
+    dataset.obs["mouse.id"] = [
+        "mouse-a",
+        "mouse-a",
+        "mouse-b",
+        "mouse-c",
+        "mouse-d",
+        "mouse-e",
+    ]
     dataset.obs["cell_ontology_class"] = [
         "endothelial cell",
-        "macrophage",
         "endothelial cell",
-        "macrophage",
+        "fibroblast",
+        "fibroblast",
+        "smooth muscle cell",
+        "smooth muscle cell",
     ]
+    dataset.obs["cell"] = [f"source-{index}" for index in range(1, 7)]
+    dataset.obs["method"] = ["facs"] * 6
+    dataset.obs["tissue"] = ["Aorta"] * 6
+    dataset.obs["cell_ontology_id"] = [
+        "nan",
+        "nan",
+        "CL:0000057",
+        "CL:0000057",
+        "nan",
+        "nan",
+    ]
+    dataset.raw = dataset
+    dataset.X = matrix.multiply(0.5)
     dataset.write_h5ad(source_path)
 
     payload = source_path.read_bytes()

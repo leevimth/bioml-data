@@ -31,6 +31,15 @@ from bioml_data._dataset_downloads import (
     download_dataset,
     get_dataset_download_pin,
 )
+from bioml_data._dataset_preparation import (
+    DatasetPreparationUnavailableError,
+    prepare_dataset,
+)
+from bioml_data._dataset_preparation_models import (
+    DatasetPreparationOutcome,
+    DatasetPreparationReceipt,
+    PreparedDatasetCacheError,
+)
 from bioml_data._domain import (
     CatalogKeyError,
     DatasetDefinition,
@@ -88,6 +97,11 @@ from bioml_data._split import (
     SplitAssigner,
     SplitAssignmentReceipt,
 )
+from bioml_data.datasets.tms_aorta._adapter import UnlinkedTmsArtifactError
+from bioml_data.datasets.tms_aorta._h5ad_transform import (
+    InvalidRawTmsArtifactError,
+    RawTmsViolation,
+)
 from bioml_data.datasets.tms_aorta._protocols import tms_aorta_canary_protocol
 
 __version__: Final = version("bioml-data")
@@ -114,6 +128,9 @@ __all__ = [
     "DatasetDownloadReceipt",
     "DatasetDownloadUnavailableError",
     "DatasetLifecycle",
+    "DatasetPreparationOutcome",
+    "DatasetPreparationReceipt",
+    "DatasetPreparationUnavailableError",
     "DatasetSnapshotIdentity",
     "DatasetVersionRequiredError",
     "EvaluationReceipt",
@@ -123,6 +140,7 @@ __all__ = [
     "HttpClientConfiguration",
     "IncompleteDownloadError",
     "InsecureArtifactUrlError",
+    "InvalidRawTmsArtifactError",
     "LabelRecord",
     "LeakageAuditReport",
     "LeakageAuditRequest",
@@ -132,6 +150,8 @@ __all__ = [
     "PreparationProtocol",
     "PreparationRequest",
     "PreparedBenchmarkReceipt",
+    "PreparedDatasetCacheError",
+    "RawTmsViolation",
     "Sha256Provenance",
     "SourceReference",
     "SplitAssigner",
@@ -143,6 +163,7 @@ __all__ = [
     "UnknownDatasetError",
     "UnknownDatasetVersionError",
     "UnknownTaskError",
+    "UnlinkedTmsArtifactError",
     "UnsupportedSplitProtocolError",
     "__version__",
     "apply_fitted_preprocessing",
@@ -158,6 +179,7 @@ __all__ = [
     "load_artifact_receipt",
     "load_dataset",
     "prepare_benchmark",
+    "prepare_dataset",
     "prepare_train_independent",
     "run_tms_aorta_canary",
     "tms_aorta_canary_protocol",

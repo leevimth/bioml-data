@@ -97,7 +97,7 @@ class CanonicalObservation:
     cell_id: CellId
     donor_id: DonorId
     study_id: StudyId
-    assay: str
+    assay: str | None
     tissue: str
     cell_type: str
 
@@ -111,11 +111,7 @@ class CanonicalObservation:
         for field, value in identifiers:
             if not value.strip():
                 raise MissingIdentifierError(field=field, position=position)
-        metadata = (
-            ("assay", self.assay),
-            ("tissue", self.tissue),
-            ("cell_type", self.cell_type),
-        )
+        metadata = (("tissue", self.tissue), ("cell_type", self.cell_type))
         for field, value in metadata:
             if not value.strip():
                 raise MissingMetadataError(field=field, record_id=self.cell_id)
@@ -192,9 +188,15 @@ class CanonicalSingleCellDataset:
                         column=MetadataColumn("study_id"),
                         value=observation.study_id,
                     ),
-                    MetadataValue(
-                        column=MetadataColumn("assay"),
-                        value=observation.assay,
+                    *(
+                        (
+                            MetadataValue(
+                                column=MetadataColumn("assay"),
+                                value=observation.assay,
+                            ),
+                        )
+                        if observation.assay is not None
+                        else ()
                     ),
                     MetadataValue(
                         column=MetadataColumn("tissue"),

@@ -15,6 +15,15 @@ download = bio.download_dataset(
 
 print(download.outcome)  # downloaded or cache_hit
 print(download.artifact.content_path)  # .../sha256/<prefix>/<sha256>/blob
+
+prepared = bio.prepare_dataset(
+    "tms-aorta",
+    artifact=download.artifact,
+    data_dir=Path("/data/bioml-data"),
+)
+dataset = bio.load_dataset("tms-aorta", artifact=prepared.artifact)
+print(prepared.outcome)  # transformed or cache_hit
+print(dataset.counts.shape)
 ```
 
 Before opening an HTTP connection, the package derives the expected SHA-256
@@ -52,9 +61,11 @@ official Figshare checksum: the project independently computed it from bytes
 that matched the official size and MD5. This distinction is retained in
 `Sha256Provenance.PROJECT_VERIFIED`.
 
-Download support only resolves and verifies the upstream H5AD artifact. It does
-not by itself claim that the file has passed the package's canonical schema,
-preparation, split, audit, or evaluation stages.
+Download support only resolves and verifies the upstream H5AD artifact.
+`prepare_dataset()` is the explicit next boundary: it transforms integer-valued
+`raw.X` into `tms-aorta-csr-v1`, records the raw parent in the derivation
+receipt, validates the canonical schema, and reuses verified output in the same
+`data_dir`. It does not run split, audit, or evaluation stages.
 
 The [upstream artifact audit](tms-aorta-artifact-audit.md) records the verified
 Figshare child-record lineage, real H5AD schema and cardinalities, split-relevant

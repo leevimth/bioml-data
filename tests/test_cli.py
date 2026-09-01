@@ -5,6 +5,7 @@ from pathlib import Path
 from typer.testing import CliRunner, Result
 
 import bioml_data as bio
+from tests._anndata_fixtures import store_tms_aorta_h5ad
 from tests._single_cell_fixtures import make_tms_artifact
 
 
@@ -55,6 +56,31 @@ def test_cli_canary_matches_python_identity_chain(tmp_path: Path) -> None:
     # Then: the CLI emits the exact shared pipeline receipt.
     assert result.exit_code == 0
     assert bio.BenchmarkRunReceipt.model_validate_json(result.stdout) == expected
+
+
+def test_cli_prepares_raw_h5ad_before_running_canary(tmp_path: Path) -> None:
+    # Given: a downloaded raw H5AD receipt and a selected preparation cache.
+    raw = store_tms_aorta_h5ad(tmp_path / "raw-cache", tmp_path / "source.h5ad")
+    prepared_cache = tmp_path / "prepared-cache"
+
+    # When: the CLI is explicitly asked to prepare the raw artifact before running.
+    result = CliRunner().invoke(
+        bio.cli_app,
+        [
+            "--artifact-manifest",
+            str(raw.manifest_path),
+            "--prepare-data-dir",
+            str(prepared_cache),
+            "--split-protocol",
+            "animal-held-out-v1",
+        ],
+    )
+
+    # Then: it emits a canary receipt linked to a canonical prepared artifact.
+    assert result.exit_code == 0
+    receipt = bio.BenchmarkRunReceipt.model_validate_json(result.stdout)
+    assert receipt.artifact_identity != raw.artifact_id
+    assert (prepared_cache / "prepared" / "tms-aorta").is_dir()
 
 
 def test_cli_omitted_split_protocol_fails_clearly(tmp_path: Path) -> None:

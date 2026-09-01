@@ -17,7 +17,10 @@ jupyter notebook examples/tms_aorta_eda.ipynb
 The notebook calls `download_dataset("tms-aorta", data_dir=...)`. A valid
 artifact already present in that directory is fully checked and reused without
 an HTTP request. `load_anndata()` then reopens the receipt from its manifest and
-rechecks the blob before passing it to AnnData.
+rechecks the blob before passing it to AnnData for upstream EDA. In the same
+cell, `prepare_dataset()` builds or reuses `tms-aorta-csr-v1`, and
+`load_dataset()` opens the canonical count artifact. The notebook checks that
+the upstream and canonical dimensions agree.
 
 TMS Aorta's upstream observation fields remain unchanged. The loader also
 provides two canonical aliases for downstream protocols:

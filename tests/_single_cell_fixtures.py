@@ -114,6 +114,7 @@ def make_tms_artifact(cache_root: Path) -> ArtifactReceipt:
                 "cell_id": observation.cell_id,
                 "mouse.id": observation.donor_id,
                 "method": observation.assay,
+                "assay": observation.assay,
                 "tissue": observation.tissue,
                 "cell_ontology_class": observation.cell_type,
             }
