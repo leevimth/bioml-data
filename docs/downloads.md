@@ -15,6 +15,8 @@ download = bio.download_dataset(
 
 print(download.outcome)  # downloaded or cache_hit
 print(download.artifact.content_path)  # .../sha256/<prefix>/<sha256>/blob
+print(download.provider.id)  # figshare
+print(download.pin.file_id)  # provider-native file identity
 ```
 
 Before opening an HTTP connection, the package derives the expected SHA-256
@@ -55,6 +57,10 @@ that matched the official size and MD5. This distinction is retained in
 Download support only resolves and verifies the upstream H5AD artifact. It does
 not by itself claim that the file has passed the package's canonical schema,
 preparation, split, audit, or evaluation stages.
+
+The Figshare-native receipt retains its complete pin and provider descriptor.
+The provider-neutral identity and extension contract are documented in
+[`provider-adapters.md`](provider-adapters.md).
 
 For a researcher-facing verified load and compact Scanpy EDA workflow, see
 [`notebook-eda.md`](notebook-eda.md) and `examples/tms_aorta_eda.ipynb`.

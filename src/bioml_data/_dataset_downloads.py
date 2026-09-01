@@ -13,10 +13,21 @@ from bioml_data._artifacts import ArtifactCache, ArtifactReceipt, ArtifactReques
 from bioml_data._dataset_download_models import DatasetDownloadPin, Sha256Provenance
 from bioml_data._domain import DatasetSnapshotIdentity
 from bioml_data._http_artifacts import HttpArtifactDownload, download_artifact
+from bioml_data._provider_adapters import (
+    ProviderAdapter,
+    ProviderDescriptor,
+    ProviderId,
+    acquire_provider_artifact,
+)
 from bioml_data.datasets._registry import DATASET_REGISTRY
 from bioml_data.datasets.tms_aorta._definition import TMS_AORTA_DOWNLOAD_PIN
 
 _DOWNLOAD_PINS: Final = (TMS_AORTA_DOWNLOAD_PIN,)
+FIGSHARE_PROVIDER: Final = ProviderDescriptor(
+    id=ProviderId("figshare"),
+    adapter_version="verified-http-v1",
+    optional_dependency=None,
+)
 
 
 @unique
@@ -29,10 +40,16 @@ class DatasetDownloadOutcome(StrEnum):
 
 @dataclass(frozen=True, slots=True)
 class DatasetDownloadReceipt:
-    """One dataset resolution outcome without duplicating artifact provenance."""
+    """Provider-native Figshare receipt for the compatibility download path."""
 
     artifact: ArtifactReceipt
     outcome: DatasetDownloadOutcome
+    pin: DatasetDownloadPin
+
+    @property
+    def provider(self) -> ProviderDescriptor:
+        """Return the provider that produced this native receipt."""
+        return FIGSHARE_PROVIDER
 
     @property
     def cache_hit(self) -> bool:
@@ -43,6 +60,27 @@ class DatasetDownloadReceipt:
     def downloaded(self) -> bool:
         """Return whether this invocation transferred the pinned bytes."""
         return self.outcome is DatasetDownloadOutcome.DOWNLOADED
+
+
+@dataclass(frozen=True, slots=True)
+class _FigshareHttpAdapter:
+    """Current verified HTTP acquisition path behind the provider boundary."""
+
+    pin: DatasetDownloadPin
+    transport: httpx2.BaseTransport | None
+
+    @property
+    def descriptor(self) -> ProviderDescriptor:
+        """Return the static Figshare provider descriptor."""
+        return FIGSHARE_PROVIDER
+
+    def acquire(self, *, data_dir: Path) -> DatasetDownloadReceipt:
+        """Acquire the adapter's exact Figshare pin."""
+        return _download_figshare_pin(
+            self.pin,
+            data_dir=data_dir,
+            transport=self.transport,
+        )
 
 
 @final
@@ -110,6 +148,23 @@ def download_pinned_dataset(
     transport: httpx2.BaseTransport | None = None,
 ) -> DatasetDownloadReceipt:
     """Resolve one typed pin, with an injectable HTTP transport for CI."""
+    adapter: ProviderAdapter[DatasetDownloadReceipt] = _FigshareHttpAdapter(
+        pin=pin,
+        transport=transport,
+    )
+    return acquire_provider_artifact(
+        pin.dataset,
+        adapter,
+        data_dir=data_dir,
+    ).receipt
+
+
+def _download_figshare_pin(
+    pin: DatasetDownloadPin,
+    *,
+    data_dir: Path,
+    transport: httpx2.BaseTransport | None,
+) -> DatasetDownloadReceipt:
     request = ArtifactRequest(
         logical_name=pin.filename,
         source_uri=pin.source_uri,
@@ -126,6 +181,7 @@ def download_pinned_dataset(
         return DatasetDownloadReceipt(
             artifact=cached,
             outcome=DatasetDownloadOutcome.CACHE_HIT,
+            pin=pin,
         )
     artifact = download_artifact(
         HttpArtifactDownload(request=request, cache=cache),
@@ -134,10 +190,12 @@ def download_pinned_dataset(
     return DatasetDownloadReceipt(
         artifact=artifact,
         outcome=DatasetDownloadOutcome.DOWNLOADED,
+        pin=pin,
     )
 
 
 __all__ = [
+    "FIGSHARE_PROVIDER",
     "DatasetDownloadOutcome",
     "DatasetDownloadPin",
     "DatasetDownloadReceipt",
