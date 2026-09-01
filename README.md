@@ -202,7 +202,7 @@ prepared = bio.prepare_dataset(
     artifact=download.artifact,
     data_dir=data_dir,
 )
-dataset = bio.load_dataset("tms-aorta", artifact=prepared.artifact)
+dataset = bio.load_dataset("tms-aorta", artifact=prepared.lineage)
 receipt = bio.run_tms_aorta_canary(
     prepared.artifact,
     split_protocol="animal-held-out-v1",
@@ -232,6 +232,15 @@ Both surfaces emit the same deterministic identity chain: artifact, split
 assignment, preparation receipt, leakage-audit report, metric protocol, and
 evaluation receipt identities. The CLI writes the receipt as JSON.
 
+Scientific materialization through `load_dataset()` reopens and hashes the
+derived artifact and every required parent receipt, then requires their exact
+registered parent tuple and transform protocol. The direct canary runner and
+CLI are lower-level technical paths that assume their processed artifact
+receipt came from a trusted producer. Receipt verification proves the byte
+identities and declared lineage; it does not prove that arbitrary transform
+code actually computed those bytes. That semantic transform boundary remains
+part of the upstream-H5AD-to-canonical integration gap described below.
+
 Current acquisition is separate from `run_tms_aorta_canary`. The dataset-aware
 `download_dataset("tms-aorta", data_dir=...)` path owns the built-in TMS source
 pin and content-addressed cache. The lower-level
@@ -259,8 +268,11 @@ and audit coverage.
 
 Literature evidence for [TMS protocol roles](docs/tms-literature-protocols.md)
 and the candidate [human pancreas cross-study annotation
-reference](docs/pancreas-cross-study-annotation.md) is documented separately
-from the implemented TMS Aorta canary.
+reference](docs/pancreas-cross-study-annotation.md) is documented separately.
+The [dataset split and protocol evidence
+matrix](docs/split-protocol-evidence-matrix.md) shows executable and candidate
+settings without conflating candidate evidence with the implemented TMS Aorta
+canary.
 
 See [core product decisions](docs/core-decisions.md) for the current conceptual
 model and [development](docs/development.md) for local setup and quality checks.

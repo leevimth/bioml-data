@@ -10,6 +10,7 @@ from bioml_data._artifact_receipts import (
     load_artifact_receipt,
 )
 from bioml_data._artifacts import ArtifactReceipt
+from bioml_data._dataset_downloads import provider_target_for_pin
 from bioml_data._dataset_preparation_models import DatasetPreparationReceipt
 from bioml_data.datasets._registry import DATASET_REGISTRY
 from bioml_data.datasets.tms_aorta._definition import TMS_AORTA_DOWNLOAD_PIN
@@ -59,15 +60,17 @@ def prepare_dataset(
             reason=ArtifactReceiptFailure.CONTENT_INTEGRITY,
         )
     manifest = verified.manifest
-    pin = TMS_AORTA_DOWNLOAD_PIN
+    target = provider_target_for_pin(TMS_AORTA_DOWNLOAD_PIN)
+    expectation = target.artifact_expectation
     source_matches = (
-        manifest.sha256 == pin.sha256
-        and manifest.byte_size == pin.byte_size
-        and manifest.logical_name == pin.filename
-        and manifest.source_uri == pin.source_uri
-        and manifest.accession == f"figshare-file-{pin.file_id}"
-        and manifest.release == pin.release
-        and manifest.derivation is None
+        manifest.artifact_id == target.scientific_identity.artifact_id
+        and manifest.sha256 == expectation.sha256
+        and manifest.byte_size == expectation.byte_size
+        and manifest.logical_name == expectation.logical_name
+        and manifest.source_uri == expectation.source_uri
+        and manifest.accession == expectation.accession
+        and manifest.release == expectation.release
+        and manifest.derivation == expectation.derivation
     )
     if not source_matches:
         raise UnexpectedDatasetSourceError(name=name)

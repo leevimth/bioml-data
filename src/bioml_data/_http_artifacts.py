@@ -8,6 +8,7 @@ from typing import Final, final, override
 import httpx2
 
 from bioml_data._artifacts import ArtifactCache, ArtifactReceipt, ArtifactRequest
+from bioml_data._url_security import redact_url
 
 _LOGGER: Final = logging.getLogger(__name__)
 
@@ -60,7 +61,7 @@ class ArtifactHttpError(Exception):
     status_code: int
 
     def __init__(self, source_uri: str, status_code: int) -> None:
-        redacted_uri = _redacted_url(source_uri)
+        redacted_uri = redact_url(source_uri)
         super().__init__(redacted_uri, status_code)
         self.source_uri = redacted_uri
         self.status_code = status_code
@@ -80,7 +81,7 @@ class ArtifactTransportError(Exception):
     source_uri: str
 
     def __init__(self, source_uri: str, reason: str) -> None:
-        redacted_uri = _redacted_url(source_uri)
+        redacted_uri = redact_url(source_uri)
         super().__init__(redacted_uri, reason)
         self.source_uri = redacted_uri
         self.reason = reason
@@ -99,7 +100,7 @@ class InsecureArtifactUrlError(Exception):
     source_uri: str
 
     def __init__(self, source_uri: str) -> None:
-        redacted_uri = _redacted_url(source_uri)
+        redacted_uri = redact_url(source_uri)
         super().__init__(redacted_uri)
         self.source_uri = redacted_uri
 
@@ -165,7 +166,7 @@ def download_artifact(
                 ) from None
             return download.cache.store(download.request, response.iter_bytes())
     except httpx2.TransportError as error:
-        redacted_uri = _redacted_url(download.request.source_uri)
+        redacted_uri = redact_url(download.request.source_uri)
         _LOGGER.log(
             logging.ERROR,
             "http.transport_error",
@@ -191,7 +192,7 @@ def _log_request(request: httpx2.Request) -> None:
         "http.request",
         extra={
             "http_method": request.method,
-            "http_url": _redacted_url(str(request.url)),
+            "http_url": redact_url(str(request.url)),
         },
     )
 
@@ -202,17 +203,7 @@ def _log_response(response: httpx2.Response) -> None:
         extra={
             "http_method": response.request.method,
             "http_status": response.status_code,
-            "http_url": _redacted_url(str(response.request.url)),
+            "http_url": redact_url(str(response.request.url)),
             "http_version": response.http_version,
         },
-    )
-
-
-def _redacted_url(source_uri: str) -> str:
-    return str(
-        httpx2.URL(source_uri).copy_with(
-            username=None,
-            password=None,
-            query=None,
-        )
     )

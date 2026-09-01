@@ -5,6 +5,7 @@ from enum import StrEnum, unique
 from pathlib import Path
 from typing import final, override
 
+from bioml_data._artifact_lineage import ArtifactLineageReceipt
 from bioml_data._artifacts import ArtifactReceipt
 
 
@@ -21,7 +22,16 @@ class DatasetPreparationReceipt:
     """One canonical artifact preparation outcome."""
 
     artifact: ArtifactReceipt
+    parent_artifacts: tuple[ArtifactReceipt, ...]
     outcome: DatasetPreparationOutcome
+
+    @property
+    def lineage(self) -> ArtifactLineageReceipt:
+        """Return the verified child-and-parent input for public loading."""
+        return ArtifactLineageReceipt(
+            artifact=self.artifact,
+            parent_artifacts=self.parent_artifacts,
+        )
 
 
 @final

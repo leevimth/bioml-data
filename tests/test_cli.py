@@ -7,6 +7,9 @@ from typer.testing import CliRunner, Result
 
 import bioml_data as bio
 from bioml_data import _cli as cli_module
+from bioml_data._artifact_types import TransformProtocolId
+from bioml_data._split_capability_models import SplitArtifactScope
+from bioml_data.datasets.tms_aorta import _adapter as adapter_module
 from bioml_data.datasets.tms_aorta._h5ad_transform import TmsAortaTransformLimits
 from bioml_data.datasets.tms_aorta._transform import prepare_tms_aorta
 from tests._anndata_fixtures import store_tms_aorta_h5ad
@@ -90,6 +93,14 @@ def test_cli_prepares_raw_h5ad_before_running_canary(
         )
 
     monkeypatch.setattr(cli_module, "prepare_dataset", prepare_fixture)
+    monkeypatch.setattr(
+        adapter_module,
+        "TMS_AORTA_ARTIFACT_SCOPE",
+        SplitArtifactScope(
+            source_artifact=raw.artifact_id,
+            transform_protocol=TransformProtocolId("tms-aorta-csr-v1"),
+        ),
+    )
 
     # When: the CLI is explicitly asked to prepare the raw artifact before running.
     result = CliRunner().invoke(

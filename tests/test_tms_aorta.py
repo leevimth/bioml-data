@@ -8,13 +8,13 @@ from pathlib import Path
 
 import pytest
 
-import bioml_data as bio
 from bioml_data import _single_cell as single_cell
 from bioml_data import _tms_aorta as tms
 from bioml_data._artifacts import (
     ArtifactCache,
     ArtifactDerivation,
     ArtifactDerivationParameter,
+    ArtifactId,
     ArtifactReceipt,
     ArtifactRequest,
     TransformProtocolId,
@@ -23,6 +23,7 @@ from bioml_data._single_cell_errors import (
     DuplicateIdentifierError,
     MissingIdentifierError,
 )
+from bioml_data.datasets.tms_aorta._identity import TMS_AORTA_SOURCE_ARTIFACT
 
 
 @dataclass(frozen=True, slots=True)
@@ -106,15 +107,14 @@ def _artifact_request(
     )
 
 
-def _processed_artifact(tmp_path: Path, payload: str) -> ArtifactReceipt:
+def _processed_artifact(
+    tmp_path: Path,
+    payload: str,
+    parent_artifacts: tuple[ArtifactId, ...] = (TMS_AORTA_SOURCE_ARTIFACT,),
+) -> ArtifactReceipt:
     cache = ArtifactCache(tmp_path / "cache")
-    raw_content = b"representative raw sparse fixture"
-    raw = cache.store(
-        _artifact_request(raw_content, "raw-fixture.bin", None),
-        (raw_content,),
-    )
     derivation = ArtifactDerivation(
-        parent_artifacts=(raw.artifact_id,),
+        parent_artifacts=parent_artifacts,
         transform_protocol=TransformProtocolId("tms-aorta-csr-v1"),
         parameters=(
             ArtifactDerivationParameter(
@@ -130,12 +130,12 @@ def _processed_artifact(tmp_path: Path, payload: str) -> ArtifactReceipt:
     )
 
 
-def test_public_loader_materializes_pinned_tms_aorta_artifact(tmp_path: Path) -> None:
+def test_adapter_materializes_pinned_tms_aorta_artifact(tmp_path: Path) -> None:
     # Given: a local content-addressed export linked to its raw parent artifact.
     artifact = _processed_artifact(tmp_path, _fixture_payload())
 
     # When: the public dataset loader receives the explicit artifact pin.
-    dataset = bio.load_dataset("tms-aorta", artifact=artifact)
+    dataset = tms.load_tms_aorta(artifact)
 
     # Then: source, release, and local provenance remain explicit and distinct.
     assert isinstance(dataset, single_cell.CanonicalSingleCellDataset)

@@ -32,7 +32,10 @@ from bioml_data._dataset_preparation_models import (
     DatasetPreparationReceipt,
     PreparedDatasetCacheError,
 )
-from bioml_data.datasets.tms_aorta._adapter import load_tms_aorta
+from bioml_data._verified_artifact import (
+    VerifiedArtifactChangedError,
+    VerifiedArtifactInput,
+)
 from bioml_data.datasets.tms_aorta._h5ad_transform import (
     TMS_AORTA_TRANSFORM_LIMITS,
     InvalidRawTmsArtifactError,
@@ -44,6 +47,7 @@ from bioml_data.datasets.tms_aorta._identity import (
     TMS_AORTA_TRANSFORM_PARAMETERS,
     TMS_AORTA_TRANSFORM_PROTOCOL,
 )
+from bioml_data.datasets.tms_aorta._interchange import TmsAortaPayload
 
 
 class _PreparedLocator(BaseModel):
@@ -70,6 +74,7 @@ def prepare_tms_aorta(
     if cached is not None:
         return DatasetPreparationReceipt(
             artifact=cached,
+            parent_artifacts=(raw,),
             outcome=DatasetPreparationOutcome.CACHE_HIT,
         )
 
@@ -99,17 +104,19 @@ def prepare_tms_aorta(
         derivation=derivation,
     )
     prepared = ArtifactCache(data_dir).store(request, (content,))
-    _ = load_tms_aorta(prepared)
+    _validate_prepared_payload(prepared)
     if not publish_tms_aorta_locator(locator_path, prepared):
         winner = _load_cached(locator_path, data_dir=data_dir, raw=raw)
         if winner is None:
             raise PreparedDatasetCacheError(locator_path)
         return DatasetPreparationReceipt(
             artifact=winner,
+            parent_artifacts=(raw,),
             outcome=DatasetPreparationOutcome.CACHE_HIT,
         )
     return DatasetPreparationReceipt(
         artifact=prepared,
+        parent_artifacts=(raw,),
         outcome=DatasetPreparationOutcome.TRANSFORMED,
     )
 
@@ -158,8 +165,20 @@ def _load_cached(
         or derivation.parameters != TMS_AORTA_TRANSFORM_PARAMETERS
     ):
         raise PreparedDatasetCacheError(locator_path)
-    _ = load_tms_aorta(prepared)
+    _validate_prepared_payload(prepared)
     return prepared
+
+
+def _validate_prepared_payload(prepared: ArtifactReceipt) -> None:
+    try:
+        verified = VerifiedArtifactInput.from_receipt(prepared)
+        _ = TmsAortaPayload.model_validate_json(verified.read_bytes())
+    except (
+        ArtifactReceiptLoadError,
+        ValidationError,
+        VerifiedArtifactChangedError,
+    ) as error:
+        raise PreparedDatasetCacheError(prepared.manifest_path) from error
 
 
 def publish_tms_aorta_locator(

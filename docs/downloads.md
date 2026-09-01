@@ -15,13 +15,15 @@ download = bio.download_dataset(
 
 print(download.outcome)  # downloaded or cache_hit
 print(download.artifact.content_path)  # .../sha256/<prefix>/<sha256>/blob
+print(download.provider.id)  # figshare
+print(download.pin.file_id)  # provider-native file identity
 
 prepared = bio.prepare_dataset(
     "tms-aorta",
     artifact=download.artifact,
     data_dir=Path("/data/bioml-data"),
 )
-dataset = bio.load_dataset("tms-aorta", artifact=prepared.artifact)
+dataset = bio.load_dataset("tms-aorta", artifact=prepared.lineage)
 print(prepared.outcome)  # transformed or cache_hit
 print(dataset.counts.shape)
 ```
@@ -68,6 +70,10 @@ receipt together with `expression_input=raw.X`, validates the canonical schema,
 and reuses verified output in the same `data_dir`. It rejects locally forged or
 alternative H5AD receipts that do not match the exact built-in pin. It does not
 run split, audit, or evaluation stages.
+
+The Figshare-native receipt retains its complete pin and provider descriptor.
+The provider-neutral identity and extension contract are documented in
+[`provider-adapters.md`](provider-adapters.md).
 
 The [upstream artifact audit](tms-aorta-artifact-audit.md) records the verified
 Figshare child-record lineage, real H5AD schema and cardinalities, split-relevant

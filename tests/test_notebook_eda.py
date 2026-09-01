@@ -8,8 +8,6 @@ from typing import ClassVar
 import pytest
 from pydantic import BaseModel, ConfigDict
 
-from bioml_data.datasets.tms_aorta._h5ad_transform import TmsAortaTransformLimits
-from bioml_data.datasets.tms_aorta._transform import prepare_tms_aorta
 from tests._anndata_fixtures import store_tms_aorta_h5ad
 
 
@@ -29,24 +27,10 @@ def test_tms_aorta_notebook_loads_fixture_and_writes_eda_artifacts(
 ) -> None:
     # Given: a verified local H5AD and a headless notebook environment.
     receipt = store_tms_aorta_h5ad(tmp_path / "cache", tmp_path / "source.h5ad")
-    prepared = prepare_tms_aorta(
-        receipt,
-        data_dir=tmp_path / "prepared-cache",
-        limits=TmsAortaTransformLimits(
-            observations=6,
-            features=3,
-            maximum_nonzero_counts=20,
-            maximum_metadata_length=64,
-            maximum_output_bytes=32_000,
-        ),
-    )
     output_dir = tmp_path / "eda-output"
     monkeypatch.setenv("BIOML_ARTIFACT_MANIFEST", str(receipt.manifest_path))
     monkeypatch.setenv("BIOML_DATA_DIR", str(tmp_path / "prepared-cache"))
-    monkeypatch.setenv(
-        "BIOML_CANONICAL_ARTIFACT_MANIFEST",
-        str(prepared.artifact.manifest_path),
-    )
+    monkeypatch.setenv("BIOML_EDA_RAW_ONLY", "1")
     monkeypatch.setenv("BIOML_EDA_OUTPUT_DIR", str(output_dir))
     monkeypatch.setenv("MPLBACKEND", "Agg")
     monkeypatch.setenv("IPYTHONDIR", str(tmp_path / "ipython"))

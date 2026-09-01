@@ -6,12 +6,6 @@ from typing import override
 
 from pydantic import ValidationError
 
-from bioml_data._artifact_receipts import (
-    ArtifactReceiptFailure,
-    ArtifactReceiptLoadError,
-    load_artifact_receipt,
-    verified_artifact_copy,
-)
 from bioml_data._artifacts import ArtifactId, ArtifactReceipt, TransformProtocolId
 from bioml_data._single_cell import (
     CanonicalFeature,
@@ -25,11 +19,13 @@ from bioml_data._single_cell import (
     SparseCountMatrix,
     SparseFormat,
 )
+from bioml_data._verified_artifact import VerifiedArtifactInput
 from bioml_data.datasets.tms_aorta._definition import (
     TMS_AORTA_SOURCE,
     TMS_AORTA_STUDY_ID,
 )
 from bioml_data.datasets.tms_aorta._identity import (
+    TMS_AORTA_ARTIFACT_SCOPE,
     TMS_AORTA_SNAPSHOT,
     TMS_AORTA_TRANSFORM_PARAMETERS,
     TMS_AORTA_TRANSFORM_PROTOCOL,
@@ -63,14 +59,15 @@ class UnlinkedTmsArtifactError(Exception):
         )
 
 
-def load_tms_aorta(artifact: ArtifactReceipt) -> CanonicalSingleCellDataset:
+def load_tms_aorta(
+    artifact: ArtifactReceipt | VerifiedArtifactInput,
+) -> CanonicalSingleCellDataset:
     """Map a pinned sparse export into the canonical single-cell contract."""
-    verified = load_artifact_receipt(artifact.manifest_path)
-    if verified.artifact_id != artifact.artifact_id:
-        raise ArtifactReceiptLoadError(
-            manifest_path=artifact.manifest_path,
-            reason=ArtifactReceiptFailure.CONTENT_INTEGRITY,
-        )
+    verified = (
+        artifact
+        if isinstance(artifact, VerifiedArtifactInput)
+        else VerifiedArtifactInput.from_receipt(artifact)
+    )
     derivation = verified.manifest.derivation
     if derivation is None:
         raise UnlinkedTmsArtifactError(
@@ -85,12 +82,14 @@ def load_tms_aorta(artifact: ArtifactReceipt) -> CanonicalSingleCellDataset:
             artifact_id=verified.artifact_id,
             protocol=derivation.transform_protocol,
         )
+    if derivation.parent_artifacts != TMS_AORTA_ARTIFACT_SCOPE.parent_artifacts:
+        raise UnlinkedTmsArtifactError(
+            artifact_id=verified.artifact_id,
+            protocol=derivation.transform_protocol,
+        )
 
     try:
-        with verified_artifact_copy(verified) as copy_path:
-            payload = TmsAortaPayload.model_validate_json(
-                copy_path.read_text(encoding="utf-8"),
-            )
+        payload = TmsAortaPayload.model_validate_json(verified.read_text())
     except (UnicodeDecodeError, ValidationError) as error:
         raise InvalidTmsSchemaError(artifact_id=verified.artifact_id) from error
 

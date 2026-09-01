@@ -9,7 +9,11 @@ import anndata as ad
 import pytest
 
 import bioml_data as bio
+from bioml_data._artifact_types import TransformProtocolId
+from bioml_data._split_capability_models import SplitArtifactScope
+from bioml_data.datasets.tms_aorta import _adapter as adapter_module
 from bioml_data.datasets.tms_aorta import _transform as transform_module
+from bioml_data.datasets.tms_aorta._adapter import load_tms_aorta
 from bioml_data.datasets.tms_aorta._h5ad_transform import (
     RawTmsViolation,
     TmsAortaTransformLimits,
@@ -36,13 +40,22 @@ def _prepare_fixture(
 
 def test_prepare_dataset_transforms_raw_counts_and_preserves_parent(
     tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     # Given: a verified TMS-shaped H5AD whose processed X differs from raw.X.
     raw = store_tms_aorta_h5ad(tmp_path / "cache", tmp_path / "source.h5ad")
 
     # When: the public preparation API creates the canonical artifact.
     result = _prepare_fixture(raw, tmp_path / "cache")
-    dataset = bio.load_dataset("tms-aorta", artifact=result.artifact)
+    monkeypatch.setattr(
+        adapter_module,
+        "TMS_AORTA_ARTIFACT_SCOPE",
+        SplitArtifactScope(
+            source_artifact=raw.artifact_id,
+            transform_protocol=TransformProtocolId("tms-aorta-csr-v1"),
+        ),
+    )
+    dataset = load_tms_aorta(result.artifact)
 
     # Then: integer raw counts, observation identity, and derivation are explicit.
     assert result.outcome is bio.DatasetPreparationOutcome.TRANSFORMED
@@ -66,10 +79,11 @@ def test_prepare_dataset_transforms_raw_counts_and_preserves_parent(
     assert all(item.assay is None for item in dataset.observations)
     assert result.artifact.manifest.derivation is not None
     assert result.artifact.manifest.derivation.parent_artifacts == (raw.artifact_id,)
-    assert (
-        result.artifact.manifest.derivation.transform_protocol
-        == "tms-aorta-csr-v1"
+    assert result.lineage == bio.ArtifactLineageReceipt(
+        artifact=result.artifact,
+        parent_artifacts=(raw,),
     )
+    assert result.artifact.manifest.derivation.transform_protocol == "tms-aorta-csr-v1"
     assert result.artifact.manifest.derivation.parameters == (
         bio.ArtifactDerivationParameter(
             name="expression_input",
@@ -122,7 +136,7 @@ def test_load_dataset_still_rejects_unprepared_raw_h5ad(tmp_path: Path) -> None:
     raw = store_tms_aorta_h5ad(tmp_path / "cache", tmp_path / "source.h5ad")
 
     # When/Then: canonical loading cannot bypass explicit preparation.
-    with pytest.raises(bio.UnlinkedTmsArtifactError):
+    with pytest.raises(bio.ArtifactLineageRequiredError):
         _ = bio.load_dataset("tms-aorta", artifact=raw)
 
 
@@ -273,8 +287,7 @@ def test_concurrent_preparation_reopens_verified_locator_winner(
     # When: both callers prepare into the same selected cache.
     with ThreadPoolExecutor(max_workers=2) as executor:
         futures = tuple(
-            executor.submit(_prepare_fixture, raw, prepared_root)
-            for _ in range(2)
+            executor.submit(_prepare_fixture, raw, prepared_root) for _ in range(2)
         )
         results = tuple(future.result() for future in futures)
 

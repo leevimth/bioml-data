@@ -36,6 +36,7 @@ from bioml_data._single_cell import (
     StudyId,
 )
 from bioml_data._split import SplitAssigner, SplitAssignmentReceipt
+from bioml_data.datasets.tms_aorta._identity import TMS_AORTA_SOURCE_ARTIFACT
 
 
 def make_dataset() -> CanonicalSingleCellDataset:
@@ -100,14 +101,13 @@ def make_split(dataset: CanonicalSingleCellDataset) -> SplitAssignmentReceipt:
     ).split(protocol="animal-held-out-v1", seed=17)
 
 
-def make_tms_artifact(cache_root: Path) -> ArtifactReceipt:
+def make_tms_artifact(
+    cache_root: Path,
+    *,
+    parent_artifacts: tuple[ArtifactId, ...] = (TMS_AORTA_SOURCE_ARTIFACT,),
+) -> ArtifactReceipt:
     """Store a small processed TMS fixture with a linked raw parent."""
     cache = ArtifactCache(cache_root)
-    raw_content = b"representative raw sparse fixture"
-    raw = cache.store(
-        _artifact_request(raw_content, "raw-fixture.bin", None),
-        (raw_content,),
-    )
     payload = {
         "schema_version": "tms-aorta-csr-v1",
         "observations": [
@@ -141,7 +141,7 @@ def make_tms_artifact(cache_root: Path) -> ArtifactReceipt:
     }
     processed_content = json.dumps(payload, separators=(",", ":")).encode()
     derivation = ArtifactDerivation(
-        parent_artifacts=(raw.artifact_id,),
+        parent_artifacts=parent_artifacts,
         transform_protocol=TransformProtocolId("tms-aorta-csr-v1"),
         parameters=(
             ArtifactDerivationParameter(
