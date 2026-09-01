@@ -62,6 +62,12 @@ by the dataset registration. Supplying only an `ArtifactReceipt`, adding an
 unrelated parent, or forging an in-memory parent identity is rejected before the
 dataset adapter runs.
 
+The verified derived bytes are atomically published and reused under the source
+cache's `.materialization-snapshots/sha256/` namespace before adapter dispatch.
+This snapshot has the cache's lifecycle, so eager and lazy adapters read the
+same bytes that were hashed even after `load_dataset()` returns. It is a
+content-addressed cache entry, not an unmanaged temporary file.
+
 This establishes content identity and a verifiable declared lineage edge. It
 does not cryptographically prove that arbitrary transform code computed the
 derived bytes from the parents. That stronger semantic guarantee requires a

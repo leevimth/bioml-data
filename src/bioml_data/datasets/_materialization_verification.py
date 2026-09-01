@@ -3,8 +3,7 @@
 from dataclasses import dataclass
 from functools import partial
 from pathlib import Path
-from tempfile import TemporaryDirectory, gettempdir
-from typing import override
+from typing import Final, override
 
 from bioml_data._artifact_lineage import ArtifactLineageReceipt
 from bioml_data._artifact_paths import open_binary_nofollow
@@ -20,6 +19,8 @@ from bioml_data._artifacts import (
 from bioml_data._domain import DatasetSnapshotIdentity
 from bioml_data._split_capability_models import SplitArtifactScope
 from bioml_data.datasets._models import DatasetMaterialization, DatasetRegistration
+
+_SNAPSHOT_CACHE_DIRECTORY: Final = ".materialization-snapshots"
 
 
 @dataclass(frozen=True, slots=True)
@@ -100,15 +101,8 @@ def materialize_verified(
         registration, artifact.manifest.derivation, verified_parents
     )
 
-    with TemporaryDirectory(
-        prefix="bioml-materialize-",
-        dir=Path(gettempdir()).resolve(),
-    ) as snapshot_root:
-        snapshot = _verified_private_snapshot(
-            verified_artifact,
-            Path(snapshot_root),
-        )
-        result = registration.materialize(snapshot)
+    snapshot = _verified_persistent_snapshot(verified_artifact)
+    result = registration.materialize(snapshot)
     expected_snapshot = registration.definition.snapshot
     if result.snapshot != expected_snapshot:
         raise DatasetMaterializationSnapshotMismatchError(
@@ -150,10 +144,7 @@ def _require_registered_lineage(
         )
 
 
-def _verified_private_snapshot(
-    receipt: ArtifactReceipt,
-    root: Path,
-) -> ArtifactReceipt:
+def _verified_persistent_snapshot(receipt: ArtifactReceipt) -> ArtifactReceipt:
     manifest = receipt.manifest
     request = ArtifactRequest(
         logical_name=manifest.logical_name,
@@ -167,7 +158,7 @@ def _verified_private_snapshot(
         derivation=manifest.derivation,
     )
     with open_binary_nofollow(receipt.content_path) as source:
-        snapshot = ArtifactCache(root).store(
+        snapshot = ArtifactCache(_snapshot_cache_root(receipt)).store(
             request,
             iter(partial(source.read, 1024 * 1024), b""),
         )
@@ -177,3 +168,10 @@ def _verified_private_snapshot(
             actual=snapshot.manifest,
         )
     return snapshot
+
+
+def _snapshot_cache_root(receipt: ArtifactReceipt) -> Path:
+    cache_root = receipt.manifest_path.parents[3]
+    if cache_root.name == _SNAPSHOT_CACHE_DIRECTORY:
+        return cache_root
+    return cache_root / _SNAPSHOT_CACHE_DIRECTORY

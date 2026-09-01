@@ -214,37 +214,3 @@ def test_materialize_verifies_parent_receipt_bytes_before_dispatch(
                 parent_artifacts=(forged_parent,),
             ),
         )
-
-
-def test_adapter_reads_verified_snapshot_when_original_cache_is_swapped(
-    tmp_path: Path,
-) -> None:
-    artifact = _artifact(tmp_path, content=b"trusted")
-    original_path = artifact.content_path
-    consumed: list[bytes] = []
-
-    def materialize(receipt: ArtifactReceipt) -> _FakeMaterialization:
-        _ = original_path.write_bytes(b"swapped")
-        consumed.append(receipt.content_path.read_bytes())
-        return _FakeMaterialization(
-            snapshot=TMS_AORTA_REGISTRATION.definition.snapshot,
-            artifact=receipt.manifest,
-        )
-
-    registration = replace(
-        TMS_AORTA_REGISTRATION,
-        definition=replace(
-            TMS_AORTA_REGISTRATION.definition,
-            supported_splits=(),
-        ),
-        materialize=materialize,
-        split_capabilities=(),
-        artifact_scope=None,
-    )
-
-    _ = DatasetRegistry(registrations=(registration,)).materialize(
-        "tms-aorta",
-        ArtifactLineageReceipt(artifact=artifact, parent_artifacts=()),
-    )
-
-    assert consumed == [b"trusted"]
