@@ -1,9 +1,12 @@
 """Filesystem boundary for reopening immutable artifact receipts."""
 
+from collections.abc import Generator
+from contextlib import contextmanager
 from enum import StrEnum, unique
 from functools import partial
 from hashlib import sha256
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from typing import final, override
 
 from pydantic import ValidationError
@@ -60,6 +63,38 @@ def load_artifact_receipt(manifest_path: Path) -> ArtifactReceipt:
         content_path=content_path,
         manifest_path=manifest_path,
     )
+
+
+@contextmanager
+def verified_artifact_copy(receipt: ArtifactReceipt) -> Generator[Path]:
+    """Yield a private copy reverified while reading through no-follow handles."""
+    verified = load_artifact_receipt(receipt.manifest_path)
+    if verified.artifact_id != receipt.artifact_id:
+        raise ArtifactReceiptLoadError(
+            manifest_path=receipt.manifest_path,
+            reason=ArtifactReceiptFailure.CONTENT_INTEGRITY,
+        )
+    with TemporaryDirectory(prefix="bioml-verified-") as temporary:
+        copy_path = Path(temporary) / "artifact"
+        digest = sha256()
+        byte_size = 0
+        with (
+            open_binary_nofollow(verified.content_path) as source,
+            copy_path.open("wb") as destination,
+        ):
+            for block in iter(partial(source.read, 1024 * 1024), b""):
+                byte_size += len(block)
+                digest.update(block)
+                _ = destination.write(block)
+        if (
+            byte_size != verified.manifest.byte_size
+            or digest.hexdigest() != verified.manifest.sha256
+        ):
+            raise ArtifactReceiptLoadError(
+                manifest_path=receipt.manifest_path,
+                reason=ArtifactReceiptFailure.CONTENT_INTEGRITY,
+            )
+        yield copy_path
 
 
 def _read_manifest(manifest_path: Path) -> ArtifactManifest:

@@ -143,6 +143,12 @@ def test_derived_artifact_links_parent_and_transform_protocol(tmp_path: Path) ->
     derivation = artifacts.ArtifactDerivation(
         parent_artifacts=(parent.artifact_id,),
         transform_protocol=artifacts.TransformProtocolId("canonical-single-cell-v1"),
+        parameters=(
+            artifacts.ArtifactDerivationParameter(
+                name="expression_input",
+                value="raw.X",
+            ),
+        ),
     )
     child_content = b"canonical matrix"
     request = _request(child_content, "canonical.parquet").model_copy(
@@ -154,6 +160,26 @@ def test_derived_artifact_links_parent_and_transform_protocol(tmp_path: Path) ->
 
     # Then: its manifest links both the parent identity and transform protocol.
     assert child.manifest.derivation == derivation
+    reopened = artifacts.ArtifactManifest.model_validate_json(
+        child.manifest.model_dump_json(),
+    )
+    assert reopened.derivation is not None
+    assert reopened.derivation.parameters == derivation.parameters
+
+
+def test_legacy_derivation_without_parameters_remains_parseable() -> None:
+    # Given: a pre-parameter derivation JSON receipt.
+    payload = (
+        '{"parent_artifacts":["sha256:'
+        + "1" * 64
+        + '"],"transform_protocol":"legacy-v1"}'
+    )
+
+    # When: the generic derivation boundary parses the legacy receipt.
+    parsed = artifacts.ArtifactDerivation.model_validate_json(payload)
+
+    # Then: compatibility is explicit through the immutable empty default.
+    assert parsed.parameters == ()
 
 
 def test_cache_refuses_to_overwrite_a_corrupted_blob(tmp_path: Path) -> None:

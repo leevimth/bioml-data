@@ -2,9 +2,9 @@
 
 from dataclasses import dataclass
 from hashlib import sha256
-from typing import Annotated, ClassVar, Literal, override
+from typing import override
 
-from pydantic import BaseModel, ConfigDict, Field, NonNegativeInt, ValidationError
+from pydantic import ValidationError
 
 from bioml_data._artifacts import ArtifactId, ArtifactReceipt, TransformProtocolId
 from bioml_data._single_cell import (
@@ -27,44 +27,10 @@ from bioml_data.datasets.tms_aorta._definition import (
 from bioml_data.datasets.tms_aorta._identity import (
     TMS_AORTA_ARTIFACT_SCOPE,
     TMS_AORTA_SNAPSHOT,
+    TMS_AORTA_TRANSFORM_PARAMETERS,
     TMS_AORTA_TRANSFORM_PROTOCOL,
 )
-
-
-class _BoundaryModel(BaseModel):
-    model_config: ClassVar[ConfigDict] = ConfigDict(
-        frozen=True,
-        populate_by_name=True,
-        strict=True,
-    )
-
-
-class _TmsObservation(_BoundaryModel):
-    cell_id: str
-    mouse_id: str = Field(alias="mouse.id")
-    method: str
-    tissue: str
-    cell_ontology_class: str
-
-
-class _TmsFeature(_BoundaryModel):
-    feature_id: str
-    feature_name: str
-
-
-class _CsrCounts(_BoundaryModel):
-    format: Literal["csr"]
-    data: tuple[NonNegativeInt, ...]
-    indices: tuple[NonNegativeInt, ...]
-    indptr: tuple[NonNegativeInt, ...]
-    shape: tuple[NonNegativeInt, NonNegativeInt]
-
-
-class _TmsAortaPayload(_BoundaryModel):
-    schema_version: Literal["tms-aorta-csr-v1"]
-    observations: Annotated[tuple[_TmsObservation, ...], Field(min_length=1)]
-    features: Annotated[tuple[_TmsFeature, ...], Field(min_length=1)]
-    counts: _CsrCounts
+from bioml_data.datasets.tms_aorta._interchange import TmsAortaPayload
 
 
 @dataclass(frozen=True, slots=True)
@@ -108,7 +74,10 @@ def load_tms_aorta(
             artifact_id=verified.artifact_id,
             protocol=None,
         )
-    if derivation.transform_protocol != TMS_AORTA_TRANSFORM_PROTOCOL:
+    if (
+        derivation.transform_protocol != TMS_AORTA_TRANSFORM_PROTOCOL
+        or derivation.parameters != TMS_AORTA_TRANSFORM_PARAMETERS
+    ):
         raise UnlinkedTmsArtifactError(
             artifact_id=verified.artifact_id,
             protocol=derivation.transform_protocol,
@@ -120,7 +89,7 @@ def load_tms_aorta(
         )
 
     try:
-        payload = _TmsAortaPayload.model_validate_json(verified.read_text())
+        payload = TmsAortaPayload.model_validate_json(verified.read_text())
     except (UnicodeDecodeError, ValidationError) as error:
         raise InvalidTmsSchemaError(artifact_id=verified.artifact_id) from error
 
@@ -129,7 +98,7 @@ def load_tms_aorta(
             cell_id=CellId(item.cell_id),
             donor_id=DonorId(item.mouse_id),
             study_id=TMS_AORTA_STUDY_ID,
-            assay=item.method,
+            assay=item.assay,
             tissue=item.tissue,
             cell_type=item.cell_ontology_class,
         )
@@ -154,7 +123,7 @@ def load_tms_aorta(
     )
     identity_input = (
         f"{TMS_AORTA_SNAPSHOT.name}\0{TMS_AORTA_SNAPSHOT.version}\0"
-        f"{artifact.artifact_id}\0{TMS_AORTA_TRANSFORM_PROTOCOL}"
+        f"{verified.artifact_id}\0{TMS_AORTA_TRANSFORM_PROTOCOL}"
     )
     identity = DatasetMaterializationId(sha256(identity_input.encode()).hexdigest())
     return CanonicalSingleCellDataset(

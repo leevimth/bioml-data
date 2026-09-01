@@ -8,15 +8,10 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Annotated, ClassVar
 
-from pydantic import (
-    AwareDatetime,
-    BaseModel,
-    ConfigDict,
-    Field,
-    ValidationError,
-)
+from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, ValidationError
 
 import bioml_data._artifact_paths as artifact_paths
+from bioml_data._artifact_derivation import ArtifactDerivationParameter
 from bioml_data._artifact_errors import (
     ArtifactCollisionError,
     ChecksumMismatchError,
@@ -41,6 +36,7 @@ __all__ = [
     "ArtifactCache",
     "ArtifactCollisionError",
     "ArtifactDerivation",
+    "ArtifactDerivationParameter",
     "ArtifactId",
     "ArtifactManifest",
     "ArtifactReceipt",
@@ -59,6 +55,7 @@ class ArtifactDerivation(BaseModel):
 
     parent_artifacts: Annotated[tuple[ArtifactId, ...], Field(min_length=1)]
     transform_protocol: TransformProtocolId
+    parameters: tuple[ArtifactDerivationParameter, ...] = ()
 
 
 class _ArtifactProvenance(BaseModel):

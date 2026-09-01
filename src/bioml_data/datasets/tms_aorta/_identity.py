@@ -2,6 +2,7 @@
 
 from typing import Final
 
+from bioml_data._artifact_derivation import ArtifactDerivationParameter
 from bioml_data._artifact_types import ArtifactId, TransformProtocolId
 from bioml_data._domain import (
     DatasetName,
@@ -19,6 +20,9 @@ TMS_AORTA_SNAPSHOT: Final = DatasetSnapshotIdentity(
 TMS_CELL_TYPE_TASK: Final = TaskId("cell-type-annotation-v1")
 TMS_ANIMAL_HELD_OUT_PROTOCOL: Final = ProtocolId("animal-held-out-v1")
 TMS_AORTA_TRANSFORM_PROTOCOL: Final = TransformProtocolId("tms-aorta-csr-v1")
+TMS_AORTA_TRANSFORM_PARAMETERS: Final = (
+    ArtifactDerivationParameter(name="expression_input", value="raw.X"),
+)
 TMS_AORTA_SOURCE_SHA256: Final = (
     "0fbf73145f2b50f956b9946aa2fa17e5fce0e40ddfc5ba922a1d503d65ced3c3"
 )

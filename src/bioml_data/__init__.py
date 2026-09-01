@@ -14,6 +14,7 @@ from bioml_data._artifacts import (
     ArtifactCache,
     ArtifactCollisionError,
     ArtifactDerivation,
+    ArtifactDerivationParameter,
     ArtifactManifest,
     ArtifactReceipt,
     ArtifactRequest,
@@ -33,6 +34,16 @@ from bioml_data._dataset_downloads import (
     Sha256Provenance,
     download_dataset,
     get_dataset_download_pin,
+)
+from bioml_data._dataset_preparation import (
+    DatasetPreparationUnavailableError,
+    UnexpectedDatasetSourceError,
+    prepare_dataset,
+)
+from bioml_data._dataset_preparation_models import (
+    DatasetPreparationOutcome,
+    DatasetPreparationReceipt,
+    PreparedDatasetCacheError,
 )
 from bioml_data._domain import (
     CatalogKeyError,
@@ -128,6 +139,11 @@ from bioml_data.datasets._materialization_verification import (
     DatasetMaterializationLineageMismatchError,
     DatasetMaterializationProvenanceMismatchError,
 )
+from bioml_data.datasets.tms_aorta._adapter import UnlinkedTmsArtifactError
+from bioml_data.datasets.tms_aorta._h5ad_transform import (
+    InvalidRawTmsArtifactError,
+    RawTmsViolation,
+)
 from bioml_data.datasets.tms_aorta._protocols import tms_aorta_canary_protocol
 
 __version__: Final = version("bioml-data")
@@ -138,6 +154,7 @@ __all__ = [
     "ArtifactCache",
     "ArtifactCollisionError",
     "ArtifactDerivation",
+    "ArtifactDerivationParameter",
     "ArtifactHttpError",
     "ArtifactLineageReceipt",
     "ArtifactLineageRequiredError",
@@ -160,6 +177,9 @@ __all__ = [
     "DatasetLifecycle",
     "DatasetMaterializationLineageMismatchError",
     "DatasetMaterializationProvenanceMismatchError",
+    "DatasetPreparationOutcome",
+    "DatasetPreparationReceipt",
+    "DatasetPreparationUnavailableError",
     "DatasetSnapshotIdentity",
     "DatasetVersionRequiredError",
     "EvaluationReceipt",
@@ -169,6 +189,7 @@ __all__ = [
     "HttpClientConfiguration",
     "IncompleteDownloadError",
     "InsecureArtifactUrlError",
+    "InvalidRawTmsArtifactError",
     "LabelRecord",
     "LeakageAuditReport",
     "LeakageAuditRequest",
@@ -178,6 +199,7 @@ __all__ = [
     "PreparationProtocol",
     "PreparationRequest",
     "PreparedBenchmarkReceipt",
+    "PreparedDatasetCacheError",
     "ProviderAcquisitionReceipt",
     "ProviderAcquisitionTarget",
     "ProviderAdapter",
@@ -190,6 +212,7 @@ __all__ = [
     "ProviderReceiptIntegrityMismatchError",
     "ProviderReceiptMismatchError",
     "ProviderTargetMismatchError",
+    "RawTmsViolation",
     "ResolvedProviderArtifact",
     "ScientificArtifactIdentity",
     "Sha256Provenance",
@@ -210,10 +233,12 @@ __all__ = [
     "SplitProtocolRole",
     "SupportedSplitCapability",
     "TaskDefinition",
+    "UnexpectedDatasetSourceError",
     "UnknownDatasetError",
     "UnknownDatasetVersionError",
     "UnknownSplitCapability",
     "UnknownTaskError",
+    "UnlinkedTmsArtifactError",
     "UnsupportedSplitCapability",
     "UnsupportedSplitProtocolError",
     "VerifiedArtifactChangedError",
@@ -232,6 +257,7 @@ __all__ = [
     "load_artifact_receipt",
     "load_dataset",
     "prepare_benchmark",
+    "prepare_dataset",
     "prepare_train_independent",
     "query_split_capability",
     "run_tms_aorta_canary",

@@ -103,9 +103,10 @@ adapter, product-defined animal-held-out split, preparation lifecycle, leakage
 audit, and evaluation receipt are executable for an explicitly pinned processed
 artifact. Public retrieval is pinned to an exact upstream file with its official
 byte size and MD5 plus a project-verified SHA-256. The catalog entry remains
-`planned` because adapting that upstream H5AD into the canonical
-`tms-aorta-csr-v1` artifact is not yet connected to the complete benchmark
-lifecycle.
+`planned`, but the acquisition-to-canonical boundary is now executable:
+`prepare_dataset()` accepts only that pinned source receipt, selects `raw.X`
+under `tms-aorta-csr-v1`, records the choice as a derivation parameter, and
+produces the artifact consumed by the complete canary lifecycle.
 
 The implementation order after the common contracts is artifact provenance,
 dataset-specific split capabilities, the TMS Aorta adapter, train-fitted

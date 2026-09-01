@@ -8,6 +8,7 @@ from pathlib import Path
 from bioml_data._artifacts import (
     ArtifactCache,
     ArtifactDerivation,
+    ArtifactDerivationParameter,
     ArtifactId,
     ArtifactManifest,
     ArtifactReceipt,
@@ -114,6 +115,7 @@ def make_tms_artifact(
                 "cell_id": observation.cell_id,
                 "mouse.id": observation.donor_id,
                 "method": observation.assay,
+                "assay": observation.assay,
                 "tissue": observation.tissue,
                 "cell_ontology_class": observation.cell_type,
             }
@@ -141,6 +143,12 @@ def make_tms_artifact(
     derivation = ArtifactDerivation(
         parent_artifacts=parent_artifacts,
         transform_protocol=TransformProtocolId("tms-aorta-csr-v1"),
+        parameters=(
+            ArtifactDerivationParameter(
+                name="expression_input",
+                value="raw.X",
+            ),
+        ),
     )
     return cache.store(
         _artifact_request(processed_content, "tms-aorta-fixture.json", derivation),

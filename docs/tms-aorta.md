@@ -7,22 +7,51 @@ the protocol system. The snapshot identity is
 `tms-aorta@figshare-project-64982`, and the task is
 `cell-type-annotation-v1` at the cell prediction unit.
 
-The adapter consumes a sparse, processed interchange artifact with schema
+The adapter consumes a sparse, count-valued interchange artifact with schema
 `tms-aorta-csr-v1`. That artifact must be content-addressed and linked to its raw
-parent through the same transform-protocol identity. CI constructs a small local
-artifact with this schema, so tests never require the large public download.
+parent through the same transform-protocol identity. `prepare_dataset()` now
+builds it deterministically from the pinned H5AD and reuses a verified transform
+for the same parent and protocol. CI constructs a small local H5AD, so tests
+never require the large public download.
 
 The catalog's benchmark lifecycle remains `planned`: download support is now
 pinned to Figshare article `12654728` v1, file `23872460`, with the official
 44,547,302-byte size and MD5. The package also records a project-computed
 SHA-256 whose bytes were independently checked against that official size and
 MD5; it does not present the SHA-256 as published by Figshare. Resolving the
-upstream H5AD is separate from adapting it into the package's canonical schema
-and running the complete benchmark lifecycle. See [dataset downloads and local
+upstream H5AD is separate from running the complete benchmark lifecycle. See [dataset downloads and local
 cache](downloads.md) for the exact pin and reuse behavior, and the
 [upstream artifact audit](tms-aorta-artifact-audit.md) for the observed H5AD
-schema, lineage confidence, and rights boundary that constrain the future
-transform.
+schema, lineage confidence, and rights boundary that constrain the transform.
+
+## Canonical transform
+
+`tms-aorta-csr-v1` reads integer-valued `raw.X`, not processed `X`. This matches
+the current preparation contract, which performs its own versioned normalization
+and train-only feature selection. Using already processed `X` would silently
+inherit an upstream normalization choice before that protocol begins.
+
+The transform uses `obs_names` as observation identity, retains the distinct
+upstream `cell` value as source metadata, preserves `mouse.id`, `method`, tissue,
+class label, and the literal upstream ontology value, and never invents ontology
+mappings. Because this H5AD has no explicit assay or batch/library field, the
+canonical assay is absent and no batch is inferred from identifiers. `method`
+remains source provenance rather than being promoted to an evidenced assay ID.
+
+The prepared artifact records the raw artifact as its parent and
+`tms-aorta-csr-v1` as its transform protocol. Its immutable derivation parameters
+record `expression_input=raw.X`; an artifact with missing or different parameters
+is not accepted as this canonical schema. A locator keyed by parent SHA-256
+and protocol avoids reopening the H5AD when verified output already exists.
+Corrupt locators or prepared artifacts fail visibly instead of being replaced.
+
+The public preparation route accepts only the exact pinned Figshare receipt:
+source URI, accession, release, filename, byte size, SHA-256, and absence of an
+upstream derivation must all match. The pinned hash is checked before H5AD
+loading. The transform then enforces the exact 906 × 22,966 shape and bounded
+nonzero-count, metadata-string, and serialized-output sizes. H5AD parsing uses a
+private copy whose bytes are reverified during a no-follow read, preventing the
+final parser open from following a swapped cache path.
 
 ## Split protocol
 

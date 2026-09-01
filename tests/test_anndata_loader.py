@@ -16,7 +16,7 @@ def test_load_anndata_opens_verified_h5ad(tmp_path: Path) -> None:
     dataset = bio.load_anndata(receipt)
 
     # Then: the real H5AD is available through the public API.
-    assert dataset.shape == (4, 3)
+    assert dataset.shape == (6, 3)
 
 
 def test_load_anndata_rejects_content_changed_after_receipt(tmp_path: Path) -> None:

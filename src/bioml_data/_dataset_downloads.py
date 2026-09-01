@@ -83,22 +83,7 @@ class _FigshareHttpAdapter:
 
     @property
     def target(self) -> ProviderAcquisitionTarget:
-        return ProviderAcquisitionTarget(
-            scientific_identity=ScientificArtifactIdentity(
-                dataset=self.pin.dataset,
-                artifact_id=ArtifactId(f"sha256:{self.pin.sha256}"),
-                transform_protocol=None,
-            ),
-            artifact_expectation=ProviderArtifactExpectation(
-                logical_name=self.pin.filename,
-                source_uri=self.pin.source_uri,
-                accession=f"figshare-file-{self.pin.file_id}",
-                release=self.pin.release,
-                byte_size=self.pin.byte_size,
-                sha256=self.pin.sha256,
-                derivation=None,
-            ),
-        )
+        return provider_target_for_pin(self.pin)
 
     def acquire(self, *, data_dir: Path) -> DatasetDownloadReceipt:
         return _download_figshare_pin(
@@ -189,6 +174,26 @@ def download_pinned_dataset(
     return acquire_provider_artifact(adapter.target, adapter, data_dir=data_dir).receipt
 
 
+def provider_target_for_pin(pin: DatasetDownloadPin) -> ProviderAcquisitionTarget:
+    """Build the exact provider and scientific identity for one download pin."""
+    return ProviderAcquisitionTarget(
+        scientific_identity=ScientificArtifactIdentity(
+            dataset=pin.dataset,
+            artifact_id=ArtifactId(f"sha256:{pin.sha256}"),
+            transform_protocol=None,
+        ),
+        artifact_expectation=ProviderArtifactExpectation(
+            logical_name=pin.filename,
+            source_uri=pin.source_uri,
+            accession=f"figshare-file-{pin.file_id}",
+            release=pin.release,
+            byte_size=pin.byte_size,
+            sha256=pin.sha256,
+            derivation=None,
+        ),
+    )
+
+
 def _download_figshare_pin(
     pin: DatasetDownloadPin,
     *,
@@ -236,4 +241,5 @@ __all__ = [
     "download_dataset",
     "download_pinned_dataset",
     "get_dataset_download_pin",
+    "provider_target_for_pin",
 ]

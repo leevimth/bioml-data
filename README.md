@@ -195,19 +195,16 @@ from pathlib import Path
 
 import bioml_data as bio
 
-artifact = bio.load_artifact_receipt(
-    Path(".cache/sha256/ab/<full-sha256>/manifest.json")
+data_dir = Path(".cache/bioml-data")
+download = bio.download_dataset("tms-aorta", data_dir=data_dir)
+prepared = bio.prepare_dataset(
+    "tms-aorta",
+    artifact=download.artifact,
+    data_dir=data_dir,
 )
-source = bio.load_artifact_receipt(
-    Path(".cache/sha256/0f/<source-sha256>/manifest.json")
-)
-lineage = bio.ArtifactLineageReceipt(
-    artifact=artifact,
-    parent_artifacts=(source,),
-)
-dataset = bio.load_dataset("tms-aorta", artifact=lineage)
+dataset = bio.load_dataset("tms-aorta", artifact=prepared.lineage)
 receipt = bio.run_tms_aorta_canary(
-    artifact,
+    prepared.artifact,
     split_protocol="animal-held-out-v1",
     seed=17,
 )
@@ -223,9 +220,10 @@ The shared runner follows the lifecycle
 Run the same pipeline from the command line:
 
 ```bash
-FULL_SHA256="<full-sha256>"
+RAW_SHA256="0fbf73145f2b50f956b9946aa2fa17e5fce0e40ddfc5ba922a1d503d65ced3c3"
 uv run bioml-data \
-  --artifact-manifest ".cache/sha256/${FULL_SHA256:0:2}/$FULL_SHA256/manifest.json" \
+  --artifact-manifest ".cache/bioml-data/sha256/${RAW_SHA256:0:2}/$RAW_SHA256/manifest.json" \
+  --prepare-data-dir .cache/bioml-data \
   --split-protocol animal-held-out-v1 \
   --seed 17
 ```
@@ -248,13 +246,16 @@ Current acquisition is separate from `run_tms_aorta_canary`. The dataset-aware
 pin and content-addressed cache. The lower-level
 `download_artifact(HttpArtifactDownload(...))` path is for callers that already
 have an `ArtifactRequest`. Both yield a verified `ArtifactReceipt` (directly or
-as `DatasetDownloadReceipt.artifact`), but neither automatically feeds or calls
-the canary runner.
+as `DatasetDownloadReceipt.artifact`), and neither automatically calls the
+canary runner. `prepare_dataset()` explicitly converts that upstream receipt to
+the canonical artifact accepted by `load_dataset()` and the canary.
 
-The built-in TMS download is the upstream raw H5AD. It must still be versionedly
-adapted into the canonical `tms-aorta-csr-v1` artifact consumed by
-`run_tms_aorta_canary`; that upstream-H5AD-to-canonical step is the current
-integration gap. The pinned TMS SHA-256 is project-verified against the official
+The built-in TMS download is the upstream H5AD. The `tms-aorta-csr-v1`
+transform selects integer-valued `raw.X`, preserves the raw artifact as its
+parent, records `expression_input=raw.X` in its derivation parameters, leaves
+absent assay/batch metadata unknown, and validates the resulting canonical
+schema. Public preparation rejects receipts that do not match the complete
+built-in pin. The pinned TMS SHA-256 is project-verified against the official
 Figshare byte size and MD5, rather than supplied by an upstream SHA-256 manifest.
 This narrow acquisition path supports the provenance contract; it is not a
 commitment to build a generic transfer or caching framework. Future
@@ -262,8 +263,8 @@ provider-backed datasets should reuse their provider's acquisition capabilities
 while `bioml-data` records the resulting source and artifact identity.
 
 See [the TMS Aorta dataset and protocol contract](docs/tms-aorta.md) for the
-canary's exact role, split behavior, preparation parameters, audit coverage, and
-current upstream-H5AD-to-canonical adaptation gap.
+canary's exact role, transform behavior, split behavior, preparation parameters,
+and audit coverage.
 
 Literature evidence for [TMS protocol roles](docs/tms-literature-protocols.md)
 and the candidate [human pancreas cross-study annotation

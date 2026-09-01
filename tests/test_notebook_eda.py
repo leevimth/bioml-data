@@ -29,9 +29,12 @@ def test_tms_aorta_notebook_loads_fixture_and_writes_eda_artifacts(
     receipt = store_tms_aorta_h5ad(tmp_path / "cache", tmp_path / "source.h5ad")
     output_dir = tmp_path / "eda-output"
     monkeypatch.setenv("BIOML_ARTIFACT_MANIFEST", str(receipt.manifest_path))
+    monkeypatch.setenv("BIOML_DATA_DIR", str(tmp_path / "prepared-cache"))
+    monkeypatch.setenv("BIOML_EDA_RAW_ONLY", "1")
     monkeypatch.setenv("BIOML_EDA_OUTPUT_DIR", str(output_dir))
     monkeypatch.setenv("MPLBACKEND", "Agg")
     monkeypatch.setenv("IPYTHONDIR", str(tmp_path / "ipython"))
+    monkeypatch.setenv("PYTHONPATH", str(Path("src").resolve()))
     notebook_path = Path("examples/tms_aorta_eda.ipynb")
     executed_path = tmp_path / "executed.ipynb"
     jupyter = Path(sys.executable).with_name("jupyter")
@@ -56,9 +59,9 @@ def test_tms_aorta_notebook_loads_fixture_and_writes_eda_artifacts(
     summary = _NotebookSummary.model_validate_json(
         (output_dir / "summary.json").read_text(encoding="utf-8"),
     )
-    assert summary.cells == 4
+    assert summary.cells == 6
     assert summary.genes == 3
-    assert summary.donors == 2
-    assert summary.cell_types == 2
+    assert summary.donors == 5
+    assert summary.cell_types == 3
     assert summary.sparse
     assert (output_dir / "tms_aorta_eda.png").stat().st_size > 0
