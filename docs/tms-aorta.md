@@ -19,7 +19,10 @@ SHA-256 whose bytes were independently checked against that official size and
 MD5; it does not present the SHA-256 as published by Figshare. Resolving the
 upstream H5AD is separate from adapting it into the package's canonical schema
 and running the complete benchmark lifecycle. See [dataset downloads and local
-cache](downloads.md) for the exact pin and reuse behavior.
+cache](downloads.md) for the exact pin and reuse behavior, and the
+[upstream artifact audit](tms-aorta-artifact-audit.md) for the observed H5AD
+schema, lineage confidence, and rights boundary that constrain the future
+transform.
 
 ## Split protocol
 
