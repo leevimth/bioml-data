@@ -12,6 +12,7 @@ from bioml_data._artifacts import (
     TransformProtocolId,
 )
 from bioml_data._domain import DatasetSnapshotIdentity
+from bioml_data._url_security import redact_url
 
 ProviderId = NewType("ProviderId", str)
 
@@ -116,7 +117,9 @@ class ProviderTargetMismatchError(Exception):
 
     @override
     def __str__(self) -> str:
-        return f"provider target {self.actual!r} != requested {self.expected!r}"
+        actual = _redacted_target(self.actual)
+        expected = _redacted_target(self.expected)
+        return f"provider target {actual} != requested {expected}"
 
 
 @dataclass(frozen=True, slots=True)
@@ -164,7 +167,29 @@ class ProviderArtifactProvenanceMismatchError(Exception):
 
     @override
     def __str__(self) -> str:
-        return f"provider artifact provenance {self.actual!r} != {self.expected!r}"
+        actual = _redacted_expectation(self.actual)
+        expected = _redacted_expectation(self.expected)
+        return f"provider artifact provenance {actual} != {expected}"
+
+
+def _redacted_expectation(expectation: ProviderArtifactExpectation) -> str:
+    return (
+        "ProviderArtifactExpectation("
+        f"logical_name={expectation.logical_name!r}, "
+        f"source_uri={redact_url(expectation.source_uri)!r}, "
+        f"accession={expectation.accession!r}, release={expectation.release!r}, "
+        f"byte_size={expectation.byte_size!r}, sha256={expectation.sha256!r}, "
+        f"derivation={expectation.derivation!r})"
+    )
+
+
+def _redacted_target(target: ProviderAcquisitionTarget) -> str:
+    expectation = _redacted_expectation(target.artifact_expectation)
+    return (
+        "ProviderAcquisitionTarget("
+        f"scientific_identity={target.scientific_identity!r}, "
+        f"artifact_expectation={expectation})"
+    )
 
 
 def acquire_provider_artifact[ReceiptT: ProviderAcquisitionReceipt](
