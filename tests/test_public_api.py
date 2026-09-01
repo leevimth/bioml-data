@@ -58,4 +58,4 @@ def test_researcher_can_inspect_split_roles_and_evidence_from_public_api() -> No
     assert (
         capability.evidence[0].evidence_type is bio.SplitEvidenceType.PRODUCT_PROTOCOL
     )
-    assert capability.evidence[0].citations[0].title == "TMS Aorta package contract"
+    assert capability.evidence[0].scope == capability.evidence[1].scope

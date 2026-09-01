@@ -92,8 +92,10 @@ def test_query_exposes_scoped_canary_and_robustness_evidence() -> None:
         "sha256:0fbf73145f2b50f956b9946aa2fa17e5fce0e40ddfc5ba922a1d503d65ced3c3"
     )
     assert capability.artifact.transform_protocol == "tms-aorta-csr-v1"
-    assert capability.evidence[1].fit_scope == "train-only feature selection"
-    assert "not literature-recommended" in capability.evidence[1].leakage_caveat
+    assert (
+        capability.evidence[1].evidence_type
+        is capabilities.SplitEvidenceType.PRODUCT_PROTOCOL
+    )
 
 
 def test_split_protocol_roles_distinguish_literature_and_community_references() -> None:

@@ -24,6 +24,7 @@ from bioml_data.datasets.tms_aorta._definition import (
     TMS_AORTA_STUDY_ID,
 )
 from bioml_data.datasets.tms_aorta._identity import (
+    TMS_AORTA_ARTIFACT_SCOPE,
     TMS_AORTA_SNAPSHOT,
     TMS_AORTA_TRANSFORM_PROTOCOL,
 )
@@ -100,6 +101,11 @@ def load_tms_aorta(artifact: ArtifactReceipt) -> CanonicalSingleCellDataset:
             protocol=None,
         )
     if derivation.transform_protocol != TMS_AORTA_TRANSFORM_PROTOCOL:
+        raise UnlinkedTmsArtifactError(
+            artifact_id=artifact.artifact_id,
+            protocol=derivation.transform_protocol,
+        )
+    if TMS_AORTA_ARTIFACT_SCOPE.source_artifact not in derivation.parent_artifacts:
         raise UnlinkedTmsArtifactError(
             artifact_id=artifact.artifact_id,
             protocol=derivation.transform_protocol,

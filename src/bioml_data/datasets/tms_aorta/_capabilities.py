@@ -2,10 +2,8 @@
 
 from typing import Final
 
-from bioml_data._artifact_types import ArtifactId
 from bioml_data._domain import SplitProtocolRole
 from bioml_data._split_capability_models import (
-    SplitArtifactScope,
     SplitCapability,
     SplitEvidenceCitation,
     SplitEvidenceScope,
@@ -14,17 +12,11 @@ from bioml_data._split_capability_models import (
 )
 from bioml_data.datasets.tms_aorta._identity import (
     TMS_ANIMAL_HELD_OUT_PROTOCOL,
+    TMS_AORTA_ARTIFACT_SCOPE,
     TMS_AORTA_SNAPSHOT,
-    TMS_AORTA_TRANSFORM_PROTOCOL,
     TMS_CELL_TYPE_TASK,
 )
 
-TMS_AORTA_ARTIFACT_SCOPE: Final = SplitArtifactScope(
-    source_artifact=ArtifactId(
-        "sha256:0fbf73145f2b50f956b9946aa2fa17e5fce0e40ddfc5ba922a1d503d65ced3c3"
-    ),
-    transform_protocol=TMS_AORTA_TRANSFORM_PROTOCOL,
-)
 TMS_ANIMAL_HELD_OUT_EVIDENCE_SCOPE: Final = SplitEvidenceScope(
     dataset=TMS_AORTA_SNAPSHOT,
     artifact=TMS_AORTA_ARTIFACT_SCOPE,
@@ -33,7 +25,7 @@ TMS_ANIMAL_HELD_OUT_EVIDENCE_SCOPE: Final = SplitEvidenceScope(
 )
 TMS_PACKAGE_CONTRACT_CITATION: Final = SplitEvidenceCitation(
     title="TMS Aorta package contract",
-    uri="docs/tms-aorta.md",
+    uri="https://github.com/leevimth/bioml-data/blob/main/docs/tms-aorta.md",
 )
 
 TMS_ANIMAL_HELD_OUT_CAPABILITY: Final = SplitCapability(

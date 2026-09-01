@@ -2,8 +2,9 @@
 
 from dataclasses import dataclass
 from typing import override
+from urllib.parse import urlsplit
 
-from bioml_data._artifacts import ArtifactManifest, ArtifactReceipt
+from bioml_data._artifacts import ArtifactDerivation, ArtifactManifest, ArtifactReceipt
 from bioml_data._domain import (
     DatasetName,
     DatasetSnapshotIdentity,
@@ -12,6 +13,10 @@ from bioml_data._domain import (
     UnknownDatasetVersionError,
     parse_dataset_name,
     parse_dataset_version,
+)
+from bioml_data._split_capability_models import (
+    SplitArtifactScope,
+    SplitEvidenceCitation,
 )
 from bioml_data.datasets._capability_index import publish_registry_capabilities
 from bioml_data.datasets._models import (
@@ -66,6 +71,18 @@ class DatasetMaterializationArtifactMismatchError(Exception):
     @override
     def __str__(self) -> str:
         return "materialization artifact manifest differs from its input"
+
+
+@dataclass(frozen=True, slots=True)
+class DatasetMaterializationProvenanceMismatchError(Exception):
+    """Raised when a materialized artifact leaves its registered lineage."""
+
+    expected: SplitArtifactScope
+    actual: ArtifactDerivation | None
+
+    @override
+    def __str__(self) -> str:
+        return "materialization derivation differs from its registered artifact scope"
 
 
 @dataclass(frozen=True, slots=True)
@@ -132,6 +149,17 @@ class DatasetRegistry:
     ) -> DatasetMaterialization:
         """Dispatch an artifact through the adapter owned by its registration."""
         registration = self.resolve(name, version=version)
+        scope = registration.artifact_scope
+        derivation = artifact.manifest.derivation
+        if scope is not None and (
+            derivation is None
+            or derivation.transform_protocol != scope.transform_protocol
+            or scope.source_artifact not in derivation.parent_artifacts
+        ):
+            raise DatasetMaterializationProvenanceMismatchError(
+                expected=scope,
+                actual=derivation,
+            )
         result = registration.materialize(artifact)
         expected_snapshot = registration.definition.snapshot
         if result.snapshot != expected_snapshot:
@@ -204,6 +232,7 @@ def _validate_registration(registration: DatasetRegistration) -> None:
         evidence_roles = tuple(evidence.role for evidence in capability.evidence)
         coherent = (
             capability.dataset == definition.snapshot
+            and capability.artifact == registration.artifact_scope
             and capability.task in task_ids
             and capability.role == split_definition.role
             and capability.required_columns == split_definition.required_metadata
@@ -213,6 +242,17 @@ def _validate_registration(registration: DatasetRegistration) -> None:
             and capability.role in evidence_roles
             and len(set(evidence_roles)) == len(evidence_roles)
             and all(evidence.citations for evidence in capability.evidence)
+            and all(
+                evidence.fit_scope == evidence.fit_scope.strip()
+                and bool(evidence.fit_scope)
+                and evidence.leakage_caveat == evidence.leakage_caveat.strip()
+                and bool(evidence.leakage_caveat)
+                and all(
+                    _valid_evidence_citation(citation)
+                    for citation in evidence.citations
+                )
+                for evidence in capability.evidence
+            )
             and capability.evidence_type == capability.evidence[0].evidence_type
         )
         if not coherent:
@@ -220,6 +260,18 @@ def _validate_registration(registration: DatasetRegistration) -> None:
                 snapshot=definition.snapshot,
                 detail=f"contract mismatch for {capability.protocol!r}",
             )
+
+
+def _valid_evidence_citation(citation: SplitEvidenceCitation) -> bool:
+    parsed = urlsplit(citation.uri)
+    return (
+        citation.title == citation.title.strip()
+        and bool(citation.title)
+        and citation.uri == citation.uri.strip()
+        and not any(character.isspace() for character in citation.uri)
+        and parsed.scheme == "https"
+        and bool(parsed.netloc)
+    )
 
 
 DATASET_REGISTRY = DatasetRegistry(registrations=(TMS_AORTA_REGISTRATION,))

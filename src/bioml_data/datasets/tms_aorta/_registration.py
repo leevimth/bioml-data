@@ -6,9 +6,11 @@ from bioml_data.datasets.tms_aorta._capabilities import (
     TMS_ANIMAL_HELD_OUT_CAPABILITY,
 )
 from bioml_data.datasets.tms_aorta._definition import TMS_AORTA_DEFINITION
+from bioml_data.datasets.tms_aorta._identity import TMS_AORTA_ARTIFACT_SCOPE
 
 TMS_AORTA_REGISTRATION = DatasetRegistration(
     definition=TMS_AORTA_DEFINITION,
     materialize=load_tms_aorta,
     split_capabilities=(TMS_ANIMAL_HELD_OUT_CAPABILITY,),
+    artifact_scope=TMS_AORTA_ARTIFACT_SCOPE,
 )

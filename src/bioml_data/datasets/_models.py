@@ -6,7 +6,7 @@ from typing import Protocol
 
 from bioml_data._artifacts import ArtifactManifest, ArtifactReceipt
 from bioml_data._domain import DatasetDefinition, DatasetSnapshotIdentity
-from bioml_data._split_capability_models import SplitCapability
+from bioml_data._split_capability_models import SplitArtifactScope, SplitCapability
 
 
 class DatasetMaterialization(Protocol):
@@ -33,3 +33,4 @@ class DatasetRegistration:
     definition: DatasetDefinition
     materialize: DatasetAdapter
     split_capabilities: tuple[SplitCapability, ...]
+    artifact_scope: SplitArtifactScope | None = None
