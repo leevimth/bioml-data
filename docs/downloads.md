@@ -62,5 +62,9 @@ The Figshare-native receipt retains its complete pin and provider descriptor.
 The provider-neutral identity and extension contract are documented in
 [`provider-adapters.md`](provider-adapters.md).
 
+The [upstream artifact audit](tms-aorta-artifact-audit.md) records the verified
+Figshare child-record lineage, real H5AD schema and cardinalities, split-relevant
+dependencies, and the remaining redistribution-rights boundary.
+
 For a researcher-facing verified load and compact Scanpy EDA workflow, see
 [`notebook-eda.md`](notebook-eda.md) and `examples/tms_aorta_eda.ipynb`.
