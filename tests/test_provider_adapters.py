@@ -14,6 +14,7 @@ from tests._provider_adapter_fixtures import (
     FigshareReceipt,
     HubReceipt,
     make_artifact,
+    provider_target,
 )
 
 
@@ -58,22 +59,24 @@ def test_two_provider_receipts_share_scientific_identity_without_losing_provenan
         artifact_id=figshare_receipt.artifact.artifact_id,
         transform_protocol=TransformProtocolId("canonical-single-cell-v1"),
     )
+    figshare_target = provider_target(expected, figshare_receipt.artifact)
+    hub_target = provider_target(expected, hub_receipt.artifact)
 
     # When: each explicit adapter resolves its provider-native receipt.
     first = bio.acquire_provider_artifact(
-        expected,
+        figshare_target,
         FakeAdapter(
             descriptor=figshare,
-            scientific_identity=expected,
+            target=figshare_target,
             receipt=figshare_receipt,
         ),
         data_dir=tmp_path / "research-cache",
     )
     second = bio.acquire_provider_artifact(
-        expected,
+        hub_target,
         FakeAdapter(
             descriptor=hub,
-            scientific_identity=expected,
+            target=hub_target,
             receipt=hub_receipt,
         ),
         data_dir=tmp_path / "research-cache",
@@ -119,14 +122,15 @@ def test_adapter_rejects_a_receipt_claiming_another_provider(tmp_path: Path) -> 
         artifact_id=receipt.artifact.artifact_id,
         transform_protocol=TransformProtocolId("canonical-single-cell-v1"),
     )
+    target = provider_target(expected, receipt.artifact)
 
     # When: the inconsistent receipt crosses the provider boundary.
     with pytest.raises(bio.ProviderReceiptMismatchError):
         _ = bio.acquire_provider_artifact(
-            expected,
+            target,
             FakeAdapter(
                 descriptor=adapter_provider,
-                scientific_identity=expected,
+                target=target,
                 receipt=receipt,
             ),
             data_dir=tmp_path / "research-cache",

@@ -6,10 +6,14 @@ experiment used. These identities stay separate so an equivalent canonical
 artifact can move between providers without changing its scientific settings.
 
 Each adapter is passed explicitly to `acquire_provider_artifact` together with
-the expected `ScientificArtifactIdentity`; the package does not discover plugins
-at runtime. The boundary requires the adapter to declare the same dataset,
-content address, and transform protocol, then verifies the returned receipt
-against that target. An adapter exposes a static `ProviderDescriptor` and
+a caller-owned `ProviderAcquisitionTarget`; the package does not discover plugins
+at runtime. The target binds the scientific dataset, content address, and
+transform protocol to exact provider-native request metadata. The receipt is
+reopened through the canonical artifact
+loader, which streams the blob and verifies its checksum, byte size, manifest
+layout, and manifest-to-blob relationship. The verified manifest must also
+remain under the caller-selected cache root and match the adapter's immutable
+native request metadata. An adapter exposes a static `ProviderDescriptor` and
 returns its own native receipt type. Native fields such as a Figshare article ID
 or a provider object key remain available on that receipt rather than being
 collapsed into a lowest-common-denominator mapping.

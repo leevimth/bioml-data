@@ -5,25 +5,26 @@ from pathlib import Path
 import pytest
 
 import bioml_data as bio
-from bioml_data._artifacts import ArtifactId, TransformProtocolId
+from bioml_data._artifacts import TransformProtocolId
 from bioml_data._domain import DatasetName, DatasetVersion
 from tests._provider_adapter_fixtures import (
     FakeAdapter,
     FigshareReceipt,
     make_artifact,
+    provider_target,
 )
 
 
 @pytest.mark.parametrize(
-    ("digest", "transform_protocol"),
+    ("content", "transform_protocol"),
     [
-        ("c" * 64, "canonical-single-cell-v1"),
-        ("a" * 64, "other-transform-v1"),
+        (b"unexpected fixture", "canonical-single-cell-v1"),
+        (b"expected fixture", "other-transform-v1"),
     ],
 )
 def test_adapter_rejects_wrong_artifact_identity_from_same_provider(
     tmp_path: Path,
-    digest: str,
+    content: bytes,
     transform_protocol: str,
 ) -> None:
     # Given: a correctly named provider returns bytes outside its requested target.
@@ -32,12 +33,18 @@ def test_adapter_rejects_wrong_artifact_identity_from_same_provider(
         adapter_version="v1",
         optional_dependency=None,
     )
+    expected_artifact = make_artifact(
+        tmp_path,
+        source_uri="https://figshare.example/file/expected",
+        accession="figshare-file-expected",
+        content=b"expected fixture",
+    )
     expected = bio.ScientificArtifactIdentity(
         dataset=bio.DatasetSnapshotIdentity(
             name=DatasetName("single-cell-fixture"),
             version=DatasetVersion("v1"),
         ),
-        artifact_id=ArtifactId("sha256:" + "a" * 64),
+        artifact_id=expected_artifact.artifact_id,
         transform_protocol=TransformProtocolId("canonical-single-cell-v1"),
     )
     receipt = FigshareReceipt(
@@ -46,25 +53,26 @@ def test_adapter_rejects_wrong_artifact_identity_from_same_provider(
             tmp_path,
             source_uri="https://figshare.example/file/2",
             accession="figshare-file-2",
-            digest=digest,
+            content=content,
             transform_protocol=transform_protocol,
         ),
         article_id="article-2",
     )
 
     # When: the same-descriptor adapter resolves the unexpected content.
-    with pytest.raises(bio.ProviderArtifactIdentityMismatchError):
+    target = provider_target(expected, expected_artifact)
+    with pytest.raises(bio.ProviderArtifactProvenanceMismatchError):
         _ = bio.acquire_provider_artifact(
-            expected,
+            target,
             FakeAdapter(
                 descriptor=provider,
-                scientific_identity=expected,
+                target=target,
                 receipt=receipt,
             ),
             data_dir=tmp_path / "research-cache",
         )
 
-    # Then: provider naming cannot substitute for verified artifact identity.
+    # Then: provider naming cannot substitute for verified artifact metadata.
 
 
 def test_adapter_rejects_a_binding_for_another_dataset(tmp_path: Path) -> None:
@@ -99,14 +107,16 @@ def test_adapter_rejects_a_binding_for_another_dataset(tmp_path: Path) -> None:
         artifact_id=receipt.artifact.artifact_id,
         transform_protocol=TransformProtocolId("canonical-single-cell-v1"),
     )
+    requested_binding = provider_target(requested, receipt.artifact)
+    adapter_binding = provider_target(adapter_target, receipt.artifact)
 
     # When: the mismatched adapter binding is presented for acquisition.
     with pytest.raises(bio.ProviderTargetMismatchError):
         _ = bio.acquire_provider_artifact(
-            requested,
+            requested_binding,
             FakeAdapter(
                 descriptor=provider,
-                scientific_identity=adapter_target,
+                target=adapter_binding,
                 receipt=receipt,
             ),
             data_dir=tmp_path / "research-cache",

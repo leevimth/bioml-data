@@ -19,7 +19,9 @@ from bioml_data._dataset_download_models import DatasetDownloadPin, Sha256Proven
 from bioml_data._domain import DatasetSnapshotIdentity
 from bioml_data._http_artifacts import HttpArtifactDownload, download_artifact
 from bioml_data._provider_adapters import (
+    ProviderAcquisitionTarget,
     ProviderAdapter,
+    ProviderArtifactExpectation,
     ProviderDescriptor,
     ProviderId,
     ScientificArtifactIdentity,
@@ -72,27 +74,33 @@ class DatasetDownloadReceipt:
 
 @dataclass(frozen=True, slots=True)
 class _FigshareHttpAdapter:
-    """Current verified HTTP acquisition path behind the provider boundary."""
-
     pin: DatasetDownloadPin
     transport: httpx2.BaseTransport | None
 
     @property
     def descriptor(self) -> ProviderDescriptor:
-        """Return the static Figshare provider descriptor."""
         return FIGSHARE_PROVIDER
 
     @property
-    def scientific_identity(self) -> ScientificArtifactIdentity:
-        """Return the exact verified raw artifact bound by the native pin."""
-        return ScientificArtifactIdentity(
-            dataset=self.pin.dataset,
-            artifact_id=ArtifactId(f"sha256:{self.pin.sha256}"),
-            transform_protocol=None,
+    def target(self) -> ProviderAcquisitionTarget:
+        return ProviderAcquisitionTarget(
+            scientific_identity=ScientificArtifactIdentity(
+                dataset=self.pin.dataset,
+                artifact_id=ArtifactId(f"sha256:{self.pin.sha256}"),
+                transform_protocol=None,
+            ),
+            artifact_expectation=ProviderArtifactExpectation(
+                logical_name=self.pin.filename,
+                source_uri=self.pin.source_uri,
+                accession=f"figshare-file-{self.pin.file_id}",
+                release=self.pin.release,
+                byte_size=self.pin.byte_size,
+                sha256=self.pin.sha256,
+                derivation=None,
+            ),
         )
 
     def acquire(self, *, data_dir: Path) -> DatasetDownloadReceipt:
-        """Acquire the adapter's exact Figshare pin."""
         return _download_figshare_pin(
             self.pin,
             data_dir=data_dir,
@@ -178,11 +186,7 @@ def download_pinned_dataset(
         pin=pin,
         transport=transport,
     )
-    return acquire_provider_artifact(
-        adapter.scientific_identity,
-        adapter,
-        data_dir=data_dir,
-    ).receipt
+    return acquire_provider_artifact(adapter.target, adapter, data_dir=data_dir).receipt
 
 
 def _download_figshare_pin(
