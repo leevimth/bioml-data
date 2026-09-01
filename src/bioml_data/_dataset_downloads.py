@@ -9,7 +9,12 @@ from typing import Final, final, override
 
 import httpx2
 
-from bioml_data._artifacts import ArtifactCache, ArtifactReceipt, ArtifactRequest
+from bioml_data._artifacts import (
+    ArtifactCache,
+    ArtifactId,
+    ArtifactReceipt,
+    ArtifactRequest,
+)
 from bioml_data._dataset_download_models import DatasetDownloadPin, Sha256Provenance
 from bioml_data._domain import DatasetSnapshotIdentity
 from bioml_data._http_artifacts import HttpArtifactDownload, download_artifact
@@ -17,6 +22,7 @@ from bioml_data._provider_adapters import (
     ProviderAdapter,
     ProviderDescriptor,
     ProviderId,
+    ScientificArtifactIdentity,
     acquire_provider_artifact,
 )
 from bioml_data.datasets._registry import DATASET_REGISTRY
@@ -40,15 +46,17 @@ class DatasetDownloadOutcome(StrEnum):
 
 @dataclass(frozen=True, slots=True)
 class DatasetDownloadReceipt:
-    """Provider-native Figshare receipt for the compatibility download path."""
+    """Download outcome with provider-native provenance when acquired here."""
 
     artifact: ArtifactReceipt
     outcome: DatasetDownloadOutcome
-    pin: DatasetDownloadPin
+    pin: DatasetDownloadPin | None = None
 
     @property
     def provider(self) -> ProviderDescriptor:
         """Return the provider that produced this native receipt."""
+        if self.pin is None:
+            raise DatasetDownloadProvenanceUnavailableError
         return FIGSHARE_PROVIDER
 
     @property
@@ -74,6 +82,15 @@ class _FigshareHttpAdapter:
         """Return the static Figshare provider descriptor."""
         return FIGSHARE_PROVIDER
 
+    @property
+    def scientific_identity(self) -> ScientificArtifactIdentity:
+        """Return the exact verified raw artifact bound by the native pin."""
+        return ScientificArtifactIdentity(
+            dataset=self.pin.dataset,
+            artifact_id=ArtifactId(f"sha256:{self.pin.sha256}"),
+            transform_protocol=None,
+        )
+
     def acquire(self, *, data_dir: Path) -> DatasetDownloadReceipt:
         """Acquire the adapter's exact Figshare pin."""
         return _download_figshare_pin(
@@ -81,6 +98,15 @@ class _FigshareHttpAdapter:
             data_dir=data_dir,
             transport=self.transport,
         )
+
+
+@final
+class DatasetDownloadProvenanceUnavailableError(Exception):
+    """Raised when a legacy receipt has no provider-native provenance."""
+
+    @override
+    def __str__(self) -> str:
+        return "dataset download receipt has no provider-native provenance"
 
 
 @final
@@ -153,7 +179,7 @@ def download_pinned_dataset(
         transport=transport,
     )
     return acquire_provider_artifact(
-        pin.dataset,
+        adapter.scientific_identity,
         adapter,
         data_dir=data_dir,
     ).receipt
@@ -198,6 +224,7 @@ __all__ = [
     "FIGSHARE_PROVIDER",
     "DatasetDownloadOutcome",
     "DatasetDownloadPin",
+    "DatasetDownloadProvenanceUnavailableError",
     "DatasetDownloadReceipt",
     "DatasetDownloadUnavailableError",
     "DuplicateDatasetDownloadPinError",

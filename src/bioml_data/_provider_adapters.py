@@ -19,6 +19,15 @@ class ProviderDescriptor:
     optional_dependency: str | None
 
 
+@dataclass(frozen=True, slots=True)
+class ScientificArtifactIdentity:
+    """Provider-neutral identity consumed by scientific protocol layers."""
+
+    dataset: DatasetSnapshotIdentity
+    artifact_id: ArtifactId
+    transform_protocol: TransformProtocolId | None
+
+
 class ProviderAcquisitionReceipt(Protocol):
     """Common surface implemented by provider-native receipt types."""
 
@@ -41,18 +50,14 @@ class ProviderAdapter[ReceiptT: ProviderAcquisitionReceipt](Protocol):
         """Return this adapter's static provider descriptor."""
         ...
 
+    @property
+    def scientific_identity(self) -> ScientificArtifactIdentity:
+        """Return the exact dataset and verified artifact this adapter serves."""
+        ...
+
     def acquire(self, *, data_dir: Path) -> ReceiptT:
         """Acquire one pinned provider resource into a caller-owned directory."""
         ...
-
-
-@dataclass(frozen=True, slots=True)
-class ScientificArtifactIdentity:
-    """Provider-neutral identity consumed by scientific protocol layers."""
-
-    dataset: DatasetSnapshotIdentity
-    artifact_id: ArtifactId
-    transform_protocol: TransformProtocolId | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -75,13 +80,43 @@ class ProviderReceiptMismatchError(Exception):
         return f"provider receipt {self.actual!r} != adapter {self.expected!r}"
 
 
+@dataclass(frozen=True, slots=True)
+class ProviderTargetMismatchError(Exception):
+    """Raised when an adapter is bound to another scientific target."""
+
+    expected: ScientificArtifactIdentity
+    actual: ScientificArtifactIdentity
+
+    @override
+    def __str__(self) -> str:
+        return f"provider target {self.actual!r} != requested {self.expected!r}"
+
+
+@dataclass(frozen=True, slots=True)
+class ProviderArtifactIdentityMismatchError(Exception):
+    """Raised when acquired bytes do not match the verified target."""
+
+    expected: ScientificArtifactIdentity
+    actual: ScientificArtifactIdentity
+
+    @override
+    def __str__(self) -> str:
+        return f"provider artifact {self.actual!r} != requested {self.expected!r}"
+
+
 def acquire_provider_artifact[ReceiptT: ProviderAcquisitionReceipt](
-    dataset: DatasetSnapshotIdentity,
+    expected: ScientificArtifactIdentity,
     adapter: ProviderAdapter[ReceiptT],
     *,
     data_dir: Path,
 ) -> ResolvedProviderArtifact[ReceiptT]:
     """Acquire through one explicit adapter and expose both identity layers."""
+    adapter_target = adapter.scientific_identity
+    if adapter_target != expected:
+        raise ProviderTargetMismatchError(
+            expected=expected,
+            actual=adapter_target,
+        )
     receipt = adapter.acquire(data_dir=data_dir)
     if receipt.provider != adapter.descriptor:
         raise ProviderReceiptMismatchError(
@@ -90,12 +125,18 @@ def acquire_provider_artifact[ReceiptT: ProviderAcquisitionReceipt](
         )
     derivation = receipt.artifact.manifest.derivation
     transform_protocol = None if derivation is None else derivation.transform_protocol
+    actual = ScientificArtifactIdentity(
+        dataset=expected.dataset,
+        artifact_id=receipt.artifact.artifact_id,
+        transform_protocol=transform_protocol,
+    )
+    if actual != expected:
+        raise ProviderArtifactIdentityMismatchError(
+            expected=expected,
+            actual=actual,
+        )
     return ResolvedProviderArtifact(
-        identity=ScientificArtifactIdentity(
-            dataset=dataset,
-            artifact_id=receipt.artifact.artifact_id,
-            transform_protocol=transform_protocol,
-        ),
+        identity=expected,
         receipt=receipt,
     )
 
@@ -103,9 +144,11 @@ def acquire_provider_artifact[ReceiptT: ProviderAcquisitionReceipt](
 __all__ = [
     "ProviderAcquisitionReceipt",
     "ProviderAdapter",
+    "ProviderArtifactIdentityMismatchError",
     "ProviderDescriptor",
     "ProviderId",
     "ProviderReceiptMismatchError",
+    "ProviderTargetMismatchError",
     "ResolvedProviderArtifact",
     "ScientificArtifactIdentity",
     "acquire_provider_artifact",
