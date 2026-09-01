@@ -27,6 +27,7 @@ from bioml_data._domain import (
     SourceUri,
 )
 from bioml_data._split_capability_models import SplitArtifactScope
+from bioml_data._verified_artifact import VerifiedArtifactInput
 from bioml_data.datasets._materialization_verification import (
     DatasetMaterializationArtifactMismatchError,
     DatasetMaterializationSnapshotMismatchError,
@@ -69,7 +70,7 @@ def test_materialize_rejects_snapshot_mismatch(tmp_path: Path) -> None:
         version=DatasetVersion("v1"),
     )
 
-    def materialize(receipt: ArtifactReceipt) -> _FakeMaterialization:
+    def materialize(receipt: VerifiedArtifactInput) -> _FakeMaterialization:
         return _FakeMaterialization(
             snapshot=wrong_snapshot,
             artifact=receipt.manifest,
@@ -99,7 +100,7 @@ def test_materialize_rejects_artifact_manifest_mismatch(tmp_path: Path) -> None:
         update={"artifact_id": ArtifactId("sha256:" + "2" * 64)}
     )
 
-    def materialize(_receipt: ArtifactReceipt) -> _FakeMaterialization:
+    def materialize(_receipt: VerifiedArtifactInput) -> _FakeMaterialization:
         return _FakeMaterialization(
             snapshot=TMS_AORTA_REGISTRATION.definition.snapshot,
             artifact=wrong_manifest,
@@ -138,9 +139,9 @@ def test_registry_dispatches_a_second_dataset_without_tms_branching(
         supported_splits=(),
     )
     artifact = _artifact(tmp_path)
-    consumed: list[ArtifactReceipt] = []
+    consumed: list[VerifiedArtifactInput] = []
 
-    def materialize(receipt: ArtifactReceipt) -> _FakeMaterialization:
+    def materialize(receipt: VerifiedArtifactInput) -> _FakeMaterialization:
         consumed.append(receipt)
         return _FakeMaterialization(snapshot=snapshot, artifact=receipt.manifest)
 
@@ -162,7 +163,6 @@ def test_registry_dispatches_a_second_dataset_without_tms_branching(
     assert result.snapshot == snapshot
     assert result.artifact == artifact.manifest
     assert tuple(receipt.manifest for receipt in consumed) == (artifact.manifest,)
-    assert consumed[0].content_path != artifact.content_path
 
 
 def test_materialize_verifies_parent_receipt_bytes_before_dispatch(
@@ -179,7 +179,7 @@ def test_materialize_verifies_parent_receipt_bytes_before_dispatch(
         ),
     )
 
-    def materialize(receipt: ArtifactReceipt) -> _FakeMaterialization:
+    def materialize(receipt: VerifiedArtifactInput) -> _FakeMaterialization:
         return _FakeMaterialization(
             snapshot=TMS_AORTA_REGISTRATION.definition.snapshot,
             artifact=receipt.manifest,

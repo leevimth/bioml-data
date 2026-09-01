@@ -17,6 +17,7 @@ from bioml_data._artifacts import (
     TransformProtocolId,
 )
 from bioml_data._domain import DatasetSnapshotIdentity
+from bioml_data._verified_artifact import VerifiedArtifactInput
 from bioml_data.datasets._materialization_verification import (
     DatasetMaterializationLineageMismatchError,
 )
@@ -72,7 +73,7 @@ def _assert_unscoped_lineage_rejected(
         (derived_content,),
     )
 
-    def materialize(receipt: ArtifactReceipt) -> _Materialization:
+    def materialize(receipt: VerifiedArtifactInput) -> _Materialization:
         return _Materialization(
             snapshot=TMS_AORTA_REGISTRATION.definition.snapshot,
             artifact=receipt.manifest,

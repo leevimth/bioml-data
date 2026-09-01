@@ -104,6 +104,7 @@ from bioml_data._split_capability import (
     UnsupportedSplitCapability,
     query_split_capability,
 )
+from bioml_data._verified_artifact import VerifiedArtifactChangedError
 from bioml_data.datasets._materialization_verification import (
     DatasetMaterializationLineageMismatchError,
     DatasetMaterializationProvenanceMismatchError,
@@ -180,6 +181,7 @@ __all__ = [
     "UnknownTaskError",
     "UnsupportedSplitCapability",
     "UnsupportedSplitProtocolError",
+    "VerifiedArtifactChangedError",
     "__version__",
     "apply_fitted_preprocessing",
     "audit_split",

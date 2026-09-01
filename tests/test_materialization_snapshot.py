@@ -1,10 +1,13 @@
-"""Persistent verified snapshot handoff tests."""
+"""Verified artifact handoff tests for eager and lazy adapters."""
 
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from hashlib import sha256
 from pathlib import Path
 
+import pytest
+
+from bioml_data import VerifiedArtifactChangedError
 from bioml_data._artifact_lineage import ArtifactLineageReceipt
 from bioml_data._artifacts import (
     ArtifactCache,
@@ -13,6 +16,7 @@ from bioml_data._artifacts import (
     ArtifactRequest,
 )
 from bioml_data._domain import DatasetSnapshotIdentity
+from bioml_data._verified_artifact import VerifiedArtifactInput
 from bioml_data.datasets._models import DatasetAdapter, DatasetRegistration
 from bioml_data.datasets._registry import DatasetRegistry
 from bioml_data.datasets.tms_aorta._registration import TMS_AORTA_REGISTRATION
@@ -21,14 +25,14 @@ from bioml_data.datasets.tms_aorta._registration import TMS_AORTA_REGISTRATION
 @dataclass(frozen=True, slots=True)
 class _Materialization:
     snapshot: DatasetSnapshotIdentity
-    receipt: ArtifactReceipt
+    verified_input: VerifiedArtifactInput
 
     @property
     def artifact(self) -> ArtifactManifest:
-        return self.receipt.manifest
+        return self.verified_input.manifest
 
     def read(self) -> bytes:
-        return self.receipt.content_path.read_bytes()
+        return self.verified_input.read_bytes()
 
 
 def _artifact(tmp_path: Path, content: bytes) -> ArtifactReceipt:
@@ -58,39 +62,40 @@ def _registration(materialize: DatasetAdapter) -> DatasetRegistration:
     )
 
 
-def test_adapter_reads_verified_snapshot_when_original_cache_is_swapped(
+def test_adapter_rejects_original_cache_swap_before_verified_read(
     tmp_path: Path,
 ) -> None:
     artifact = _artifact(tmp_path, b"trusted")
     original_path = artifact.content_path
     consumed: list[bytes] = []
 
-    def materialize(receipt: ArtifactReceipt) -> _Materialization:
+    def materialize(receipt: VerifiedArtifactInput) -> _Materialization:
         _ = original_path.write_bytes(b"swapped")
-        consumed.append(receipt.content_path.read_bytes())
+        consumed.append(receipt.read_bytes())
         return _Materialization(
             snapshot=TMS_AORTA_REGISTRATION.definition.snapshot,
-            receipt=receipt,
+            verified_input=receipt,
         )
 
     registration = _registration(materialize)
-    _ = DatasetRegistry(registrations=(registration,)).materialize(
-        "tms-aorta",
-        ArtifactLineageReceipt(artifact=artifact, parent_artifacts=()),
-    )
+    with pytest.raises(VerifiedArtifactChangedError):
+        _ = DatasetRegistry(registrations=(registration,)).materialize(
+            "tms-aorta",
+            ArtifactLineageReceipt(artifact=artifact, parent_artifacts=()),
+        )
 
-    assert consumed == [b"trusted"]
+    assert consumed == []
 
 
-def test_lazy_adapter_can_read_verified_snapshot_after_materialize_returns(
+def test_lazy_adapter_revalidates_reads_after_materialize_returns(
     tmp_path: Path,
 ) -> None:
     artifact = _artifact(tmp_path, b"lazy-content")
 
-    def materialize(receipt: ArtifactReceipt) -> _Materialization:
+    def materialize(receipt: VerifiedArtifactInput) -> _Materialization:
         return _Materialization(
             snapshot=TMS_AORTA_REGISTRATION.definition.snapshot,
-            receipt=receipt,
+            verified_input=receipt,
         )
 
     registration = _registration(materialize)
@@ -101,13 +106,7 @@ def test_lazy_adapter_can_read_verified_snapshot_after_materialize_returns(
 
     assert isinstance(result, _Materialization)
     assert result.read() == b"lazy-content"
-    assert result.receipt.content_path.is_relative_to(
-        tmp_path / "cache" / ".materialization-snapshots"
-    )
 
-    second = DatasetRegistry(registrations=(registration,)).materialize(
-        "tms-aorta",
-        ArtifactLineageReceipt(artifact=artifact, parent_artifacts=()),
-    )
-    assert isinstance(second, _Materialization)
-    assert second.receipt.content_path == result.receipt.content_path
+    _ = artifact.content_path.write_bytes(b"evil-content")
+    with pytest.raises(VerifiedArtifactChangedError):
+        _ = result.read()

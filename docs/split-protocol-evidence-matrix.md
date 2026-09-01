@@ -62,11 +62,13 @@ by the dataset registration. Supplying only an `ArtifactReceipt`, adding an
 unrelated parent, or forging an in-memory parent identity is rejected before the
 dataset adapter runs.
 
-The verified derived bytes are atomically published and reused under the source
-cache's `.materialization-snapshots/sha256/` namespace before adapter dispatch.
-This snapshot has the cache's lifecycle, so eager and lazy adapters read the
-same bytes that were hashed even after `load_dataset()` returns. It is a
-content-addressed cache entry, not an unmanaged temporary file.
+Adapters receive a `VerifiedArtifactInput`, not a raw cache path. Every eager or
+lazy read captures bytes from a no-follow file handle, hashes that exact
+capture, and returns it only when its size and SHA-256 still match the manifest.
+A post-return cache mutation therefore raises `VerifiedArtifactChangedError`
+instead of silently reaching a lazy materialization. The handle owns no
+persistent copy or cleanup resource, and its source remains the canonical
+caller-selected cache receipt.
 
 This establishes content identity and a verifiable declared lineage edge. It
 does not cryptographically prove that arbitrary transform code computed the

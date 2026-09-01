@@ -46,6 +46,8 @@ def _valid_citation(citation: SplitEvidenceCitation) -> bool:
         and not parsed.netloc.endswith(":")
         and parsed.username is None
         and parsed.password is None
+        and not parsed.query
+        and not parsed.fragment
         and _valid_hostname(hostname)
     )
 

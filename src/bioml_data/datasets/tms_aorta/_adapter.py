@@ -19,6 +19,7 @@ from bioml_data._single_cell import (
     SparseCountMatrix,
     SparseFormat,
 )
+from bioml_data._verified_artifact import VerifiedArtifactInput
 from bioml_data.datasets.tms_aorta._definition import (
     TMS_AORTA_SOURCE,
     TMS_AORTA_STUDY_ID,
@@ -92,31 +93,36 @@ class UnlinkedTmsArtifactError(Exception):
         )
 
 
-def load_tms_aorta(artifact: ArtifactReceipt) -> CanonicalSingleCellDataset:
+def load_tms_aorta(
+    artifact: ArtifactReceipt | VerifiedArtifactInput,
+) -> CanonicalSingleCellDataset:
     """Map a pinned sparse export into the canonical single-cell contract."""
-    derivation = artifact.manifest.derivation
+    verified = (
+        artifact
+        if isinstance(artifact, VerifiedArtifactInput)
+        else VerifiedArtifactInput.from_receipt(artifact)
+    )
+    derivation = verified.manifest.derivation
     if derivation is None:
         raise UnlinkedTmsArtifactError(
-            artifact_id=artifact.artifact_id,
+            artifact_id=verified.artifact_id,
             protocol=None,
         )
     if derivation.transform_protocol != TMS_AORTA_TRANSFORM_PROTOCOL:
         raise UnlinkedTmsArtifactError(
-            artifact_id=artifact.artifact_id,
+            artifact_id=verified.artifact_id,
             protocol=derivation.transform_protocol,
         )
     if derivation.parent_artifacts != TMS_AORTA_ARTIFACT_SCOPE.parent_artifacts:
         raise UnlinkedTmsArtifactError(
-            artifact_id=artifact.artifact_id,
+            artifact_id=verified.artifact_id,
             protocol=derivation.transform_protocol,
         )
 
     try:
-        payload = _TmsAortaPayload.model_validate_json(
-            artifact.content_path.read_text(encoding="utf-8"),
-        )
+        payload = _TmsAortaPayload.model_validate_json(verified.read_text())
     except (UnicodeDecodeError, ValidationError) as error:
-        raise InvalidTmsSchemaError(artifact_id=artifact.artifact_id) from error
+        raise InvalidTmsSchemaError(artifact_id=verified.artifact_id) from error
 
     observations = tuple(
         CanonicalObservation(
@@ -155,7 +161,7 @@ def load_tms_aorta(artifact: ArtifactReceipt) -> CanonicalSingleCellDataset:
         identity=identity,
         snapshot=TMS_AORTA_SNAPSHOT,
         source=TMS_AORTA_SOURCE,
-        artifact=artifact.manifest,
+        artifact=verified.manifest,
         observations=observations,
         features=features,
         counts=counts,

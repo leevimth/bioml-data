@@ -1,26 +1,20 @@
 """Artifact-lineage verification at dataset materialization boundaries."""
 
 from dataclasses import dataclass
-from functools import partial
-from pathlib import Path
-from typing import Final, override
+from typing import override
 
 from bioml_data._artifact_lineage import ArtifactLineageReceipt
-from bioml_data._artifact_paths import open_binary_nofollow
 from bioml_data._artifact_receipts import load_artifact_receipt
 from bioml_data._artifact_types import ArtifactId
 from bioml_data._artifacts import (
-    ArtifactCache,
     ArtifactDerivation,
     ArtifactManifest,
     ArtifactReceipt,
-    ArtifactRequest,
 )
 from bioml_data._domain import DatasetSnapshotIdentity
 from bioml_data._split_capability_models import SplitArtifactScope
+from bioml_data._verified_artifact import VerifiedArtifactInput
 from bioml_data.datasets._models import DatasetMaterialization, DatasetRegistration
-
-_SNAPSHOT_CACHE_DIRECTORY: Final = ".materialization-snapshots"
 
 
 @dataclass(frozen=True, slots=True)
@@ -101,8 +95,8 @@ def materialize_verified(
         registration, artifact.manifest.derivation, verified_parents
     )
 
-    snapshot = _verified_persistent_snapshot(verified_artifact)
-    result = registration.materialize(snapshot)
+    verified_input = VerifiedArtifactInput.from_verified_receipt(verified_artifact)
+    result = registration.materialize(verified_input)
     expected_snapshot = registration.definition.snapshot
     if result.snapshot != expected_snapshot:
         raise DatasetMaterializationSnapshotMismatchError(
@@ -142,36 +136,3 @@ def _require_registered_lineage(
             expected=scope,
             actual=derivation,
         )
-
-
-def _verified_persistent_snapshot(receipt: ArtifactReceipt) -> ArtifactReceipt:
-    manifest = receipt.manifest
-    request = ArtifactRequest(
-        logical_name=manifest.logical_name,
-        source_uri=manifest.source_uri,
-        accession=manifest.accession,
-        release=manifest.release,
-        retrieved_at=manifest.retrieved_at,
-        expected_byte_size=manifest.byte_size,
-        expected_sha256=manifest.sha256,
-        tool_version=manifest.tool_version,
-        derivation=manifest.derivation,
-    )
-    with open_binary_nofollow(receipt.content_path) as source:
-        snapshot = ArtifactCache(_snapshot_cache_root(receipt)).store(
-            request,
-            iter(partial(source.read, 1024 * 1024), b""),
-        )
-    if snapshot.manifest != manifest:
-        raise DatasetMaterializationArtifactMismatchError(
-            expected=manifest,
-            actual=snapshot.manifest,
-        )
-    return snapshot
-
-
-def _snapshot_cache_root(receipt: ArtifactReceipt) -> Path:
-    cache_root = receipt.manifest_path.parents[3]
-    if cache_root.name == _SNAPSHOT_CACHE_DIRECTORY:
-        return cache_root
-    return cache_root / _SNAPSHOT_CACHE_DIRECTORY
