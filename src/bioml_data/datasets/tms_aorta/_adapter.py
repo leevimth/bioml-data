@@ -10,6 +10,7 @@ from bioml_data._artifact_receipts import (
     ArtifactReceiptFailure,
     ArtifactReceiptLoadError,
     load_artifact_receipt,
+    verified_artifact_copy,
 )
 from bioml_data._artifacts import ArtifactId, ArtifactReceipt, TransformProtocolId
 from bioml_data._single_cell import (
@@ -30,6 +31,7 @@ from bioml_data.datasets.tms_aorta._definition import (
 )
 from bioml_data.datasets.tms_aorta._identity import (
     TMS_AORTA_SNAPSHOT,
+    TMS_AORTA_TRANSFORM_PARAMETERS,
     TMS_AORTA_TRANSFORM_PROTOCOL,
 )
 from bioml_data.datasets.tms_aorta._interchange import TmsAortaPayload
@@ -75,16 +77,20 @@ def load_tms_aorta(artifact: ArtifactReceipt) -> CanonicalSingleCellDataset:
             artifact_id=verified.artifact_id,
             protocol=None,
         )
-    if derivation.transform_protocol != TMS_AORTA_TRANSFORM_PROTOCOL:
+    if (
+        derivation.transform_protocol != TMS_AORTA_TRANSFORM_PROTOCOL
+        or derivation.parameters != TMS_AORTA_TRANSFORM_PARAMETERS
+    ):
         raise UnlinkedTmsArtifactError(
             artifact_id=verified.artifact_id,
             protocol=derivation.transform_protocol,
         )
 
     try:
-        payload = TmsAortaPayload.model_validate_json(
-            verified.content_path.read_text(encoding="utf-8"),
-        )
+        with verified_artifact_copy(verified) as copy_path:
+            payload = TmsAortaPayload.model_validate_json(
+                copy_path.read_text(encoding="utf-8"),
+            )
     except (UnicodeDecodeError, ValidationError) as error:
         raise InvalidTmsSchemaError(artifact_id=verified.artifact_id) from error
 

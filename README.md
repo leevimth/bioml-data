@@ -243,8 +243,10 @@ the canonical artifact accepted by `load_dataset()` and the canary.
 
 The built-in TMS download is the upstream H5AD. The `tms-aorta-csr-v1`
 transform selects integer-valued `raw.X`, preserves the raw artifact as its
-parent, leaves absent assay/batch metadata unknown, and validates the resulting
-canonical schema. The pinned TMS SHA-256 is project-verified against the official
+parent, records `expression_input=raw.X` in its derivation parameters, leaves
+absent assay/batch metadata unknown, and validates the resulting canonical
+schema. Public preparation rejects receipts that do not match the complete
+built-in pin. The pinned TMS SHA-256 is project-verified against the official
 Figshare byte size and MD5, rather than supplied by an upstream SHA-256 manifest.
 This narrow acquisition path supports the provenance contract; it is not a
 commitment to build a generic transfer or caching framework. Future

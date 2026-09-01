@@ -2,9 +2,13 @@
 
 from pathlib import Path
 
+import pytest
 from typer.testing import CliRunner, Result
 
 import bioml_data as bio
+from bioml_data import _cli as cli_module
+from bioml_data.datasets.tms_aorta._h5ad_transform import TmsAortaTransformLimits
+from bioml_data.datasets.tms_aorta._transform import prepare_tms_aorta
 from tests._anndata_fixtures import store_tms_aorta_h5ad
 from tests._single_cell_fixtures import make_tms_artifact
 
@@ -58,10 +62,34 @@ def test_cli_canary_matches_python_identity_chain(tmp_path: Path) -> None:
     assert bio.BenchmarkRunReceipt.model_validate_json(result.stdout) == expected
 
 
-def test_cli_prepares_raw_h5ad_before_running_canary(tmp_path: Path) -> None:
+def test_cli_prepares_raw_h5ad_before_running_canary(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     # Given: a downloaded raw H5AD receipt and a selected preparation cache.
     raw = store_tms_aorta_h5ad(tmp_path / "raw-cache", tmp_path / "source.h5ad")
     prepared_cache = tmp_path / "prepared-cache"
+
+    def prepare_fixture(
+        name: str,
+        *,
+        artifact: bio.ArtifactReceipt,
+        data_dir: Path,
+    ) -> bio.DatasetPreparationReceipt:
+        assert name == "tms-aorta"
+        return prepare_tms_aorta(
+            artifact,
+            data_dir=data_dir,
+            limits=TmsAortaTransformLimits(
+                observations=6,
+                features=3,
+                maximum_nonzero_counts=20,
+                maximum_metadata_length=64,
+                maximum_output_bytes=32_000,
+            ),
+        )
+
+    monkeypatch.setattr(cli_module, "prepare_dataset", prepare_fixture)
 
     # When: the CLI is explicitly asked to prepare the raw artifact before running.
     result = CliRunner().invoke(

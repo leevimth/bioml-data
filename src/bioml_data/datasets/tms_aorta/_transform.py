@@ -4,6 +4,7 @@ import json
 from hashlib import sha256
 from importlib.metadata import version as package_version
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from typing import ClassVar
 
 from pydantic import BaseModel, ConfigDict, ValidationError
@@ -12,6 +13,7 @@ from bioml_data._artifact_paths import (
     ArtifactPathIntegrityError,
     ensure_no_symlink_components,
     open_binary_nofollow,
+    publish_file_nofollow,
 )
 from bioml_data._artifact_receipts import (
     ArtifactReceiptFailure,
@@ -31,8 +33,17 @@ from bioml_data._dataset_preparation_models import (
     PreparedDatasetCacheError,
 )
 from bioml_data.datasets.tms_aorta._adapter import load_tms_aorta
-from bioml_data.datasets.tms_aorta._h5ad_transform import transform_h5ad
-from bioml_data.datasets.tms_aorta._identity import TMS_AORTA_TRANSFORM_PROTOCOL
+from bioml_data.datasets.tms_aorta._h5ad_transform import (
+    TMS_AORTA_TRANSFORM_LIMITS,
+    InvalidRawTmsArtifactError,
+    RawTmsViolation,
+    TmsAortaTransformLimits,
+    transform_h5ad,
+)
+from bioml_data.datasets.tms_aorta._identity import (
+    TMS_AORTA_TRANSFORM_PARAMETERS,
+    TMS_AORTA_TRANSFORM_PROTOCOL,
+)
 
 
 class _PreparedLocator(BaseModel):
@@ -45,6 +56,7 @@ def prepare_tms_aorta(
     raw_artifact: ArtifactReceipt,
     *,
     data_dir: Path,
+    limits: TmsAortaTransformLimits = TMS_AORTA_TRANSFORM_LIMITS,
 ) -> DatasetPreparationReceipt:
     """Prepare or reverify one canonical TMS Aorta artifact."""
     raw = load_artifact_receipt(raw_artifact.manifest_path)
@@ -61,12 +73,19 @@ def prepare_tms_aorta(
             outcome=DatasetPreparationOutcome.CACHE_HIT,
         )
 
-    payload = transform_h5ad(raw)
+    payload = transform_h5ad(raw, limits)
     content = payload.model_dump_json(by_alias=True).encode()
+    if len(content) > limits.maximum_output_bytes:
+        raise InvalidRawTmsArtifactError(
+            artifact_id=raw.artifact_id,
+            violation=RawTmsViolation.RESOURCE_LIMIT,
+            field="output_bytes",
+        )
     digest = sha256(content).hexdigest()
     derivation = ArtifactDerivation(
         parent_artifacts=(raw.artifact_id,),
         transform_protocol=TMS_AORTA_TRANSFORM_PROTOCOL,
+        parameters=TMS_AORTA_TRANSFORM_PARAMETERS,
     )
     request = ArtifactRequest(
         logical_name="tms-aorta-csr-v1.json",
@@ -81,7 +100,14 @@ def prepare_tms_aorta(
     )
     prepared = ArtifactCache(data_dir).store(request, (content,))
     _ = load_tms_aorta(prepared)
-    _publish_locator(locator_path, prepared)
+    if not publish_tms_aorta_locator(locator_path, prepared):
+        winner = _load_cached(locator_path, data_dir=data_dir, raw=raw)
+        if winner is None:
+            raise PreparedDatasetCacheError(locator_path)
+        return DatasetPreparationReceipt(
+            artifact=winner,
+            outcome=DatasetPreparationOutcome.CACHE_HIT,
+        )
     return DatasetPreparationReceipt(
         artifact=prepared,
         outcome=DatasetPreparationOutcome.TRANSFORMED,
@@ -129,13 +155,17 @@ def _load_cached(
         derivation is None
         or derivation.parent_artifacts != (raw.artifact_id,)
         or derivation.transform_protocol != TMS_AORTA_TRANSFORM_PROTOCOL
+        or derivation.parameters != TMS_AORTA_TRANSFORM_PARAMETERS
     ):
         raise PreparedDatasetCacheError(locator_path)
     _ = load_tms_aorta(prepared)
     return prepared
 
 
-def _publish_locator(locator_path: Path, prepared: ArtifactReceipt) -> None:
+def publish_tms_aorta_locator(
+    locator_path: Path,
+    prepared: ArtifactReceipt,
+) -> bool:
     payload = json.dumps(
         {"artifact_sha256": prepared.manifest.sha256},
         separators=(",", ":"),
@@ -144,7 +174,15 @@ def _publish_locator(locator_path: Path, prepared: ArtifactReceipt) -> None:
         ensure_no_symlink_components(locator_path.parent)
         locator_path.parent.mkdir(parents=True, exist_ok=True)
         ensure_no_symlink_components(locator_path.parent)
-        with locator_path.open("x", encoding="utf-8") as destination:
-            _ = destination.write(payload)
-    except (ArtifactPathIntegrityError, FileExistsError, OSError) as error:
+        with TemporaryDirectory(
+            prefix=".locator-",
+            dir=locator_path.parent,
+        ) as temporary:
+            staged = Path(temporary) / "locator.json"
+            _ = staged.write_text(payload, encoding="utf-8")
+            publish_file_nofollow(staged, locator_path)
+    except FileExistsError:
+        return False
+    except (ArtifactPathIntegrityError, OSError) as error:
         raise PreparedDatasetCacheError(locator_path) from error
+    return True

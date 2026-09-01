@@ -14,6 +14,7 @@ from bioml_data import _tms_aorta as tms
 from bioml_data._artifacts import (
     ArtifactCache,
     ArtifactDerivation,
+    ArtifactDerivationParameter,
     ArtifactReceipt,
     ArtifactRequest,
     TransformProtocolId,
@@ -115,6 +116,12 @@ def _processed_artifact(tmp_path: Path, payload: str) -> ArtifactReceipt:
     derivation = ArtifactDerivation(
         parent_artifacts=(raw.artifact_id,),
         transform_protocol=TransformProtocolId("tms-aorta-csr-v1"),
+        parameters=(
+            ArtifactDerivationParameter(
+                name="expression_input",
+                value="raw.X",
+            ),
+        ),
     )
     processed_content = payload.encode()
     return cache.store(
@@ -285,3 +292,44 @@ def test_adapter_reports_an_invalid_interchange_schema(tmp_path: Path) -> None:
 
     # Then: the typed error retains the failing artifact identity.
     assert captured.value.artifact_id == artifact.artifact_id
+
+
+@pytest.mark.parametrize("expression_input", [None, "X"])
+def test_adapter_rejects_missing_or_wrong_expression_input_receipt(
+    tmp_path: Path,
+    expression_input: str | None,
+) -> None:
+    # Given: canonical-shaped bytes with an incomplete or incorrect derivation choice.
+    cache = ArtifactCache(tmp_path / "cache")
+    raw_content = b"representative raw sparse fixture"
+    raw = cache.store(
+        _artifact_request(raw_content, "raw-fixture.bin", None),
+        (raw_content,),
+    )
+    parameters = (
+        ()
+        if expression_input is None
+        else (
+            ArtifactDerivationParameter(
+                name="expression_input",
+                value=expression_input,
+            ),
+        )
+    )
+    content = _fixture_payload().encode()
+    artifact = cache.store(
+        _artifact_request(
+            content,
+            "tms-aorta-fixture.json",
+            ArtifactDerivation(
+                parent_artifacts=(raw.artifact_id,),
+                transform_protocol=TransformProtocolId("tms-aorta-csr-v1"),
+                parameters=parameters,
+            ),
+        ),
+        (content,),
+    )
+
+    # When/Then: protocol identity alone cannot authorize the artifact.
+    with pytest.raises(tms.UnlinkedTmsArtifactError):
+        _ = tms.load_tms_aorta(artifact)

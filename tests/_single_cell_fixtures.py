@@ -8,6 +8,7 @@ from pathlib import Path
 from bioml_data._artifacts import (
     ArtifactCache,
     ArtifactDerivation,
+    ArtifactDerivationParameter,
     ArtifactId,
     ArtifactManifest,
     ArtifactReceipt,
@@ -142,6 +143,12 @@ def make_tms_artifact(cache_root: Path) -> ArtifactReceipt:
     derivation = ArtifactDerivation(
         parent_artifacts=(raw.artifact_id,),
         transform_protocol=TransformProtocolId("tms-aorta-csr-v1"),
+        parameters=(
+            ArtifactDerivationParameter(
+                name="expression_input",
+                value="raw.X",
+            ),
+        ),
     )
     return cache.store(
         _artifact_request(processed_content, "tms-aorta-fixture.json", derivation),

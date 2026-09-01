@@ -13,6 +13,7 @@ from bioml_data._artifacts import (
     ArtifactCache,
     ArtifactCollisionError,
     ArtifactDerivation,
+    ArtifactDerivationParameter,
     ArtifactManifest,
     ArtifactReceipt,
     ArtifactRequest,
@@ -33,6 +34,7 @@ from bioml_data._dataset_downloads import (
 )
 from bioml_data._dataset_preparation import (
     DatasetPreparationUnavailableError,
+    UnexpectedDatasetSourceError,
     prepare_dataset,
 )
 from bioml_data._dataset_preparation_models import (
@@ -111,6 +113,7 @@ __all__ = [
     "ArtifactCache",
     "ArtifactCollisionError",
     "ArtifactDerivation",
+    "ArtifactDerivationParameter",
     "ArtifactHttpError",
     "ArtifactManifest",
     "ArtifactReceipt",
@@ -160,6 +163,7 @@ __all__ = [
     "SplitProtocolDefinition",
     "SplitProtocolRole",
     "TaskDefinition",
+    "UnexpectedDatasetSourceError",
     "UnknownDatasetError",
     "UnknownDatasetVersionError",
     "UnknownTaskError",

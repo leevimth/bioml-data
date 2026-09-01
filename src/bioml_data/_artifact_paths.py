@@ -115,6 +115,38 @@ def publish_directory_nofollow(source: Path, destination: Path) -> None:
         os.close(source_parent)
 
 
+def publish_file_nofollow(source: Path, destination: Path) -> None:
+    """Atomically publish a complete file without replacing a winner."""
+    ensure_no_symlink_components(source)
+    ensure_no_symlink_components(destination.parent)
+    source_parent = _open_directory_nofollow(source.absolute().parent)
+    try:
+        destination_parent = _open_directory_nofollow(
+            destination.absolute().parent,
+        )
+    except ArtifactPathIntegrityError:
+        os.close(source_parent)
+        raise
+    try:
+        os.link(
+            source.name,
+            destination.name,
+            src_dir_fd=source_parent,
+            dst_dir_fd=destination_parent,
+            follow_symlinks=False,
+        )
+    except FileExistsError:
+        raise
+    except OSError as error:
+        raise ArtifactPathIntegrityError(
+            path=destination,
+            failure=ArtifactPathFailure.IO,
+        ) from error
+    finally:
+        os.close(destination_parent)
+        os.close(source_parent)
+
+
 def _open_directory_nofollow(path: Path) -> int:
     absolute = path.absolute()
     flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW

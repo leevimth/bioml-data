@@ -9,7 +9,10 @@ from bioml_data._artifact_receipts import (
     ArtifactReceiptLoadError,
     load_artifact_receipt,
 )
-from bioml_data._dataset_preparation import prepare_dataset
+from bioml_data._dataset_preparation import (
+    UnexpectedDatasetSourceError,
+    prepare_dataset,
+)
 from bioml_data._dataset_preparation_models import PreparedDatasetCacheError
 from bioml_data._pipeline import run_tms_aorta_canary
 from bioml_data._split import MissingSplitProtocolError
@@ -57,7 +60,11 @@ def run(
     except MissingSplitProtocolError as error:
         typer.echo(str(error), err=True)
         raise typer.Exit(code=2) from error
-    except (InvalidRawTmsArtifactError, PreparedDatasetCacheError) as error:
+    except (
+        InvalidRawTmsArtifactError,
+        PreparedDatasetCacheError,
+        UnexpectedDatasetSourceError,
+    ) as error:
         typer.echo(str(error), err=True)
         raise typer.Exit(code=2) from error
     typer.echo(receipt.model_dump_json())

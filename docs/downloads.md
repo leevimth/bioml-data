@@ -64,8 +64,10 @@ that matched the official size and MD5. This distinction is retained in
 Download support only resolves and verifies the upstream H5AD artifact.
 `prepare_dataset()` is the explicit next boundary: it transforms integer-valued
 `raw.X` into `tms-aorta-csr-v1`, records the raw parent in the derivation
-receipt, validates the canonical schema, and reuses verified output in the same
-`data_dir`. It does not run split, audit, or evaluation stages.
+receipt together with `expression_input=raw.X`, validates the canonical schema,
+and reuses verified output in the same `data_dir`. It rejects locally forged or
+alternative H5AD receipts that do not match the exact built-in pin. It does not
+run split, audit, or evaluation stages.
 
 The [upstream artifact audit](tms-aorta-artifact-audit.md) records the verified
 Figshare child-record lineage, real H5AD schema and cardinalities, split-relevant

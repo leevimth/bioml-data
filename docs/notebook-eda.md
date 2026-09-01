@@ -37,8 +37,9 @@ counts, and saves a compact figure plus `summary.json`. Set
 
 For a network-free run against an existing cache entry, set
 `BIOML_ARTIFACT_MANIFEST` to its canonical `manifest.json` path. This is also
-how CI executes the notebook against a generated H5AD fixture rather than
-downloading the public dataset on every run.
+how the upstream EDA path can run without a download. CI additionally sets
+`BIOML_CANONICAL_ARTIFACT_MANIFEST` to a generated canonical fixture; normal
+research use leaves it unset so the exact pinned upstream receipt is prepared.
 
 The public artifact is Tabula Muris Senis Data Objects, Figshare article
 12654728, file 23872460, DOI

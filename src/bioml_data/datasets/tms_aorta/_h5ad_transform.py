@@ -1,13 +1,10 @@
 """Validated H5AD boundary for the tms-aorta-csr-v1 transform."""
 
 import warnings
-from dataclasses import dataclass
-from enum import StrEnum, unique
-from typing import ClassVar, Final, override
+from typing import ClassVar, Final
 
 import anndata as ad
 import numpy as np
-import numpy.typing as npt
 from pydantic import (
     BaseModel,
     ConfigDict,
@@ -18,7 +15,16 @@ from pydantic import (
 )
 from scipy import sparse
 
+from bioml_data._artifact_receipts import verified_artifact_copy
 from bioml_data._artifacts import ArtifactId, ArtifactReceipt
+from bioml_data.datasets.tms_aorta._h5ad_validation import (
+    TMS_AORTA_TRANSFORM_LIMITS,
+    InvalidRawTmsArtifactError,
+    RawTmsViolation,
+    TmsAortaTransformLimits,
+    validate_text_lengths,
+    validated_counts,
+)
 from bioml_data.datasets.tms_aorta._interchange import (
     CsrCountsPayload,
     TmsAortaPayload,
@@ -26,43 +32,13 @@ from bioml_data.datasets.tms_aorta._interchange import (
     TmsObservationPayload,
 )
 
-
-@unique
-class RawTmsViolation(StrEnum):
-    """Machine-readable reasons a raw H5AD cannot enter this transform."""
-
-    RAW_LAYER_MISSING = "raw_layer_missing"
-    RAW_MATRIX_NOT_CSR = "raw_matrix_not_csr"
-    SHAPE_MISMATCH = "shape_mismatch"
-    REQUIRED_OBSERVATION_COLUMN = "required_observation_column"
-    DUPLICATE_IDENTIFIER = "duplicate_identifier"
-    INVALID_METADATA = "invalid_metadata"
-    NON_INTEGER_COUNT = "non_integer_count"
-    NEGATIVE_COUNT = "negative_count"
-    NONFINITE_COUNT = "nonfinite_count"
-
-
-@dataclass(frozen=True, slots=True)
-class InvalidRawTmsArtifactError(Exception):
-    """Raised when a verified H5AD violates the versioned transform input."""
-
-    artifact_id: ArtifactId
-    violation: RawTmsViolation
-    field: str | None = None
-
-    @override
-    def __str__(self) -> str:
-        suffix = f" ({self.field})" if self.field is not None else ""
-        return f"raw TMS artifact {self.artifact_id}: {self.violation}{suffix}"
-
-
-class _RawMatrixBoundary(BaseModel):
-    model_config: ClassVar[ConfigDict] = ConfigDict(
-        frozen=True,
-        from_attributes=True,
-    )
-
-    matrix: InstanceOf[sparse.csr_matrix[np.float32]] = Field(alias="X")
+__all__ = [
+    "TMS_AORTA_TRANSFORM_LIMITS",
+    "InvalidRawTmsArtifactError",
+    "RawTmsViolation",
+    "TmsAortaTransformLimits",
+    "transform_h5ad",
+]
 
 
 class _RawLayerBoundary(BaseModel):
@@ -85,15 +61,23 @@ _STRING_TUPLE: Final[TypeAdapter[tuple[str, ...]]] = TypeAdapter(tuple[str, ...]
 _INT_TUPLE: Final[TypeAdapter[tuple[int, ...]]] = TypeAdapter(tuple[int, ...])
 
 
-def transform_h5ad(raw: ArtifactReceipt) -> TmsAortaPayload:
+def transform_h5ad(
+    raw: ArtifactReceipt,
+    limits: TmsAortaTransformLimits,
+) -> TmsAortaPayload:
     """Read and validate one raw H5AD into deterministic payload values."""
-    with warnings.catch_warnings():
+    with verified_artifact_copy(raw) as copy_path, warnings.catch_warnings():
         warnings.filterwarnings(
             "ignore",
             message=r"Moving element from \.uns\['neighbors'\]",
             category=FutureWarning,
         )
-        dataset = ad.read_h5ad(raw.content_path)
+        warnings.filterwarnings(
+            "ignore",
+            message="(?:Observation|Variable) names are not unique.*",
+            category=UserWarning,
+        )
+        dataset = ad.read_h5ad(copy_path)
     try:
         raw_layer = _RawLayerBoundary.model_validate(dataset).raw_layer
     except ValidationError as error:
@@ -101,7 +85,8 @@ def transform_h5ad(raw: ArtifactReceipt) -> TmsAortaPayload:
             artifact_id=raw.artifact_id,
             violation=RawTmsViolation.RAW_LAYER_MISSING,
         ) from error
-    if raw_layer.shape != dataset.shape:
+    expected_shape = (limits.observations, limits.features)
+    if raw_layer.shape != dataset.shape or dataset.shape != expected_shape:
         raise InvalidRawTmsArtifactError(
             artifact_id=raw.artifact_id,
             violation=RawTmsViolation.SHAPE_MISMATCH,
@@ -118,10 +103,10 @@ def transform_h5ad(raw: ArtifactReceipt) -> TmsAortaPayload:
             artifact_id=raw.artifact_id,
             violation=RawTmsViolation.DUPLICATE_IDENTIFIER,
         )
-    matrix = _validated_counts(raw, raw_layer)
+    matrix = validated_counts(raw, raw_layer, limits)
     try:
-        observations = _observations(dataset)
-        features = _features(raw_layer)
+        observations = _observations(dataset, limits, artifact_id=raw.artifact_id)
+        features = _features(raw_layer, limits, artifact_id=raw.artifact_id)
     except ValidationError as error:
         raise InvalidRawTmsArtifactError(
             artifact_id=raw.artifact_id,
@@ -135,45 +120,12 @@ def transform_h5ad(raw: ArtifactReceipt) -> TmsAortaPayload:
     )
 
 
-def _validated_counts(
-    raw: ArtifactReceipt,
-    raw_layer: ad.Raw,
-) -> sparse.csr_matrix[np.float32]:
-    try:
-        matrix = _RawMatrixBoundary.model_validate(raw_layer).matrix.copy()
-    except ValidationError as error:
-        raise InvalidRawTmsArtifactError(
-            artifact_id=raw.artifact_id,
-            violation=RawTmsViolation.RAW_MATRIX_NOT_CSR,
-        ) from error
-    matrix.sum_duplicates()
-    matrix.sort_indices()
-    matrix.eliminate_zeros()
-    values: npt.NDArray[np.float32] = np.asarray(matrix.data)
-    if not np.isfinite(values).all():
-        raise InvalidRawTmsArtifactError(
-            artifact_id=raw.artifact_id,
-            violation=RawTmsViolation.NONFINITE_COUNT,
-        )
-    if (values < 0).any():
-        raise InvalidRawTmsArtifactError(
-            artifact_id=raw.artifact_id,
-            violation=RawTmsViolation.NEGATIVE_COUNT,
-        )
-    if not np.equal(values, np.floor(values)).all():
-        raise InvalidRawTmsArtifactError(
-            artifact_id=raw.artifact_id,
-            violation=RawTmsViolation.NON_INTEGER_COUNT,
-        )
-    return matrix
-
-
 def _counts_payload(
     matrix: sparse.csr_matrix[np.float32],
 ) -> CsrCountsPayload:
-    values: npt.NDArray[np.int64] = matrix.data.astype(np.int64)
-    indices: npt.NDArray[np.int64] = matrix.indices.astype(np.int64)
-    offsets: npt.NDArray[np.int64] = matrix.indptr.astype(np.int64)
+    values = matrix.data.astype(np.int64)
+    indices = matrix.indices.astype(np.int64)
+    offsets = matrix.indptr.astype(np.int64)
     return CsrCountsPayload(
         format="csr",
         data=_INT_TUPLE.validate_python(values),
@@ -183,7 +135,12 @@ def _counts_payload(
     )
 
 
-def _observations(dataset: ad.AnnData) -> tuple[TmsObservationPayload, ...]:
+def _observations(
+    dataset: ad.AnnData,
+    limits: TmsAortaTransformLimits,
+    *,
+    artifact_id: ArtifactId,
+) -> tuple[TmsObservationPayload, ...]:
     cell_ids = _STRING_TUPLE.validate_python(dataset.obs_names)
     source_cell_ids = _STRING_TUPLE.validate_python(dataset.obs["cell"])
     mouse_ids = _STRING_TUPLE.validate_python(dataset.obs["mouse.id"])
@@ -196,6 +153,19 @@ def _observations(dataset: ad.AnnData) -> tuple[TmsObservationPayload, ...]:
         _STRING_TUPLE.validate_python(dataset.obs["cell_ontology_id"])
         if "cell_ontology_id" in dataset.obs
         else (None,) * dataset.n_obs
+    )
+    validate_text_lengths(
+        (
+            *cell_ids,
+            *source_cell_ids,
+            *mouse_ids,
+            *methods,
+            *tissues,
+            *cell_types,
+            *(value for value in ontology_ids if value is not None),
+        ),
+        limits=limits,
+        artifact_id=artifact_id,
     )
     return tuple(
         TmsObservationPayload(
@@ -212,8 +182,14 @@ def _observations(dataset: ad.AnnData) -> tuple[TmsObservationPayload, ...]:
     )
 
 
-def _features(raw_layer: ad.Raw) -> tuple[TmsFeaturePayload, ...]:
+def _features(
+    raw_layer: ad.Raw,
+    limits: TmsAortaTransformLimits,
+    *,
+    artifact_id: ArtifactId,
+) -> tuple[TmsFeaturePayload, ...]:
     feature_ids = _STRING_TUPLE.validate_python(raw_layer.var_names)
+    validate_text_lengths(feature_ids, limits=limits, artifact_id=artifact_id)
     return tuple(
         TmsFeaturePayload(feature_id=feature_id, feature_name=feature_id)
         for feature_id in feature_ids

@@ -39,9 +39,19 @@ canonical assay is absent and no batch is inferred from identifiers. `method`
 remains source provenance rather than being promoted to an evidenced assay ID.
 
 The prepared artifact records the raw artifact as its parent and
-`tms-aorta-csr-v1` as its transform protocol. A locator keyed by parent SHA-256
+`tms-aorta-csr-v1` as its transform protocol. Its immutable derivation parameters
+record `expression_input=raw.X`; an artifact with missing or different parameters
+is not accepted as this canonical schema. A locator keyed by parent SHA-256
 and protocol avoids reopening the H5AD when verified output already exists.
 Corrupt locators or prepared artifacts fail visibly instead of being replaced.
+
+The public preparation route accepts only the exact pinned Figshare receipt:
+source URI, accession, release, filename, byte size, SHA-256, and absence of an
+upstream derivation must all match. The pinned hash is checked before H5AD
+loading. The transform then enforces the exact 906 × 22,966 shape and bounded
+nonzero-count, metadata-string, and serialized-output sizes. H5AD parsing uses a
+private copy whose bytes are reverified during a no-follow read, preventing the
+final parser open from following a swapped cache path.
 
 ## Split protocol
 
