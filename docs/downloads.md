@@ -56,5 +56,9 @@ Download support only resolves and verifies the upstream H5AD artifact. It does
 not by itself claim that the file has passed the package's canonical schema,
 preparation, split, audit, or evaluation stages.
 
+The [upstream artifact audit](tms-aorta-artifact-audit.md) records the verified
+Figshare child-record lineage, real H5AD schema and cardinalities, split-relevant
+dependencies, and the remaining redistribution-rights boundary.
+
 For a researcher-facing verified load and compact Scanpy EDA workflow, see
 [`notebook-eda.md`](notebook-eda.md) and `examples/tms_aorta_eda.ipynb`.
