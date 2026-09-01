@@ -45,10 +45,12 @@ the static dispatch point; its generic registration contract does not contain
 provider-shaped download metadata, and adding a dataset must not add
 dataset-name conditionals to the public catalog.
 
-The root `_dataset_downloads.py` module maintains only the current verified HTTP
-compatibility index by exact dataset snapshot. It is not a future provider
-adapter abstraction; provider-specific Hugging Face, CELLxGENE, and GEO adapters
-remain out of scope.
+The root `_dataset_downloads.py` module maintains the current verified Figshare
+HTTP compatibility index by exact dataset snapshot. Its acquisition path now
+implements the explicit provider adapter contract described in
+[`provider-adapters.md`](provider-adapters.md). Future Hugging Face, CELLxGENE,
+and GEO implementations remain provider-owned adapters with optional
+dependencies; they do not enter the dataset registry or core dependency set.
 
 Dataset and modality remain separate concepts. A future modality package owns
 canonical schemas and transformations shared by several datasets, while a

@@ -23,8 +23,10 @@ from bioml_data._artifacts import (
 from bioml_data._catalog import load_dataset
 from bioml_data._cli import app as cli_app
 from bioml_data._dataset_downloads import (
+    FIGSHARE_PROVIDER,
     DatasetDownloadOutcome,
     DatasetDownloadPin,
+    DatasetDownloadProvenanceUnavailableError,
     DatasetDownloadReceipt,
     DatasetDownloadUnavailableError,
     Sha256Provenance,
@@ -82,6 +84,23 @@ from bioml_data._preparation_models import (
     PreparationRequest,
     PreparedBenchmarkReceipt,
 )
+from bioml_data._provider_adapters import (
+    ProviderAcquisitionReceipt,
+    ProviderAcquisitionTarget,
+    ProviderAdapter,
+    ProviderArtifactExpectation,
+    ProviderArtifactIdentityMismatchError,
+    ProviderArtifactProvenanceMismatchError,
+    ProviderDescriptor,
+    ProviderId,
+    ProviderReceiptCacheRootMismatchError,
+    ProviderReceiptIntegrityMismatchError,
+    ProviderReceiptMismatchError,
+    ProviderTargetMismatchError,
+    ResolvedProviderArtifact,
+    ScientificArtifactIdentity,
+    acquire_provider_artifact,
+)
 from bioml_data._single_cell import CanonicalSingleCellDataset
 from bioml_data._split import (
     MissingSplitProtocolError,
@@ -94,6 +113,7 @@ __version__: Final = version("bioml-data")
 
 __all__ = [
     "DEFAULT_HTTP_CLIENT_CONFIGURATION",
+    "FIGSHARE_PROVIDER",
     "ArtifactCache",
     "ArtifactCollisionError",
     "ArtifactDerivation",
@@ -111,6 +131,7 @@ __all__ = [
     "DatasetDefinition",
     "DatasetDownloadOutcome",
     "DatasetDownloadPin",
+    "DatasetDownloadProvenanceUnavailableError",
     "DatasetDownloadReceipt",
     "DatasetDownloadUnavailableError",
     "DatasetLifecycle",
@@ -132,6 +153,20 @@ __all__ = [
     "PreparationProtocol",
     "PreparationRequest",
     "PreparedBenchmarkReceipt",
+    "ProviderAcquisitionReceipt",
+    "ProviderAcquisitionTarget",
+    "ProviderAdapter",
+    "ProviderArtifactExpectation",
+    "ProviderArtifactIdentityMismatchError",
+    "ProviderArtifactProvenanceMismatchError",
+    "ProviderDescriptor",
+    "ProviderId",
+    "ProviderReceiptCacheRootMismatchError",
+    "ProviderReceiptIntegrityMismatchError",
+    "ProviderReceiptMismatchError",
+    "ProviderTargetMismatchError",
+    "ResolvedProviderArtifact",
+    "ScientificArtifactIdentity",
     "Sha256Provenance",
     "SourceReference",
     "SplitAssigner",
@@ -145,6 +180,7 @@ __all__ = [
     "UnknownTaskError",
     "UnsupportedSplitProtocolError",
     "__version__",
+    "acquire_provider_artifact",
     "apply_fitted_preprocessing",
     "audit_split",
     "cli_app",

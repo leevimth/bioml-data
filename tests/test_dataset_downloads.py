@@ -107,6 +107,8 @@ def test_pinned_download_uses_selected_directory_then_skips_network(
     assert request_count == 1
     assert first.outcome is bio.DatasetDownloadOutcome.DOWNLOADED
     assert second.outcome is bio.DatasetDownloadOutcome.CACHE_HIT
+    assert first.provider.id == "figshare"
+    assert first.pin == pin
     assert first.artifact == second.artifact
     assert first.artifact.content_path.is_relative_to(selected)
 
