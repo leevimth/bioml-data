@@ -20,6 +20,7 @@ from bioml_data.datasets.tms_aorta._capabilities import (
 )
 from bioml_data.datasets.tms_aorta._identity import (
     TMS_AORTA_SNAPSHOT,
+    TMS_AORTA_SOURCE_SHA256,
     TMS_CELL_TYPE_TASK,
 )
 
@@ -63,7 +64,7 @@ TMS_AORTA_DOWNLOAD_PIN: Final = DatasetDownloadPin(
     filename="tabula-muris-senis-facs-processed-official-annotations-Aorta.h5ad",
     byte_size=44_547_302,
     official_md5="4b1c150cf856a7406b3293ebdacd72c6",
-    sha256="0fbf73145f2b50f956b9946aa2fa17e5fce0e40ddfc5ba922a1d503d65ced3c3",
+    sha256=TMS_AORTA_SOURCE_SHA256,
     sha256_provenance=Sha256Provenance.PROJECT_VERIFIED,
     license="MIT",
 )

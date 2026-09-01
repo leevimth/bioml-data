@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 from typing import override
 
-from bioml_data._artifacts import ArtifactManifest, ArtifactReceipt
+from bioml_data._artifact_lineage import ArtifactLineageReceipt
 from bioml_data._domain import (
     DatasetName,
     DatasetSnapshotIdentity,
@@ -14,6 +14,8 @@ from bioml_data._domain import (
     parse_dataset_version,
 )
 from bioml_data.datasets._capability_index import publish_registry_capabilities
+from bioml_data.datasets._evidence_validation import valid_split_evidence
+from bioml_data.datasets._materialization_verification import materialize_verified
 from bioml_data.datasets._models import (
     DatasetMaterialization,
     DatasetRegistration,
@@ -42,30 +44,6 @@ class DatasetCapabilityMismatchError(Exception):
     @override
     def __str__(self) -> str:
         return f"split capability is incoherent with {self.snapshot!r}: {self.detail}"
-
-
-@dataclass(frozen=True, slots=True)
-class DatasetMaterializationSnapshotMismatchError(Exception):
-    """Raised when an adapter returns a different dataset snapshot."""
-
-    expected: DatasetSnapshotIdentity
-    actual: DatasetSnapshotIdentity
-
-    @override
-    def __str__(self) -> str:
-        return f"materialization snapshot {self.actual!r} != {self.expected!r}"
-
-
-@dataclass(frozen=True, slots=True)
-class DatasetMaterializationArtifactMismatchError(Exception):
-    """Raised when an adapter substitutes input artifact provenance."""
-
-    expected: ArtifactManifest
-    actual: ArtifactManifest
-
-    @override
-    def __str__(self) -> str:
-        return "materialization artifact manifest differs from its input"
 
 
 @dataclass(frozen=True, slots=True)
@@ -126,25 +104,13 @@ class DatasetRegistry:
     def materialize(
         self,
         name: str,
-        artifact: ArtifactReceipt,
+        lineage: ArtifactLineageReceipt,
         *,
         version: str | None = None,
     ) -> DatasetMaterialization:
         """Dispatch an artifact through the adapter owned by its registration."""
         registration = self.resolve(name, version=version)
-        result = registration.materialize(artifact)
-        expected_snapshot = registration.definition.snapshot
-        if result.snapshot != expected_snapshot:
-            raise DatasetMaterializationSnapshotMismatchError(
-                expected=expected_snapshot,
-                actual=result.snapshot,
-            )
-        if result.artifact != artifact.manifest:
-            raise DatasetMaterializationArtifactMismatchError(
-                expected=artifact.manifest,
-                actual=result.artifact,
-            )
-        return result
+        return materialize_verified(registration, lineage)
 
     @property
     def available_names(self) -> tuple[DatasetName, ...]:
@@ -186,12 +152,36 @@ def _validate_registration(registration: DatasetRegistration) -> None:
 
     for capability in registration.split_capabilities:
         split_definition = split_definitions[(capability.task, capability.protocol)]
+        expected_evidence_scope = (
+            capability.dataset,
+            capability.artifact,
+            capability.task,
+            capability.protocol,
+        )
+        evidence_scopes = tuple(
+            (
+                evidence.scope.dataset,
+                evidence.scope.artifact,
+                evidence.scope.task,
+                evidence.scope.protocol,
+            )
+            for evidence in capability.evidence
+        )
+        evidence_roles = tuple(evidence.role for evidence in capability.evidence)
         coherent = (
             capability.dataset == definition.snapshot
+            and capability.artifact == registration.artifact_scope
             and capability.task in task_ids
             and capability.role == split_definition.role
             and capability.required_columns == split_definition.required_metadata
             and capability.grouping_column in capability.required_columns
+            and bool(capability.evidence)
+            and all(scope == expected_evidence_scope for scope in evidence_scopes)
+            and capability.role in evidence_roles
+            and len(set(evidence_roles)) == len(evidence_roles)
+            and all(evidence.citations for evidence in capability.evidence)
+            and all(valid_split_evidence(evidence) for evidence in capability.evidence)
+            and capability.evidence_type == capability.evidence[0].evidence_type
         )
         if not coherent:
             raise DatasetCapabilityMismatchError(

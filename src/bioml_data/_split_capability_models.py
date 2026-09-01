@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from enum import StrEnum, unique
 from typing import override
 
+from bioml_data._artifact_types import ArtifactId, TransformProtocolId
 from bioml_data._domain import (
     DatasetSnapshotIdentity,
     ProtocolId,
@@ -33,6 +34,49 @@ class SplitCapabilityAvailability(StrEnum):
 
 
 @dataclass(frozen=True, slots=True)
+class SplitArtifactScope:
+    """Exact raw artifact and transform to which split evidence applies."""
+
+    source_artifact: ArtifactId
+    transform_protocol: TransformProtocolId
+
+    @property
+    def parent_artifacts(self) -> tuple[ArtifactId, ...]:
+        """Return the exact ordered derivation parents required by this scope."""
+        return (self.source_artifact,)
+
+
+@dataclass(frozen=True, slots=True)
+class SplitEvidenceScope:
+    """Scientific scope preventing evidence reuse across incompatible contracts."""
+
+    dataset: DatasetSnapshotIdentity
+    artifact: SplitArtifactScope
+    task: TaskId
+    protocol: ProtocolId
+
+
+@dataclass(frozen=True, slots=True)
+class SplitEvidenceCitation:
+    """Human-readable provenance for a split-role claim."""
+
+    title: str
+    uri: str
+
+
+@dataclass(frozen=True, slots=True)
+class SplitProtocolEvidence:
+    """One role claim, its source, and its interpretation limits."""
+
+    scope: SplitEvidenceScope
+    role: SplitProtocolRole
+    evidence_type: SplitEvidenceType
+    citations: tuple[SplitEvidenceCitation, ...]
+    fit_scope: str
+    leakage_caveat: str
+
+
+@dataclass(frozen=True, slots=True)
 class SplitCapability:
     """Machine-readable contract for one supported split protocol."""
 
@@ -41,6 +85,8 @@ class SplitCapability:
     protocol: ProtocolId
     role: SplitProtocolRole
     evidence_type: SplitEvidenceType
+    artifact: SplitArtifactScope
+    evidence: tuple[SplitProtocolEvidence, ...]
     held_out_axis: str
     leakage_unit: str
     required_columns: tuple[str, ...]

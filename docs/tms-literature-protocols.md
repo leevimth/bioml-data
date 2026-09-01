@@ -19,7 +19,7 @@ role and the scientific question it answers rather than inherit a generic
 |---|---|---|
 | `LITERATURE_REFERENCE` | scArches maps a separate Tabula Muris query to a filtered TMS reference. | Reproduce a prominent cross-study reference-mapping setting; it is not an animal-held-out TMS split. |
 | `COMMUNITY_REFERENCE` | OpenProblems Label Projection v1 includes a TMS Lung derivative. | Compare with a fixed community artifact; its TMS Lung partition is random-cell, not a leakage-safe group holdout. |
-| `ROBUSTNESS` | `animal-held-out-v1` and future assay, age, or tissue transitions are package-defined. | Test one named deployment transition with explicit group independence; never present it as literature-recommended. |
+| `ROBUSTNESS` | `animal-held-out-v1` is package-defined; future assay, age, or tissue transitions require separate protocols. | Test one named deployment transition with explicit group independence; never present it as literature-recommended. |
 | `CANARY` | The current TMS Aorta implementation. | Exercise artifact, preparation, split, audit, and evaluation contracts; it is not a scientific benchmark claim. |
 
 These roles are not interchangeable. In particular, the scArches setting uses
@@ -39,6 +39,9 @@ Before a literature setting becomes executable here, it needs its own immutable
 artifact pin, task definition, split or reference/query declaration,
 preparation fit scope, metrics, and tests preventing identity confusion with the
 TMS Aorta canary.
+
+The machine-readable TMS evidence and the documentation-only pancreas candidate
+are summarized in the [split and protocol evidence matrix](split-protocol-evidence-matrix.md).
 
 ## Sources
 

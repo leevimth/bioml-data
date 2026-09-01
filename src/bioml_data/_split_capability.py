@@ -2,11 +2,15 @@
 
 from bioml_data._domain import parse_protocol_id
 from bioml_data._split_capability_models import (
+    SplitArtifactScope,
     SplitCapability,
     SplitCapabilityAvailability,
     SplitCapabilityQuery,
     SplitCapabilityResult,
+    SplitEvidenceCitation,
+    SplitEvidenceScope,
     SplitEvidenceType,
+    SplitProtocolEvidence,
     SupportedSplitCapability,
     UnknownSplitCapability,
     UnknownSplitCapabilityError,
@@ -36,11 +40,15 @@ def query_split_capability(query: SplitCapabilityQuery) -> SplitCapabilityResult
 
 
 __all__ = [
+    "SplitArtifactScope",
     "SplitCapability",
     "SplitCapabilityAvailability",
     "SplitCapabilityQuery",
     "SplitCapabilityResult",
+    "SplitEvidenceCitation",
+    "SplitEvidenceScope",
     "SplitEvidenceType",
+    "SplitProtocolEvidence",
     "SupportedSplitCapability",
     "UnknownSplitCapability",
     "UnknownSplitCapabilityError",

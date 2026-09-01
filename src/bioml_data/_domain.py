@@ -21,9 +21,11 @@ class DatasetLifecycle(StrEnum):
 
 @unique
 class SplitProtocolRole(StrEnum):
-    """Literature role assigned to a split protocol."""
+    """Evidence role assigned to a split protocol."""
 
     CANARY = "canary"
+    COMMUNITY_REFERENCE = "community_reference"
+    LITERATURE_REFERENCE = "literature_reference"
     REFERENCE = "reference"
     ROBUSTNESS = "robustness"
 
