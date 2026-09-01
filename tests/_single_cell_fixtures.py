@@ -100,7 +100,11 @@ def make_split(dataset: CanonicalSingleCellDataset) -> SplitAssignmentReceipt:
     ).split(protocol="animal-held-out-v1", seed=17)
 
 
-def make_tms_artifact(cache_root: Path) -> ArtifactReceipt:
+def make_tms_artifact(
+    cache_root: Path,
+    *,
+    parent_artifacts: tuple[ArtifactId, ...] = (TMS_AORTA_SOURCE_ARTIFACT,),
+) -> ArtifactReceipt:
     """Store a small processed TMS fixture with a linked raw parent."""
     cache = ArtifactCache(cache_root)
     payload = {
@@ -135,7 +139,7 @@ def make_tms_artifact(cache_root: Path) -> ArtifactReceipt:
     }
     processed_content = json.dumps(payload, separators=(",", ":")).encode()
     derivation = ArtifactDerivation(
-        parent_artifacts=(TMS_AORTA_SOURCE_ARTIFACT,),
+        parent_artifacts=parent_artifacts,
         transform_protocol=TransformProtocolId("tms-aorta-csr-v1"),
     )
     return cache.store(

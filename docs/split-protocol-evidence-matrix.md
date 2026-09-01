@@ -52,3 +52,18 @@ for evidence in capability.evidence:
 The pancreas row intentionally remains documentation-only until artifact
 rights, bytes, schema, and an executable registration are verified. It must not
 appear in `load_dataset()` or capability queries before that gate closes.
+
+## Artifact-lineage trust boundary
+
+Executable materialization requires an `ArtifactLineageReceipt`. The public
+loader reopens the derived and parent manifests, streams and hashes their cached
+bytes, and checks the exact ordered parent tuple and transform protocol declared
+by the dataset registration. Supplying only an `ArtifactReceipt`, adding an
+unrelated parent, or forging an in-memory parent identity is rejected before the
+dataset adapter runs.
+
+This establishes content identity and a verifiable declared lineage edge. It
+does not cryptographically prove that arbitrary transform code computed the
+derived bytes from the parents. That stronger semantic guarantee requires a
+package-owned, reproducible transform execution and receipt, which remains the
+TMS raw-H5AD integration boundary rather than a claim made by this matrix.

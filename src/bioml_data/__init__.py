@@ -4,6 +4,7 @@ from importlib.metadata import version
 from typing import Final
 
 from bioml_data._anndata import load_anndata
+from bioml_data._artifact_lineage import ArtifactLineageReceipt
 from bioml_data._artifact_receipts import (
     ArtifactReceiptFailure,
     ArtifactReceiptLoadError,
@@ -20,7 +21,7 @@ from bioml_data._artifacts import (
     IncompleteDownloadError,
     OversizedDownloadError,
 )
-from bioml_data._catalog import load_dataset
+from bioml_data._catalog import ArtifactLineageRequiredError, load_dataset
 from bioml_data._cli import app as cli_app
 from bioml_data._dataset_downloads import (
     DatasetDownloadOutcome,
@@ -103,7 +104,7 @@ from bioml_data._split_capability import (
     UnsupportedSplitCapability,
     query_split_capability,
 )
-from bioml_data.datasets._registry import (
+from bioml_data.datasets._materialization_verification import (
     DatasetMaterializationProvenanceMismatchError,
 )
 from bioml_data.datasets.tms_aorta._protocols import tms_aorta_canary_protocol
@@ -116,6 +117,8 @@ __all__ = [
     "ArtifactCollisionError",
     "ArtifactDerivation",
     "ArtifactHttpError",
+    "ArtifactLineageReceipt",
+    "ArtifactLineageRequiredError",
     "ArtifactManifest",
     "ArtifactReceipt",
     "ArtifactReceiptFailure",

@@ -8,7 +8,6 @@ from pathlib import Path
 
 import pytest
 
-import bioml_data as bio
 from bioml_data import _single_cell as single_cell
 from bioml_data import _tms_aorta as tms
 from bioml_data._artifacts import (
@@ -107,11 +106,11 @@ def _artifact_request(
 def _processed_artifact(
     tmp_path: Path,
     payload: str,
-    parent_artifact: ArtifactId = TMS_AORTA_SOURCE_ARTIFACT,
+    parent_artifacts: tuple[ArtifactId, ...] = (TMS_AORTA_SOURCE_ARTIFACT,),
 ) -> ArtifactReceipt:
     cache = ArtifactCache(tmp_path / "cache")
     derivation = ArtifactDerivation(
-        parent_artifacts=(parent_artifact,),
+        parent_artifacts=parent_artifacts,
         transform_protocol=TransformProtocolId("tms-aorta-csr-v1"),
     )
     processed_content = payload.encode()
@@ -121,12 +120,12 @@ def _processed_artifact(
     )
 
 
-def test_public_loader_materializes_pinned_tms_aorta_artifact(tmp_path: Path) -> None:
+def test_adapter_materializes_pinned_tms_aorta_artifact(tmp_path: Path) -> None:
     # Given: a local content-addressed export linked to its raw parent artifact.
     artifact = _processed_artifact(tmp_path, _fixture_payload())
 
     # When: the public dataset loader receives the explicit artifact pin.
-    dataset = bio.load_dataset("tms-aorta", artifact=artifact)
+    dataset = tms.load_tms_aorta(artifact)
 
     # Then: source, release, and local provenance remain explicit and distinct.
     assert isinstance(dataset, single_cell.CanonicalSingleCellDataset)
@@ -144,40 +143,6 @@ def test_public_loader_materializes_pinned_tms_aorta_artifact(tmp_path: Path) ->
     )
     assert dataset.artifact == artifact.manifest
     assert dataset.artifact.derivation is not None
-
-
-def test_adapter_rejects_processed_artifact_with_unpinned_parent(
-    tmp_path: Path,
-) -> None:
-    # Given: valid TMS payload and transform metadata linked to another raw input.
-    artifact = _processed_artifact(
-        tmp_path,
-        _fixture_payload(),
-        parent_artifact=ArtifactId("sha256:" + "9" * 64),
-    )
-
-    # When: the processed artifact crosses the TMS adapter boundary.
-    with pytest.raises(tms.UnlinkedTmsArtifactError):
-        _ = tms.load_tms_aorta(artifact)
-
-    # Then: schema validity cannot substitute for the pinned derivation parent.
-
-
-def test_public_loader_rejects_processed_artifact_with_unpinned_parent(
-    tmp_path: Path,
-) -> None:
-    # Given: valid TMS payload and transform metadata linked to another raw input.
-    artifact = _processed_artifact(
-        tmp_path,
-        _fixture_payload(),
-        parent_artifact=ArtifactId("sha256:" + "8" * 64),
-    )
-
-    # When: the artifact crosses the generic registration boundary.
-    with pytest.raises(bio.DatasetMaterializationProvenanceMismatchError):
-        _ = bio.load_dataset("tms-aorta", artifact=artifact)
-
-    # Then: dispatch cannot reach the dataset adapter with substituted lineage.
 
 
 def test_adapter_maps_canonical_metadata_for_grouped_splits(tmp_path: Path) -> None:

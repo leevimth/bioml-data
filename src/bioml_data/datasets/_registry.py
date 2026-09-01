@@ -2,9 +2,8 @@
 
 from dataclasses import dataclass
 from typing import override
-from urllib.parse import urlsplit
 
-from bioml_data._artifacts import ArtifactDerivation, ArtifactManifest, ArtifactReceipt
+from bioml_data._artifact_lineage import ArtifactLineageReceipt
 from bioml_data._domain import (
     DatasetName,
     DatasetSnapshotIdentity,
@@ -14,11 +13,9 @@ from bioml_data._domain import (
     parse_dataset_name,
     parse_dataset_version,
 )
-from bioml_data._split_capability_models import (
-    SplitArtifactScope,
-    SplitEvidenceCitation,
-)
 from bioml_data.datasets._capability_index import publish_registry_capabilities
+from bioml_data.datasets._evidence_validation import valid_split_evidence
+from bioml_data.datasets._materialization_verification import materialize_verified
 from bioml_data.datasets._models import (
     DatasetMaterialization,
     DatasetRegistration,
@@ -47,42 +44,6 @@ class DatasetCapabilityMismatchError(Exception):
     @override
     def __str__(self) -> str:
         return f"split capability is incoherent with {self.snapshot!r}: {self.detail}"
-
-
-@dataclass(frozen=True, slots=True)
-class DatasetMaterializationSnapshotMismatchError(Exception):
-    """Raised when an adapter returns a different dataset snapshot."""
-
-    expected: DatasetSnapshotIdentity
-    actual: DatasetSnapshotIdentity
-
-    @override
-    def __str__(self) -> str:
-        return f"materialization snapshot {self.actual!r} != {self.expected!r}"
-
-
-@dataclass(frozen=True, slots=True)
-class DatasetMaterializationArtifactMismatchError(Exception):
-    """Raised when an adapter substitutes input artifact provenance."""
-
-    expected: ArtifactManifest
-    actual: ArtifactManifest
-
-    @override
-    def __str__(self) -> str:
-        return "materialization artifact manifest differs from its input"
-
-
-@dataclass(frozen=True, slots=True)
-class DatasetMaterializationProvenanceMismatchError(Exception):
-    """Raised when a materialized artifact leaves its registered lineage."""
-
-    expected: SplitArtifactScope
-    actual: ArtifactDerivation | None
-
-    @override
-    def __str__(self) -> str:
-        return "materialization derivation differs from its registered artifact scope"
 
 
 @dataclass(frozen=True, slots=True)
@@ -143,36 +104,13 @@ class DatasetRegistry:
     def materialize(
         self,
         name: str,
-        artifact: ArtifactReceipt,
+        lineage: ArtifactLineageReceipt,
         *,
         version: str | None = None,
     ) -> DatasetMaterialization:
         """Dispatch an artifact through the adapter owned by its registration."""
         registration = self.resolve(name, version=version)
-        scope = registration.artifact_scope
-        derivation = artifact.manifest.derivation
-        if scope is not None and (
-            derivation is None
-            or derivation.transform_protocol != scope.transform_protocol
-            or scope.source_artifact not in derivation.parent_artifacts
-        ):
-            raise DatasetMaterializationProvenanceMismatchError(
-                expected=scope,
-                actual=derivation,
-            )
-        result = registration.materialize(artifact)
-        expected_snapshot = registration.definition.snapshot
-        if result.snapshot != expected_snapshot:
-            raise DatasetMaterializationSnapshotMismatchError(
-                expected=expected_snapshot,
-                actual=result.snapshot,
-            )
-        if result.artifact != artifact.manifest:
-            raise DatasetMaterializationArtifactMismatchError(
-                expected=artifact.manifest,
-                actual=result.artifact,
-            )
-        return result
+        return materialize_verified(registration, lineage)
 
     @property
     def available_names(self) -> tuple[DatasetName, ...]:
@@ -242,17 +180,7 @@ def _validate_registration(registration: DatasetRegistration) -> None:
             and capability.role in evidence_roles
             and len(set(evidence_roles)) == len(evidence_roles)
             and all(evidence.citations for evidence in capability.evidence)
-            and all(
-                evidence.fit_scope == evidence.fit_scope.strip()
-                and bool(evidence.fit_scope)
-                and evidence.leakage_caveat == evidence.leakage_caveat.strip()
-                and bool(evidence.leakage_caveat)
-                and all(
-                    _valid_evidence_citation(citation)
-                    for citation in evidence.citations
-                )
-                for evidence in capability.evidence
-            )
+            and all(valid_split_evidence(evidence) for evidence in capability.evidence)
             and capability.evidence_type == capability.evidence[0].evidence_type
         )
         if not coherent:
@@ -260,18 +188,6 @@ def _validate_registration(registration: DatasetRegistration) -> None:
                 snapshot=definition.snapshot,
                 detail=f"contract mismatch for {capability.protocol!r}",
             )
-
-
-def _valid_evidence_citation(citation: SplitEvidenceCitation) -> bool:
-    parsed = urlsplit(citation.uri)
-    return (
-        citation.title == citation.title.strip()
-        and bool(citation.title)
-        and citation.uri == citation.uri.strip()
-        and not any(character.isspace() for character in citation.uri)
-        and parsed.scheme == "https"
-        and bool(parsed.netloc)
-    )
 
 
 DATASET_REGISTRY = DatasetRegistry(registrations=(TMS_AORTA_REGISTRATION,))

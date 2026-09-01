@@ -25,7 +25,10 @@ TMS_ANIMAL_HELD_OUT_EVIDENCE_SCOPE: Final = SplitEvidenceScope(
 )
 TMS_PACKAGE_CONTRACT_CITATION: Final = SplitEvidenceCitation(
     title="TMS Aorta package contract",
-    uri="https://github.com/leevimth/bioml-data/blob/main/docs/tms-aorta.md",
+    uri=(
+        "https://github.com/leevimth/bioml-data/blob/"
+        "7bce77e81e8d24008a386cd743ffc3d441a2ce68/docs/tms-aorta.md"
+    ),
 )
 
 TMS_ANIMAL_HELD_OUT_CAPABILITY: Final = SplitCapability(

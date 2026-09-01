@@ -122,6 +122,8 @@ def test_registry_rejects_blank_evidence_semantics(field: str) -> None:
         _CitationCase(title="Evidence", uri="docs/evidence.md"),
         _CitationCase(title="Evidence", uri="http://example.test/evidence"),
         _CitationCase(title="Evidence", uri="https://example.test/bad path"),
+        _CitationCase(title="Evidence", uri="https://@"),
+        _CitationCase(title="Evidence", uri="https://user@example.test/evidence"),
     ],
 )
 def test_registry_rejects_invalid_evidence_citations(case: _CitationCase) -> None:

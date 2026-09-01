@@ -40,6 +40,11 @@ class SplitArtifactScope:
     source_artifact: ArtifactId
     transform_protocol: TransformProtocolId
 
+    @property
+    def parent_artifacts(self) -> tuple[ArtifactId, ...]:
+        """Return the exact ordered derivation parents required by this scope."""
+        return (self.source_artifact,)
+
 
 @dataclass(frozen=True, slots=True)
 class SplitEvidenceScope:

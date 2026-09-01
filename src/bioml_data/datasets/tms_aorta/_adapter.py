@@ -105,7 +105,7 @@ def load_tms_aorta(artifact: ArtifactReceipt) -> CanonicalSingleCellDataset:
             artifact_id=artifact.artifact_id,
             protocol=derivation.transform_protocol,
         )
-    if TMS_AORTA_ARTIFACT_SCOPE.source_artifact not in derivation.parent_artifacts:
+    if derivation.parent_artifacts != TMS_AORTA_ARTIFACT_SCOPE.parent_artifacts:
         raise UnlinkedTmsArtifactError(
             artifact_id=artifact.artifact_id,
             protocol=derivation.transform_protocol,

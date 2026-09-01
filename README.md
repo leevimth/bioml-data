@@ -198,7 +198,14 @@ import bioml_data as bio
 artifact = bio.load_artifact_receipt(
     Path(".cache/sha256/ab/<full-sha256>/manifest.json")
 )
-dataset = bio.load_dataset("tms-aorta", artifact=artifact)
+source = bio.load_artifact_receipt(
+    Path(".cache/sha256/0f/<source-sha256>/manifest.json")
+)
+lineage = bio.ArtifactLineageReceipt(
+    artifact=artifact,
+    parent_artifacts=(source,),
+)
+dataset = bio.load_dataset("tms-aorta", artifact=lineage)
 receipt = bio.run_tms_aorta_canary(
     artifact,
     split_protocol="animal-held-out-v1",
@@ -226,6 +233,15 @@ uv run bioml-data \
 Both surfaces emit the same deterministic identity chain: artifact, split
 assignment, preparation receipt, leakage-audit report, metric protocol, and
 evaluation receipt identities. The CLI writes the receipt as JSON.
+
+Scientific materialization through `load_dataset()` reopens and hashes the
+derived artifact and every required parent receipt, then requires their exact
+registered parent tuple and transform protocol. The direct canary runner and
+CLI are lower-level technical paths that assume their processed artifact
+receipt came from a trusted producer. Receipt verification proves the byte
+identities and declared lineage; it does not prove that arbitrary transform
+code actually computed those bytes. That semantic transform boundary remains
+part of the upstream-H5AD-to-canonical integration gap described below.
 
 Current acquisition is separate from `run_tms_aorta_canary`. The dataset-aware
 `download_dataset("tms-aorta", data_dir=...)` path owns the built-in TMS source
