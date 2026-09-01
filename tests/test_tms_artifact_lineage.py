@@ -101,7 +101,7 @@ def test_public_loader_rejects_processed_artifact_with_extra_parent(
         ),
     )
 
-    with pytest.raises(bio.DatasetMaterializationProvenanceMismatchError):
+    with pytest.raises(bio.DatasetMaterializationLineageMismatchError):
         _ = bio.load_dataset(
             "tms-aorta",
             artifact=ArtifactLineageReceipt(

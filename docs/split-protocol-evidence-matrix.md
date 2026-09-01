@@ -67,3 +67,10 @@ does not cryptographically prove that arbitrary transform code computed the
 derived bytes from the parents. That stronger semantic guarantee requires a
 package-owned, reproducible transform execution and receipt, which remains the
 TMS raw-H5AD integration boundary rather than a claim made by this matrix.
+
+Built-in `DatasetRegistration` source code is the package's trusted authority.
+Registry validation prevents accidental disagreement among a registration,
+capability, and evidence scope; it cannot defend against a malicious source-code
+change that rewrites all three authorities together. The current TMS download
+pin and registration both derive from the same typed identity constant, so the
+download index is not misrepresented as an independent trust anchor.

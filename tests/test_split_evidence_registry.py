@@ -93,6 +93,39 @@ def test_registry_rejects_coordinated_artifact_scope_reassignment() -> None:
     # Then: registration provenance remains authoritative.
 
 
+def test_trusted_registration_is_authority_for_a_coordinated_scope_change() -> None:
+    # Given: trusted package source changes registration, capability, and evidence.
+    capability = TMS_AORTA_REGISTRATION.split_capabilities[0]
+    changed_artifact = replace(
+        capability.artifact,
+        source_artifact=ArtifactId("sha256:" + "8" * 64),
+    )
+    changed_evidence = tuple(
+        replace(
+            evidence,
+            scope=replace(evidence.scope, artifact=changed_artifact),
+        )
+        for evidence in capability.evidence
+    )
+    registration = replace(
+        TMS_AORTA_REGISTRATION,
+        artifact_scope=changed_artifact,
+        split_capabilities=(
+            replace(
+                capability,
+                artifact=changed_artifact,
+                evidence=changed_evidence,
+            ),
+        ),
+    )
+
+    # When: the internally coherent built-in registration is constructed.
+    registry = DatasetRegistry(registrations=(registration,))
+
+    # Then: validation enforces coherence, not an external source-code trust root.
+    assert registry.registrations[0].artifact_scope == changed_artifact
+
+
 @pytest.mark.parametrize("field", ["fit_scope", "leakage_caveat"])
 def test_registry_rejects_blank_evidence_semantics(field: str) -> None:
     # Given: one evidence record with blank semantic metadata.
@@ -124,6 +157,12 @@ def test_registry_rejects_blank_evidence_semantics(field: str) -> None:
         _CitationCase(title="Evidence", uri="https://example.test/bad path"),
         _CitationCase(title="Evidence", uri="https://@"),
         _CitationCase(title="Evidence", uri="https://user@example.test/evidence"),
+        _CitationCase(title="Evidence", uri="https://example.test/%GG"),
+        _CitationCase(title="Evidence", uri="https://example.test:/evidence"),
+        _CitationCase(title="Evidence", uri="https://example.test:99999/evidence"),
+        _CitationCase(title="Evidence", uri="https://127.0.0.1/evidence"),
+        _CitationCase(title="Evidence", uri="https://10.0.0.1/evidence"),
+        _CitationCase(title="Evidence", uri="https://[::1]/evidence"),
     ],
 )
 def test_registry_rejects_invalid_evidence_citations(case: _CitationCase) -> None:

@@ -1,14 +1,21 @@
 """Artifact-lineage verification at dataset materialization boundaries."""
 
 from dataclasses import dataclass
+from functools import partial
+from pathlib import Path
+from tempfile import TemporaryDirectory, gettempdir
 from typing import override
 
 from bioml_data._artifact_lineage import ArtifactLineageReceipt
+from bioml_data._artifact_paths import open_binary_nofollow
 from bioml_data._artifact_receipts import load_artifact_receipt
+from bioml_data._artifact_types import ArtifactId
 from bioml_data._artifacts import (
+    ArtifactCache,
     ArtifactDerivation,
     ArtifactManifest,
     ArtifactReceipt,
+    ArtifactRequest,
 )
 from bioml_data._domain import DatasetSnapshotIdentity
 from bioml_data._split_capability_models import SplitArtifactScope
@@ -51,6 +58,18 @@ class DatasetMaterializationProvenanceMismatchError(Exception):
         return "materialization derivation differs from its registered artifact scope"
 
 
+@dataclass(frozen=True, slots=True)
+class DatasetMaterializationLineageMismatchError(Exception):
+    """Raised when supplied parent receipts differ from declared derivation."""
+
+    declared: tuple[ArtifactId, ...]
+    supplied: tuple[ArtifactId, ...]
+
+    @override
+    def __str__(self) -> str:
+        return "supplied parent receipts differ from the artifact derivation"
+
+
 def materialize_verified(
     registration: DatasetRegistration,
     lineage: ArtifactLineageReceipt,
@@ -81,7 +100,15 @@ def materialize_verified(
         registration, artifact.manifest.derivation, verified_parents
     )
 
-    result = registration.materialize(artifact)
+    with TemporaryDirectory(
+        prefix="bioml-materialize-",
+        dir=Path(gettempdir()).resolve(),
+    ) as snapshot_root:
+        snapshot = _verified_private_snapshot(
+            verified_artifact,
+            Path(snapshot_root),
+        )
+        result = registration.materialize(snapshot)
     expected_snapshot = registration.definition.snapshot
     if result.snapshot != expected_snapshot:
         raise DatasetMaterializationSnapshotMismatchError(
@@ -101,17 +128,52 @@ def _require_registered_lineage(
     derivation: ArtifactDerivation | None,
     verified_parents: tuple[ArtifactReceipt, ...],
 ) -> None:
+    supplied_parent_ids = tuple(parent.artifact_id for parent in verified_parents)
+    declared_parent_ids = () if derivation is None else derivation.parent_artifacts
+    if declared_parent_ids != supplied_parent_ids:
+        raise DatasetMaterializationLineageMismatchError(
+            declared=declared_parent_ids,
+            supplied=supplied_parent_ids,
+        )
+
     scope = registration.artifact_scope
     if scope is None:
         return
-    verified_parent_ids = tuple(parent.artifact_id for parent in verified_parents)
     if (
         derivation is None
         or derivation.transform_protocol != scope.transform_protocol
         or derivation.parent_artifacts != scope.parent_artifacts
-        or verified_parent_ids != scope.parent_artifacts
     ):
         raise DatasetMaterializationProvenanceMismatchError(
             expected=scope,
             actual=derivation,
         )
+
+
+def _verified_private_snapshot(
+    receipt: ArtifactReceipt,
+    root: Path,
+) -> ArtifactReceipt:
+    manifest = receipt.manifest
+    request = ArtifactRequest(
+        logical_name=manifest.logical_name,
+        source_uri=manifest.source_uri,
+        accession=manifest.accession,
+        release=manifest.release,
+        retrieved_at=manifest.retrieved_at,
+        expected_byte_size=manifest.byte_size,
+        expected_sha256=manifest.sha256,
+        tool_version=manifest.tool_version,
+        derivation=manifest.derivation,
+    )
+    with open_binary_nofollow(receipt.content_path) as source:
+        snapshot = ArtifactCache(root).store(
+            request,
+            iter(partial(source.read, 1024 * 1024), b""),
+        )
+    if snapshot.manifest != manifest:
+        raise DatasetMaterializationArtifactMismatchError(
+            expected=manifest,
+            actual=snapshot.manifest,
+        )
+    return snapshot

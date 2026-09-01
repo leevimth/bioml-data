@@ -105,6 +105,7 @@ from bioml_data._split_capability import (
     query_split_capability,
 )
 from bioml_data.datasets._materialization_verification import (
+    DatasetMaterializationLineageMismatchError,
     DatasetMaterializationProvenanceMismatchError,
 )
 from bioml_data.datasets.tms_aorta._protocols import tms_aorta_canary_protocol
@@ -135,6 +136,7 @@ __all__ = [
     "DatasetDownloadReceipt",
     "DatasetDownloadUnavailableError",
     "DatasetLifecycle",
+    "DatasetMaterializationLineageMismatchError",
     "DatasetMaterializationProvenanceMismatchError",
     "DatasetSnapshotIdentity",
     "DatasetVersionRequiredError",
