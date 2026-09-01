@@ -186,12 +186,34 @@ def _validate_registration(registration: DatasetRegistration) -> None:
 
     for capability in registration.split_capabilities:
         split_definition = split_definitions[(capability.task, capability.protocol)]
+        expected_evidence_scope = (
+            capability.dataset,
+            capability.artifact,
+            capability.task,
+            capability.protocol,
+        )
+        evidence_scopes = tuple(
+            (
+                evidence.scope.dataset,
+                evidence.scope.artifact,
+                evidence.scope.task,
+                evidence.scope.protocol,
+            )
+            for evidence in capability.evidence
+        )
+        evidence_roles = tuple(evidence.role for evidence in capability.evidence)
         coherent = (
             capability.dataset == definition.snapshot
             and capability.task in task_ids
             and capability.role == split_definition.role
             and capability.required_columns == split_definition.required_metadata
             and capability.grouping_column in capability.required_columns
+            and bool(capability.evidence)
+            and all(scope == expected_evidence_scope for scope in evidence_scopes)
+            and capability.role in evidence_roles
+            and len(set(evidence_roles)) == len(evidence_roles)
+            and all(evidence.citations for evidence in capability.evidence)
+            and capability.evidence_type == capability.evidence[0].evidence_type
         )
         if not coherent:
             raise DatasetCapabilityMismatchError(

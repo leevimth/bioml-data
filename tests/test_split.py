@@ -10,6 +10,7 @@ from bioml_data._domain import (
     DatasetName,
     DatasetSnapshotIdentity,
     DatasetVersion,
+    SplitProtocolRole,
     TaskId,
     UnsupportedSplitProtocolError,
 )
@@ -55,6 +56,55 @@ def test_query_reports_tms_animal_canary_capability() -> None:
     assert result.capability.held_out_axis == "animal"
     assert result.capability.leakage_unit == "mouse"
     assert result.capability.required_columns == ("cell_id", "donor_id")
+
+
+def test_query_exposes_scoped_canary_and_robustness_evidence() -> None:
+    # Given: the supported TMS Aorta animal-held-out protocol.
+    query = capabilities.SplitCapabilityQuery(
+        dataset=_tms_snapshot(),
+        task=TaskId("cell-type-annotation-v1"),
+        protocol="animal-held-out-v1",
+    )
+
+    # When: a researcher inspects its evidence-bearing capability.
+    capability = capabilities.query_split_capability(query).require_supported()
+
+    # Then: package roles are explicit and every claim has the exact same scope.
+    assert tuple(evidence.role for evidence in capability.evidence) == (
+        SplitProtocolRole.CANARY,
+        SplitProtocolRole.ROBUSTNESS,
+    )
+    assert all(
+        evidence.scope.dataset == capability.dataset for evidence in capability.evidence
+    )
+    assert all(
+        evidence.scope.artifact == capability.artifact
+        for evidence in capability.evidence
+    )
+    assert all(
+        evidence.scope.task == capability.task for evidence in capability.evidence
+    )
+    assert all(
+        evidence.scope.protocol == capability.protocol
+        for evidence in capability.evidence
+    )
+    assert capability.artifact.source_artifact == (
+        "sha256:0fbf73145f2b50f956b9946aa2fa17e5fce0e40ddfc5ba922a1d503d65ced3c3"
+    )
+    assert capability.artifact.transform_protocol == "tms-aorta-csr-v1"
+    assert capability.evidence[1].fit_scope == "train-only feature selection"
+    assert "not literature-recommended" in capability.evidence[1].leakage_caveat
+
+
+def test_split_protocol_roles_distinguish_literature_and_community_references() -> None:
+    # Given: the public role vocabulary used by evidence records.
+
+    # When: reference roles are inspected.
+    values = {role.value for role in SplitProtocolRole}
+
+    # Then: literature reproduction and community compatibility are not conflated.
+    assert "literature_reference" in values
+    assert "community_reference" in values
 
 
 def test_query_distinguishes_unsupported_from_unknown_capability() -> None:

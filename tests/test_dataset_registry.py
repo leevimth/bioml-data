@@ -180,6 +180,43 @@ def test_registry_rejects_split_definition_contract_mismatch(
     # Then: role and required metadata share one authoritative contract.
 
 
+@pytest.mark.parametrize("scope_field", ["dataset", "artifact", "task", "protocol"])
+def test_registry_rejects_split_evidence_for_a_different_scope(
+    scope_field: str,
+) -> None:
+    # Given: evidence silently reassigned outside its capability scope.
+    capability = TMS_AORTA_REGISTRATION.split_capabilities[0]
+    evidence = capability.evidence[0]
+    replacement = {
+        "dataset": DatasetSnapshotIdentity(
+            name=DatasetName("other-dataset"),
+            version=DatasetVersion("v1"),
+        ),
+        "artifact": replace(
+            capability.artifact,
+            transform_protocol="other-transform-v1",
+        ),
+        "task": TaskId("other-task"),
+        "protocol": ProtocolId("other-protocol"),
+    }[scope_field]
+    wrong_scope = replace(evidence.scope, **{scope_field: replacement})
+    wrong_evidence = replace(evidence, scope=wrong_scope)
+    wrong_capability = replace(
+        capability,
+        evidence=(wrong_evidence, *capability.evidence[1:]),
+    )
+    registration = replace(
+        TMS_AORTA_REGISTRATION,
+        split_capabilities=(wrong_capability,),
+    )
+
+    # When: the registration boundary validates the scoped evidence.
+    with pytest.raises(DatasetCapabilityMismatchError):
+        _ = DatasetRegistry(registrations=(registration,))
+
+    # Then: evidence cannot become authoritative for another scientific scope.
+
+
 def test_materialize_rejects_snapshot_mismatch(tmp_path: Path) -> None:
     # Given: an adapter returning a snapshot other than its registration declares.
     artifact = _artifact(tmp_path)

@@ -251,8 +251,11 @@ current upstream-H5AD-to-canonical adaptation gap.
 
 Literature evidence for [TMS protocol roles](docs/tms-literature-protocols.md)
 and the candidate [human pancreas cross-study annotation
-reference](docs/pancreas-cross-study-annotation.md) is documented separately
-from the implemented TMS Aorta canary.
+reference](docs/pancreas-cross-study-annotation.md) is documented separately.
+The [dataset split and protocol evidence
+matrix](docs/split-protocol-evidence-matrix.md) shows executable and candidate
+settings without conflating candidate evidence with the implemented TMS Aorta
+canary.
 
 See [core product decisions](docs/core-decisions.md) for the current conceptual
 model and [development](docs/development.md) for local setup and quality checks.

@@ -28,7 +28,8 @@ cache](downloads.md) for the exact pin and reuse behavior.
 | Field | Value |
 |---|---|
 | Role | `CANARY` |
-| Evidence | `PRODUCT_PROTOCOL` |
+| Additional evidence role | `ROBUSTNESS` |
+| Evidence source | `PRODUCT_PROTOCOL` (package-defined) |
 | Held-out axis | animal |
 | Leakage unit | mouse |
 | Canonical grouping column | `donor_id` |
@@ -36,10 +37,17 @@ cache](downloads.md) for the exact pin and reuse behavior.
 | Requested group fractions | 80% train, 10% validation, 10% test |
 | Allocation | stable seeded group ordering plus largest remainder |
 
-This is a transparent package-defined smoke protocol. It is not a reused
+The same executable split has two explicit evidence records: `CANARY` for
+technical lifecycle verification and `ROBUSTNESS` for the package-defined
+animal-independence check. This is a transparent package-defined smoke
+protocol. It is not a reused
 literature split, a `REFERENCE` protocol, a recommended scientific split, or
 evidence that animal holdout is universally preferable. Changing its fractions
 or allocation behavior requires a new protocol version.
+
+See the [split and protocol evidence matrix](split-protocol-evidence-matrix.md)
+for the typed role vocabulary, exact artifact scope, and documented pancreas
+candidate.
 
 ## Preparation lifecycle
 
