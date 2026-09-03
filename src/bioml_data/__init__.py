@@ -88,6 +88,27 @@ from bioml_data._leakage_audit_models import (
     LeakageAuditReport,
     LeakageAuditRequest,
 )
+from bioml_data._metadata_concordance import (
+    MetadataComparison,
+    MetadataConcordanceReport,
+    MetadataPartitionReport,
+    compare_metadata_concordance,
+)
+from bioml_data._metadata_concordance_models import (
+    InvalidMetadataExpectationError,
+    InvalidMetadataPartitionError,
+    MetadataCitation,
+    MetadataConcordance,
+    MetadataCount,
+    MetadataExpectationKind,
+    MetadataExpectationScope,
+    MetadataExpectationScopeMismatchError,
+    MetadataFoldId,
+    MetadataMetric,
+    MetadataPartitionViolation,
+)
+from bioml_data._metadata_expectations import PublicationMetadataExpectation
+from bioml_data._metadata_observed import MetadataObservedValue
 from bioml_data._pipeline import BenchmarkRunReceipt, run_tms_aorta_canary
 from bioml_data._preparation import (
     apply_fitted_preprocessing,
@@ -176,9 +197,16 @@ __all__ = [
     "DatasetSnapshotIdentity", "DatasetVersionRequiredError", "EvaluationReceipt",
     "EvaluationRequest", "FittedPreparationState", "HttpArtifactDownload",
     "HttpClientConfiguration", "IncompleteDownloadError", "InsecureArtifactUrlError",
+    "InvalidMetadataExpectationError", "InvalidMetadataPartitionError",
     "InvalidRawTmsArtifactError", "InvalidSplitCanaryUsageError",
     "InvalidSplitProtocolRoleError", "InvalidSplitSemanticTypeError", "LabelRecord",
-    "LeakageAuditReport", "LeakageAuditRequest", "MissingSplitProtocolError",
+    "LeakageAuditReport", "LeakageAuditRequest",
+    "MetadataCitation", "MetadataComparison", "MetadataConcordance",
+    "MetadataConcordanceReport", "MetadataCount", "MetadataExpectationKind",
+    "MetadataExpectationScope", "MetadataExpectationScopeMismatchError",
+    "MetadataFoldId", "MetadataMetric", "MetadataObservedValue",
+    "MetadataPartitionReport", "MetadataPartitionViolation",
+    "MissingSplitProtocolError",
     "OversizedDownloadError", "PredictionRecord", "PreparationProtocol",
     "PreparationRequest", "PreparedBenchmarkReceipt", "PreparedDatasetCacheError",
     "ProviderAcquisitionReceipt", "ProviderAcquisitionTarget", "ProviderAdapter",
@@ -186,7 +214,8 @@ __all__ = [
     "ProviderArtifactProvenanceMismatchError", "ProviderDescriptor", "ProviderId",
     "ProviderReceiptCacheRootMismatchError",
     "ProviderReceiptIntegrityMismatchError", "ProviderReceiptMismatchError",
-    "ProviderTargetMismatchError", "RawTmsViolation", "ResolvedProviderArtifact",
+    "ProviderTargetMismatchError", "PublicationMetadataExpectation",
+    "RawTmsViolation", "ResolvedProviderArtifact",
     "ScientificArtifactIdentity", "Sha256Provenance", "SourceReference",
     "SplitArtifactScope", "SplitAssigner", "SplitAssignmentReceipt", "SplitCapability",
     "SplitCapabilityAvailability", "SplitCapabilityQuery", "SplitCapabilityResult",
@@ -200,6 +229,7 @@ __all__ = [
     "UnlinkedTmsArtifactError", "UnsupportedSplitCapability",
     "UnsupportedSplitProtocolError", "VerifiedArtifactChangedError", "__version__",
     "acquire_provider_artifact", "apply_fitted_preprocessing", "audit_split", "cli_app",
+    "compare_metadata_concordance",
     "create_http_client", "download_artifact", "download_dataset", "evaluate",
     "fit_train_preprocessing", "get_dataset_download_pin", "load_anndata",
     "load_artifact_receipt", "load_dataset", "prepare_benchmark", "prepare_dataset",

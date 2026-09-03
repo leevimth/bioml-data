@@ -107,6 +107,16 @@ not safe. Required leakage-unit overlap is `FAIL`, informative overlap is
 `WARN`, and complete covered separation is `PASS`. Unsupported protocol support,
 unassessed support, and observed overlap failure remain distinct outcomes.
 
+## Metadata concordance
+
+`compare_metadata_concordance()` compares the complete prepared artifact and
+every realized train, validation, and test partition against scoped evidence.
+It retains `NOT_REPORTED` fields as unknown, reports group overlap without
+replacing the leakage audit, and makes no model-performance claim. The exact TMS
+Aorta counts are scoped to this 906 × 22,966 source artifact; whole-atlas
+statistics from the primary TMS paper are rejected as a different scope. See
+[publication-scoped metadata concordance](metadata-concordance.md).
+
 ## Evaluation
 
 The smoke evaluation uses the product protocol
