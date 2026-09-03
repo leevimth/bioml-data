@@ -5,12 +5,14 @@ from bioml_data._split_capability_models import (
     SplitArtifactScope,
     SplitCapability,
     SplitCapabilityAvailability,
-    SplitCapabilityQuery,
-    SplitCapabilityResult,
     SplitEvidenceCitation,
     SplitEvidenceScope,
     SplitEvidenceType,
     SplitProtocolEvidence,
+)
+from bioml_data._split_capability_results import (
+    SplitCapabilityQuery,
+    SplitCapabilityResult,
     SupportedSplitCapability,
     UnknownSplitCapability,
     UnknownSplitCapabilityError,

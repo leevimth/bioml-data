@@ -1,8 +1,16 @@
 """Immutable dataset protocol contracts."""
 
+# noqa: SIZE_OK — cohesive catalog contracts retain legacy split-constructor compatibility.
+
 from dataclasses import dataclass, field
 from enum import StrEnum, unique
 from typing import NewType, override
+
+from bioml_data._split_contract_errors import (
+    require_exact_bool,
+    require_exact_split_enum,
+    require_split_contract_field,
+)
 
 DatasetName = NewType("DatasetName", str)
 DatasetVersion = NewType("DatasetVersion", str)
@@ -86,41 +94,11 @@ class SplitProtocolCompatibilityRoleError(Exception):
         )
 
 
-@dataclass(frozen=True, slots=True)
-class InvalidSplitCanaryUsageError(Exception):
-    """Raised when package canary usage is not an exact boolean."""
-
-    protocol: ProtocolId
-    actual_type: str
-
-    @override
-    def __str__(self) -> str:
-        return (
-            f"canary usage for {self.protocol!r} must be bool, got {self.actual_type}"
-        )
-
-
-@dataclass(frozen=True, slots=True)
-class InvalidSplitProtocolRoleError(Exception):
-    """Raised when a legacy split role is not a declared enum member."""
-
-    protocol: ProtocolId
-    actual_type: str
-
-    @override
-    def __str__(self) -> str:
-        return (
-            f"legacy split role for {self.protocol!r} must be "
-            f"SplitProtocolRole, got {self.actual_type}"
-        )
-
-
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True, slots=True, init=False)
 class SplitProtocolDefinition:
     """A versioned split contract supported by a dataset task."""
 
     id: ProtocolId
-    role: SplitProtocolRole | None
     task: TaskId
     required_metadata: tuple[str, ...]
     basis: SplitEvidenceBasis | None = None
@@ -130,45 +108,79 @@ class SplitProtocolDefinition:
     grouping_column: str = ""
     evaluation_target: str = ""
     is_canary: bool = False
-    _role_is_projection: bool = field(default=False, repr=False, compare=False)
+    _legacy_role: SplitProtocolRole | None = field(
+        init=False,
+        repr=False,
+        compare=False,
+    )
 
-    def __post_init__(self) -> None:
-        """Project legacy role reads from separate canary usage."""
-        if type(self.is_canary) is not bool:
-            raise InvalidSplitCanaryUsageError(
-                protocol=self.id,
-                actual_type=type(self.is_canary).__name__,
-            )
-        if self.role is not None and type(self.role) is not SplitProtocolRole:
-            raise InvalidSplitProtocolRoleError(
-                protocol=self.id,
-                actual_type=type(self.role).__name__,
-            )
-        if self.basis is None:
-            return
-        expected_role = SplitProtocolRole.CANARY if self.is_canary else None
-        match self.role:  # noqa: MATCH_OK — basedpyright proves the enum branches exhaustive.
-            case None:
-                object.__setattr__(self, "role", expected_role)
-                object.__setattr__(self, "_role_is_projection", True)
-            case SplitProtocolRole.CANARY if self._role_is_projection:
-                object.__setattr__(self, "role", expected_role)
-                object.__setattr__(self, "_role_is_projection", True)
-            case SplitProtocolRole.CANARY as mismatch:
-                raise SplitProtocolCompatibilityRoleError(
-                    protocol=self.id,
-                    role=mismatch,
-                )
-            case (
-                SplitProtocolRole.COMMUNITY_REFERENCE
-                | SplitProtocolRole.LITERATURE_REFERENCE
-                | SplitProtocolRole.REFERENCE
-                | SplitProtocolRole.ROBUSTNESS
-            ) as mismatch:
-                raise SplitProtocolCompatibilityRoleError(
-                    protocol=self.id,
-                    role=mismatch,
-                )
+    def __init__(  # noqa: PLR0913, PLR0917 — preserves the legacy dataclass constructor.
+        self,
+        id: ProtocolId,  # noqa: A002 — preserves the legacy keyword constructor.
+        role: SplitProtocolRole | None = None,
+        task: TaskId | None = None,
+        required_metadata: tuple[str, ...] | None = None,
+        basis: SplitEvidenceBasis | None = None,
+        strategy: SplitStrategy | None = None,
+        held_out_axis: str = "",
+        leakage_unit: str = "",
+        grouping_column: str = "",
+        evaluation_target: str = "",
+        is_canary: bool = False,
+    ) -> None:
+        """Create a split declaration while retaining legacy role inputs."""
+        resolved_task = require_split_contract_field(
+            task,
+            field="task",
+            contract="split protocol definition",
+        )
+        resolved_required_metadata = require_split_contract_field(
+            required_metadata,
+            field="required metadata",
+            contract="split protocol definition",
+        )
+        resolved_is_canary = require_exact_bool(is_canary, protocol=id)
+        resolved_role = require_exact_split_enum(
+            role,
+            expected_type=SplitProtocolRole,
+            protocol=id,
+            field="role",
+        )
+        resolved_basis = require_exact_split_enum(
+            basis,
+            expected_type=SplitEvidenceBasis,
+            protocol=id,
+            field="basis",
+        )
+        resolved_strategy = require_exact_split_enum(
+            strategy,
+            expected_type=SplitStrategy,
+            protocol=id,
+            field="strategy",
+        )
+        if resolved_basis is not None and resolved_role is not None:
+            raise SplitProtocolCompatibilityRoleError(protocol=id, role=resolved_role)
+        for field_name, value in (
+            ("id", id),
+            ("task", resolved_task),
+            ("required_metadata", resolved_required_metadata),
+            ("basis", resolved_basis),
+            ("strategy", resolved_strategy),
+            ("held_out_axis", held_out_axis),
+            ("leakage_unit", leakage_unit),
+            ("grouping_column", grouping_column),
+            ("evaluation_target", evaluation_target),
+            ("is_canary", resolved_is_canary),
+            ("_legacy_role", resolved_role),
+        ):
+            object.__setattr__(self, field_name, value)
+
+    @property
+    def role(self) -> SplitProtocolRole | None:
+        """Return the deprecated role view derived from active package usage."""
+        if self.basis is not None:
+            return SplitProtocolRole.CANARY if self.is_canary else None
+        return self._legacy_role
 
 
 @dataclass(frozen=True, slots=True)

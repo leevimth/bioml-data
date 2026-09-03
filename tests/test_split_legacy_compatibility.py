@@ -5,14 +5,16 @@ from dataclasses import replace
 import pytest
 
 from bioml_data._domain import (
-    InvalidSplitCanaryUsageError,
-    InvalidSplitProtocolRoleError,
     ProtocolId,
     SplitProtocolDefinition,
     SplitProtocolRole,
     TaskId,
 )
 from bioml_data._split_capability_models import SplitEvidenceType
+from bioml_data._split_contract_errors import (
+    InvalidSplitCanaryUsageError,
+    InvalidSplitProtocolRoleError,
+)
 from bioml_data.datasets._registry import (
     DatasetCapabilityMismatchError,
     DatasetRegistry,
@@ -152,3 +154,41 @@ def test_capability_rejects_a_raw_string_legacy_role() -> None:
 
     # Then: the typed boundary error remains printable.
     assert str(captured.value)
+
+
+def test_new_contract_does_not_accept_a_role_projection_marker() -> None:
+    # Given: public new-contract definition and capability declarations.
+    split = TMS_AORTA_REGISTRATION.definition.supported_splits[0]
+    capability = TMS_AORTA_REGISTRATION.split_capabilities[0]
+
+    # When: a caller tries to provide removed private provenance.
+    with pytest.raises(ValueError, match="init=False"):
+        _ = replace(
+            split,
+            role=SplitProtocolRole.CANARY,
+            _legacy_role=SplitProtocolRole.CANARY,
+        )
+    with pytest.raises(ValueError, match="init=False"):
+        _ = replace(
+            capability,
+            role=SplitProtocolRole.CANARY,
+            _legacy_role=SplitProtocolRole.CANARY,
+        )
+    private_field = "_legacy_role"
+    with pytest.raises(TypeError, match=private_field):
+        _ = SplitProtocolDefinition(
+            split.id,
+            None,
+            split.task,
+            split.required_metadata,
+            split.basis,
+            split.strategy,
+            split.held_out_axis,
+            split.leakage_unit,
+            split.grouping_column,
+            split.evaluation_target,
+            split.is_canary,
+            **{private_field: SplitProtocolRole.CANARY},
+        )
+
+    # Then: compatibility provenance cannot be supplied through replacement or init.

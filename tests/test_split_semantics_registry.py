@@ -11,6 +11,7 @@ from bioml_data._domain import (
     SplitStrategy,
 )
 from bioml_data._split_capability_models import SplitEvidenceCitation
+from bioml_data._split_contract_errors import InvalidSplitSemanticTypeError
 from bioml_data.datasets._registry import (
     DatasetCapabilityMismatchError,
     DatasetRegistry,
@@ -211,29 +212,20 @@ def test_registry_rejects_invalid_leave_one_study_out_semantics() -> None:
 
 @pytest.mark.parametrize("field", ["basis", "strategy"])
 def test_registry_rejects_raw_strings_for_typed_split_semantics(field: str) -> None:
-    # Given: a declaration and capability using a string instead of the enum.
+    # Given: public contracts that declare source and strategy enum fields.
     value = {"basis": "package_defined", "strategy": "group-held-out"}[field]
     capability = TMS_AORTA_REGISTRATION.split_capabilities[0]
-    definition = replace(
-        TMS_AORTA_REGISTRATION.definition,
-        supported_splits=(
-            replace(
-                TMS_AORTA_REGISTRATION.definition.supported_splits[0],
-                **{field: value},
-            ),
-        ),
-    )
-    registration = replace(
-        TMS_AORTA_REGISTRATION,
-        definition=definition,
-        split_capabilities=(replace(capability, **{field: value}),),
-    )
 
-    # When: untyped split metadata reaches registry publication.
-    with pytest.raises(DatasetCapabilityMismatchError):
-        _ = DatasetRegistry(registrations=(registration,))
+    # When: an untyped semantic value reaches either constructor.
+    with pytest.raises(InvalidSplitSemanticTypeError):
+        _ = replace(
+            TMS_AORTA_REGISTRATION.definition.supported_splits[0],
+            **{field: value},
+        )
+    with pytest.raises(InvalidSplitSemanticTypeError):
+        _ = replace(capability, **{field: value})
 
-    # Then: source and strategy values remain closed typed vocabularies.
+    # Then: source and strategy values remain closed constructor vocabularies.
 
 
 @pytest.mark.parametrize(

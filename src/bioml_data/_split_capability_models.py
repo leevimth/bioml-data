@@ -2,21 +2,21 @@
 
 from dataclasses import dataclass, field
 from enum import StrEnum, unique
-from typing import override
 
 from bioml_data._artifact_types import ArtifactId, TransformProtocolId
 from bioml_data._domain import (
     DatasetSnapshotIdentity,
-    InvalidSplitCanaryUsageError,
-    InvalidSplitProtocolRoleError,
     ProtocolId,
     SplitEvidenceBasis,
     SplitProtocolCompatibilityRoleError,
     SplitProtocolRole,
     SplitStrategy,
     TaskId,
-    UnsupportedSplitProtocolError,
-    parse_protocol_id,
+)
+from bioml_data._split_contract_errors import (
+    require_exact_bool,
+    require_exact_split_enum,
+    require_split_contract_field,
 )
 
 
@@ -83,11 +83,18 @@ class SplitProtocolEvidence:
 
     def __post_init__(self) -> None:
         """Keep active evidence basis records free of legacy role claims."""
-        if self.role is not None and type(self.role) is not SplitProtocolRole:
-            raise InvalidSplitProtocolRoleError(
-                protocol=self.scope.protocol,
-                actual_type=type(self.role).__name__,
-            )
+        _ = require_exact_split_enum(
+            self.role,
+            expected_type=SplitProtocolRole,
+            protocol=self.scope.protocol,
+            field="role",
+        )
+        _ = require_exact_split_enum(
+            self.basis,
+            expected_type=SplitEvidenceBasis,
+            protocol=self.scope.protocol,
+            field="basis",
+        )
         if self.basis is not None and self.role is not None:
             raise SplitProtocolCompatibilityRoleError(
                 protocol=self.scope.protocol,
@@ -95,14 +102,13 @@ class SplitProtocolEvidence:
             )
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True, slots=True, init=False)
 class SplitCapability:
     """Machine-readable contract for one supported split protocol."""
 
     dataset: DatasetSnapshotIdentity
     task: TaskId
     protocol: ProtocolId
-    role: SplitProtocolRole | None
     evidence_type: SplitEvidenceType | None
     artifact: SplitArtifactScope
     evidence: tuple[SplitProtocolEvidence, ...]
@@ -114,146 +120,101 @@ class SplitCapability:
     strategy: SplitStrategy | None = None
     evaluation_target: str = ""
     is_canary: bool = False
-    _role_is_projection: bool = field(default=False, repr=False, compare=False)
+    _legacy_role: SplitProtocolRole | None = field(
+        init=False,
+        repr=False,
+        compare=False,
+    )
 
-    def __post_init__(self) -> None:
-        """Project legacy capability role reads from separate canary usage."""
-        if type(self.is_canary) is not bool:
-            raise InvalidSplitCanaryUsageError(
-                protocol=self.protocol,
-                actual_type=type(self.is_canary).__name__,
-            )
-        if self.role is not None and type(self.role) is not SplitProtocolRole:
-            raise InvalidSplitProtocolRoleError(
-                protocol=self.protocol,
-                actual_type=type(self.role).__name__,
-            )
-        if self.basis is None:
-            return
-        expected_role = SplitProtocolRole.CANARY if self.is_canary else None
-        match self.role:  # noqa: MATCH_OK — basedpyright proves the enum branches exhaustive.
-            case None:
-                object.__setattr__(self, "role", expected_role)
-                object.__setattr__(self, "_role_is_projection", True)
-            case SplitProtocolRole.CANARY if self._role_is_projection:
-                object.__setattr__(self, "role", expected_role)
-                object.__setattr__(self, "_role_is_projection", True)
-            case SplitProtocolRole.CANARY as mismatch:
-                raise SplitProtocolCompatibilityRoleError(
-                    protocol=self.protocol,
-                    role=mismatch,
-                )
-            case (
-                SplitProtocolRole.COMMUNITY_REFERENCE
-                | SplitProtocolRole.LITERATURE_REFERENCE
-                | SplitProtocolRole.REFERENCE
-                | SplitProtocolRole.ROBUSTNESS
-            ) as mismatch:
-                raise SplitProtocolCompatibilityRoleError(
-                    protocol=self.protocol,
-                    role=mismatch,
-                )
-
-
-@dataclass(frozen=True, slots=True)
-class SplitCapabilityQuery:
-    """Explicit dataset, task, and protocol capability lookup."""
-
-    dataset: DatasetSnapshotIdentity
-    task: TaskId
-    protocol: str
-
-
-@dataclass(frozen=True, slots=True)
-class SupportedSplitCapability:
-    """A declared protocol and its evidence-bearing contract."""
-
-    capability: SplitCapability
-
-    @property
-    def availability(self) -> SplitCapabilityAvailability:
-        """Return the assessed support state."""
-        return SplitCapabilityAvailability.SUPPORTED
-
-    @property
-    def supported_protocols(self) -> tuple[ProtocolId, ...]:
-        """Return the resolved supported protocol."""
-        return (self.capability.protocol,)
-
-    def capability_or_none(self) -> SplitCapability:
-        """Return the declared capability for non-raising consumers."""
-        return self.capability
-
-    def require_supported(self) -> SplitCapability:
-        """Return the declared capability."""
-        return self.capability
-
-
-@dataclass(frozen=True, slots=True)
-class UnsupportedSplitCapability:
-    """An assessed dataset/task scope without the requested protocol."""
-
-    query: SplitCapabilityQuery
-    supported_protocols: tuple[ProtocolId, ...]
-
-    @property
-    def availability(self) -> SplitCapabilityAvailability:
-        """Return the assessed support state."""
-        return SplitCapabilityAvailability.UNSUPPORTED
-
-    def capability_or_none(self) -> None:
-        """Return no capability for the unsupported request."""
-
-    def require_supported(self) -> SplitCapability:
-        """Raise the assessed unsupported-protocol outcome."""
-        raise UnsupportedSplitProtocolError(
-            dataset=self.query.dataset,
-            protocol=parse_protocol_id(self.query.protocol),
-            supported=self.supported_protocols,
+    def __init__(  # noqa: PLR0913, PLR0917 — preserves the legacy dataclass constructor.
+        self,
+        dataset: DatasetSnapshotIdentity | None = None,
+        task: TaskId | None = None,
+        protocol: ProtocolId | None = None,
+        role: SplitProtocolRole | None = None,
+        evidence_type: SplitEvidenceType | None = None,
+        artifact: SplitArtifactScope | None = None,
+        evidence: tuple[SplitProtocolEvidence, ...] | None = None,
+        held_out_axis: str | None = None,
+        leakage_unit: str | None = None,
+        required_columns: tuple[str, ...] | None = None,
+        grouping_column: str | None = None,
+        basis: SplitEvidenceBasis | None = None,
+        strategy: SplitStrategy | None = None,
+        evaluation_target: str = "",
+        is_canary: bool = False,
+    ) -> None:
+        """Create a split capability while retaining legacy role inputs."""
+        resolved_dataset = require_split_contract_field(dataset, field="dataset")
+        resolved_task = require_split_contract_field(task, field="task")
+        resolved_protocol = require_split_contract_field(protocol, field="protocol")
+        resolved_artifact = require_split_contract_field(artifact, field="artifact")
+        resolved_evidence = require_split_contract_field(evidence, field="evidence")
+        resolved_held_out_axis = require_split_contract_field(
+            held_out_axis,
+            field="held-out axis",
         )
-
-
-@dataclass(frozen=True, slots=True)
-class UnknownSplitCapability:
-    """A dataset/task scope whose capabilities have not been assessed."""
-
-    query: SplitCapabilityQuery
-
-    @property
-    def availability(self) -> SplitCapabilityAvailability:
-        """Return the unassessed support state."""
-        return SplitCapabilityAvailability.UNKNOWN
-
-    @property
-    def supported_protocols(self) -> tuple[ProtocolId, ...]:
-        """Return no alternatives for an unassessed scope."""
-        return ()
-
-    def capability_or_none(self) -> None:
-        """Return no capability for the unassessed request."""
-
-    def require_supported(self) -> SplitCapability:
-        """Raise the unassessed-scope outcome."""
-        raise UnknownSplitCapabilityError(
-            dataset=self.query.dataset,
-            task=self.query.task,
-            protocol=parse_protocol_id(self.query.protocol),
+        resolved_leakage_unit = require_split_contract_field(
+            leakage_unit,
+            field="leakage unit",
         )
+        resolved_required_columns = require_split_contract_field(
+            required_columns,
+            field="required columns",
+        )
+        resolved_grouping_column = require_split_contract_field(
+            grouping_column,
+            field="grouping column",
+        )
+        resolved_is_canary = require_exact_bool(
+            is_canary,
+            protocol=resolved_protocol,
+        )
+        resolved_role = require_exact_split_enum(
+            role,
+            expected_type=SplitProtocolRole,
+            protocol=resolved_protocol,
+            field="role",
+        )
+        resolved_basis = require_exact_split_enum(
+            basis,
+            expected_type=SplitEvidenceBasis,
+            protocol=resolved_protocol,
+            field="basis",
+        )
+        resolved_strategy = require_exact_split_enum(
+            strategy,
+            expected_type=SplitStrategy,
+            protocol=resolved_protocol,
+            field="strategy",
+        )
+        if resolved_basis is not None and resolved_role is not None:
+            raise SplitProtocolCompatibilityRoleError(
+                protocol=resolved_protocol,
+                role=resolved_role,
+            )
+        for field_name, value in (
+            ("dataset", resolved_dataset),
+            ("task", resolved_task),
+            ("protocol", resolved_protocol),
+            ("evidence_type", evidence_type),
+            ("artifact", resolved_artifact),
+            ("evidence", resolved_evidence),
+            ("held_out_axis", resolved_held_out_axis),
+            ("leakage_unit", resolved_leakage_unit),
+            ("required_columns", resolved_required_columns),
+            ("grouping_column", resolved_grouping_column),
+            ("basis", resolved_basis),
+            ("strategy", resolved_strategy),
+            ("evaluation_target", evaluation_target),
+            ("is_canary", resolved_is_canary),
+            ("_legacy_role", resolved_role),
+        ):
+            object.__setattr__(self, field_name, value)
 
-
-@dataclass(frozen=True, slots=True)
-class UnknownSplitCapabilityError(Exception):
-    """Raised when split support has not been assessed for a scope."""
-
-    dataset: DatasetSnapshotIdentity
-    task: TaskId
-    protocol: ProtocolId
-
-    @override
-    def __str__(self) -> str:
-        return f"split capability unknown for {self.dataset!r}, task {self.task!r}"
-
-
-type SplitCapabilityResult = (
-    SupportedSplitCapability | UnsupportedSplitCapability | UnknownSplitCapability
-)
+    @property
+    def role(self) -> SplitProtocolRole | None:
+        """Return the deprecated role view derived from active package usage."""
+        if self.basis is not None:
+            return SplitProtocolRole.CANARY if self.is_canary else None
+        return self._legacy_role

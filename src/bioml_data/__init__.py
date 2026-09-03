@@ -53,8 +53,6 @@ from bioml_data._domain import (
     DatasetLifecycle,
     DatasetSnapshotIdentity,
     DatasetVersionRequiredError,
-    InvalidSplitCanaryUsageError,
-    InvalidSplitProtocolRoleError,
     SourceReference,
     SplitEvidenceBasis,
     SplitPlan,
@@ -141,6 +139,12 @@ from bioml_data._split_capability import (
     UnsupportedSplitCapability,
     query_split_capability,
 )
+from bioml_data._split_contract_errors import (
+    InvalidSplitCanaryUsageError,
+    InvalidSplitProtocolRoleError,
+    InvalidSplitRoleProjectionError,
+    InvalidSplitSemanticTypeError,
+)
 from bioml_data._verified_artifact import VerifiedArtifactChangedError
 from bioml_data.datasets._materialization_verification import (
     DatasetMaterializationLineageMismatchError,
@@ -199,6 +203,8 @@ __all__ = [
     "InvalidRawTmsArtifactError",
     "InvalidSplitCanaryUsageError",
     "InvalidSplitProtocolRoleError",
+    "InvalidSplitRoleProjectionError",
+    "InvalidSplitSemanticTypeError",
     "LabelRecord",
     "LeakageAuditReport",
     "LeakageAuditRequest",
