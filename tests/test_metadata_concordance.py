@@ -163,6 +163,66 @@ def test_compare_reports_whole_dataset_and_each_realized_partition() -> None:
     assert report.covered_observation_count == 6
 
 
+def test_compare_omits_empty_validation_partition_from_receipt_report() -> None:
+    # Given: a valid five-train, one-test receipt with no validation observations.
+    dataset = _dataset()
+    original = make_split(dataset)
+    assignments = tuple(
+        replace(
+            item,
+            partition=(
+                SplitPartition.TEST
+                if item.observation_id == "cell-6"
+                else SplitPartition.TRAIN
+            ),
+        )
+        for item in original.assignments
+    )
+    receipt = replace(
+        original,
+        assignments=assignments,
+        realized_group_counts=PartitionGroupCounts(train=4, validation=0, test=1),
+    )
+    assignment = replace(
+        receipt,
+        assignment_identity=assignment_receipt_identity(receipt),
+    )
+    expectations = (
+        bio.PublicationMetadataExpectation.not_reported(
+            scope=_scope(),
+            partition=SplitPartition.TRAIN,
+            metric=bio.MetadataMetric.LABEL_COUNTS,
+        ),
+        bio.PublicationMetadataExpectation.not_reported(
+            scope=_scope(),
+            partition=SplitPartition.VALIDATION,
+            metric=bio.MetadataMetric.LABEL_COUNTS,
+        ),
+        bio.PublicationMetadataExpectation.not_reported(
+            scope=_scope(),
+            partition=SplitPartition.TEST,
+            metric=bio.MetadataMetric.LABEL_COUNTS,
+        ),
+    )
+
+    # When: concordance reports only partitions realized by the receipt.
+    report = bio.compare_metadata_concordance(
+        dataset,
+        assignment,
+        expectations=expectations,
+    )
+
+    # Then: no empty validation report or comparison is synthesized.
+    assert tuple(item.partition for item in report.partition_reports) == (
+        SplitPartition.TRAIN,
+        SplitPartition.TEST,
+    )
+    assert all(
+        item.partition is not SplitPartition.VALIDATION
+        for item in report.partition_reports
+    )
+
+
 def test_compare_rejects_publication_expectation_from_global_dataset_scope() -> None:
     # Given: a whole-atlas expectation that names a different snapshot identity.
     dataset = _dataset()

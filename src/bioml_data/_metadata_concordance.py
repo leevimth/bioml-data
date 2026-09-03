@@ -82,6 +82,7 @@ def compare_metadata_concordance(
             _expectations_for(expectations, partition=partition, fold=fold),
         )
         for partition in SplitPartition
+        if datasets[partition]
     )
     return MetadataConcordanceReport(
         scope=scope,
