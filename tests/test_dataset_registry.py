@@ -9,7 +9,6 @@ from bioml_data._domain import (
     DatasetSnapshotIdentity,
     DatasetVersion,
     ProtocolId,
-    SplitProtocolRole,
     TaskId,
 )
 from bioml_data.datasets._capability_index import (
@@ -121,13 +120,12 @@ def test_registry_rejects_duplicate_split_capability() -> None:
 @pytest.mark.parametrize(
     ("field", "value"),
     [
-        ("role", SplitProtocolRole.REFERENCE),
         ("required_columns", ("cell_id", "study_id")),
     ],
 )
 def test_registry_rejects_split_definition_contract_mismatch(
     field: str,
-    value: SplitProtocolRole | tuple[str, ...],
+    value: tuple[str, ...],
 ) -> None:
     # Given: a capability contradicting its advertised definition contract.
     capability = replace(

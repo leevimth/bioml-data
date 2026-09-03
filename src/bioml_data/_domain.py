@@ -1,6 +1,6 @@
 """Immutable dataset protocol contracts."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import StrEnum, unique
 from typing import NewType, override
 
@@ -72,6 +72,21 @@ class TaskDefinition:
 
 
 @dataclass(frozen=True, slots=True)
+class SplitProtocolCompatibilityRoleError(Exception):
+    """Raised when new split semantics conflict with a legacy role input."""
+
+    protocol: ProtocolId
+    role: SplitProtocolRole
+
+    @override
+    def __str__(self) -> str:
+        return (
+            f"legacy split role {self.role.value!r} conflicts with active "
+            f"semantics for {self.protocol!r}"
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class SplitProtocolDefinition:
     """A versioned split contract supported by a dataset task."""
 
@@ -86,12 +101,25 @@ class SplitProtocolDefinition:
     grouping_column: str = ""
     evaluation_target: str = ""
     is_canary: bool = False
+    _role_is_projection: bool = field(default=False, repr=False, compare=False)
 
     def __post_init__(self) -> None:
         """Project legacy role reads from separate canary usage."""
-        if self.basis is not None:
-            legacy_role = SplitProtocolRole.CANARY if self.is_canary else None
-            object.__setattr__(self, "role", legacy_role)
+        if self.basis is None:
+            return
+        expected_role = SplitProtocolRole.CANARY if self.is_canary else None
+        match self.role:
+            case None:
+                pass
+            case SplitProtocolRole.CANARY if self._role_is_projection:
+                pass
+            case mismatch:
+                raise SplitProtocolCompatibilityRoleError(
+                    protocol=self.id,
+                    role=mismatch,
+                )
+        object.__setattr__(self, "role", expected_role)
+        object.__setattr__(self, "_role_is_projection", True)
 
 
 @dataclass(frozen=True, slots=True)

@@ -4,7 +4,12 @@ from dataclasses import replace
 
 import pytest
 
-from bioml_data._domain import SplitEvidenceBasis, SplitStrategy
+from bioml_data._domain import (
+    SplitEvidenceBasis,
+    SplitProtocolCompatibilityRoleError,
+    SplitProtocolRole,
+    SplitStrategy,
+)
 from bioml_data._split_capability_models import SplitEvidenceCitation
 from bioml_data.datasets._registry import (
     DatasetCapabilityMismatchError,
@@ -38,6 +43,29 @@ def test_registry_accepts_non_canary_package_defined_split() -> None:
     split = registry.registrations[0].definition.supported_splits[0]
     assert split.role is None
     assert not registry.registrations[0].split_capabilities[0].is_canary
+
+
+@pytest.mark.parametrize(
+    "role",
+    [SplitProtocolRole.REFERENCE, SplitProtocolRole.ROBUSTNESS],
+)
+def test_new_split_contract_rejects_an_explicit_legacy_role_mismatch(
+    role: SplitProtocolRole,
+) -> None:
+    # Given: the public new-contract TMS split with a derived canary role.
+    split = TMS_AORTA_REGISTRATION.definition.supported_splits[0]
+
+    # When: a caller explicitly changes that deprecated role.
+    with pytest.raises(SplitProtocolCompatibilityRoleError):
+        _ = replace(split, role=role)
+
+    with pytest.raises(SplitProtocolCompatibilityRoleError):
+        _ = replace(TMS_AORTA_REGISTRATION.split_capabilities[0], role=role)
+
+    with pytest.raises(SplitProtocolCompatibilityRoleError):
+        _ = replace(TMS_AORTA_REGISTRATION.split_capabilities[0].evidence[0], role=role)
+
+    # Then: legacy role fields cannot override active basis and canary semantics.
 
 
 def test_registry_accepts_multiple_evidence_bases_for_explicit_semantics() -> None:

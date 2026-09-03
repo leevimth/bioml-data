@@ -19,7 +19,8 @@ for API compatibility. New registrations use `SplitEvidenceBasis`; in
 particular, `CANARY` and `ROBUSTNESS` are not active evidence roles.
 For compatibility, a canary split's deprecated `.role` field projects
 `CANARY` from `is_canary=true`; `.basis` remains the only active evidence
-source.
+source. A new-contract registration that explicitly supplies a different legacy
+role is rejected rather than silently normalized.
 
 One executable split can carry several evidence records from different bases.
 Each record repeats the exact dataset snapshot, source artifact, transform,
@@ -27,6 +28,11 @@ task, and split identity so evidence cannot silently move to another scope.
 The split strategy, held-out axis, leakage unit, grouping column, and evaluation
 target are concrete semantics shared by those evidence records. `is_canary` is
 separate package-test usage.
+
+For generic `group-held-out` protocols, registry validation can establish typed,
+canonical fields and agreement between the definition and executable capability;
+it cannot establish that a free-text biological axis is scientifically valid.
+That claim remains bounded by the cited evidence and by post-split leakage audit.
 
 ## Current matrix
 

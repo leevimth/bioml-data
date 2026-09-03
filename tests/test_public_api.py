@@ -53,6 +53,27 @@ def test_researcher_can_read_the_deprecated_canary_role_projection() -> None:
     assert role is bio.SplitProtocolRole.CANARY
 
 
+def test_researcher_can_read_the_deprecated_capability_role_projection() -> None:
+    # Given: the public TMS split capability under the new basis contract.
+    dataset = bio.load_dataset("tms-aorta")
+    declaration = dataset.supported_splits[0]
+    capability = bio.query_split_capability(
+        bio.SplitCapabilityQuery(
+            dataset=dataset.snapshot,
+            task=declaration.task,
+            protocol=declaration.id,
+        )
+    ).require_supported()
+
+    # When: an older reader accesses the capability and scoped evidence roles.
+    capability_role = capability.role
+    evidence_role = capability.evidence[0].role
+
+    # Then: canary compatibility is projected at protocol level, not as evidence.
+    assert capability_role is bio.SplitProtocolRole.CANARY
+    assert evidence_role is None
+
+
 def test_researcher_can_inspect_split_semantics_and_evidence_from_public_api() -> None:
     # Given: the public TMS dataset contract and its supported split.
     dataset = bio.load_dataset("tms-aorta")

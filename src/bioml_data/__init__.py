@@ -1,5 +1,7 @@
 """Reproducible data protocols for biological machine learning."""
 
+# allow: SIZE_OK — this package-root facade only re-exports public contracts.
+
 from importlib.metadata import version
 from typing import Final
 
@@ -54,6 +56,7 @@ from bioml_data._domain import (
     SourceReference,
     SplitEvidenceBasis,
     SplitPlan,
+    SplitProtocolCompatibilityRoleError,
     SplitProtocolDefinition,
     SplitProtocolRole,
     SplitStrategy,
@@ -231,6 +234,7 @@ __all__ = [
     "SplitEvidenceScope",
     "SplitEvidenceType",
     "SplitPlan",
+    "SplitProtocolCompatibilityRoleError",
     "SplitProtocolDefinition",
     "SplitProtocolEvidence",
     "SplitProtocolRole",

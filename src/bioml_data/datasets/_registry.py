@@ -207,7 +207,8 @@ def _validate_registration(registration: DatasetRegistration) -> None:
 def _valid_contract_mode(capability: SplitCapability) -> bool:
     return (
         type(capability.basis) is SplitEvidenceBasis
-        and capability.role is None
+        and capability.role
+        is (SplitProtocolRole.CANARY if capability.is_canary else None)
         and capability.evidence_type is None
         and capability.basis
         in tuple(evidence.basis for evidence in capability.evidence)

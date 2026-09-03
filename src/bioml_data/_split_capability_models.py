@@ -1,6 +1,6 @@
 """Typed outcomes for dataset-specific split capability evidence."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import StrEnum, unique
 from typing import override
 
@@ -9,6 +9,7 @@ from bioml_data._domain import (
     DatasetSnapshotIdentity,
     ProtocolId,
     SplitEvidenceBasis,
+    SplitProtocolCompatibilityRoleError,
     SplitProtocolRole,
     SplitStrategy,
     TaskId,
@@ -78,6 +79,14 @@ class SplitProtocolEvidence:
     leakage_caveat: str
     basis: SplitEvidenceBasis | None = None
 
+    def __post_init__(self) -> None:
+        """Keep active evidence basis records free of legacy role claims."""
+        if self.basis is not None and self.role is not None:
+            raise SplitProtocolCompatibilityRoleError(
+                protocol=self.scope.protocol,
+                role=self.role,
+            )
+
 
 @dataclass(frozen=True, slots=True)
 class SplitCapability:
@@ -98,6 +107,25 @@ class SplitCapability:
     strategy: SplitStrategy | None = None
     evaluation_target: str = ""
     is_canary: bool = False
+    _role_is_projection: bool = field(default=False, repr=False, compare=False)
+
+    def __post_init__(self) -> None:
+        """Project legacy capability role reads from separate canary usage."""
+        if self.basis is None:
+            return
+        expected_role = SplitProtocolRole.CANARY if self.is_canary else None
+        match self.role:
+            case None:
+                pass
+            case SplitProtocolRole.CANARY if self._role_is_projection:
+                pass
+            case mismatch:
+                raise SplitProtocolCompatibilityRoleError(
+                    protocol=self.protocol,
+                    role=mismatch,
+                )
+        object.__setattr__(self, "role", expected_role)
+        object.__setattr__(self, "_role_is_projection", True)
 
 
 @dataclass(frozen=True, slots=True)
