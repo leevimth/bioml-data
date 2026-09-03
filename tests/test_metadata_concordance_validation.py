@@ -15,6 +15,9 @@ from ._single_cell_fixtures import make_split
         "https://example.org/source?token=secret",
         "https://example.org/source#section",
         "https://127.0.0.1/source",
+        "https://127.1/source",
+        "https://127.0.1/source",
+        "https://0x7f.0x0.0x0.0x1/source",
         "https://100.64.0.1/source",
         "https://169.254.1.1/source",
         "https://224.0.0.1/source",
@@ -31,6 +34,19 @@ def test_metadata_citation_rejects_non_public_or_credentialed_uri(uri: str) -> N
         _ = bio.MetadataCitation(title="Evidence", uri=uri)
 
     # Then: no unsafe endpoint becomes a publication-bound expectation.
+
+
+def test_metadata_citation_accepts_public_dns_domain() -> None:
+    # Given: a conventional public DNS citation host.
+
+    # When: the citation is parsed at the metadata expectation boundary.
+    citation = bio.MetadataCitation(
+        title="Public evidence",
+        uri="https://example.org/source",
+    )
+
+    # Then: syntactic numeric-IP protections do not reject DNS names.
+    assert citation.uri == "https://example.org/source"
 
 
 def test_metadata_expectation_rejects_ignored_contradictory_fields() -> None:
