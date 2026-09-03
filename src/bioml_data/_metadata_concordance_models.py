@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 from enum import StrEnum, unique
-from typing import NewType, override
+from typing import Literal, NewType, override
 
 from bioml_data._domain import DatasetSnapshotIdentity, ProtocolId, TaskId
 from bioml_data._split_capability_models import SplitArtifactScope
@@ -36,6 +36,24 @@ class MetadataMetric(StrEnum):
     TISSUE_VALUES = "tissue_values"
     LABEL_COUNTS = "label_counts"
     OBSERVATIONS_PER_GROUP = "observations_per_group"
+
+
+ScalarMetadataMetric = Literal[
+    MetadataMetric.OBSERVATION_COUNT,
+    MetadataMetric.FEATURE_COUNT,
+]
+ValueMetadataMetric = Literal[
+    MetadataMetric.STUDY_IDS,
+    MetadataMetric.DONOR_IDS,
+    MetadataMetric.GROUP_IDS,
+    MetadataMetric.LABEL_VALUES,
+    MetadataMetric.ASSAY_VALUES,
+    MetadataMetric.TISSUE_VALUES,
+]
+DistributionMetadataMetric = Literal[
+    MetadataMetric.LABEL_COUNTS,
+    MetadataMetric.OBSERVATIONS_PER_GROUP,
+]
 
 
 @unique

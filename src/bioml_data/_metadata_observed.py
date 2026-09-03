@@ -3,13 +3,15 @@
 from collections import Counter
 from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Literal
 
 from bioml_data._metadata_concordance_models import (
+    DistributionMetadataMetric,
     InvalidMetadataPartitionError,
     MetadataCount,
     MetadataMetric,
     MetadataPartitionViolation,
+    ScalarMetadataMetric,
+    ValueMetadataMetric,
 )
 from bioml_data._single_cell import CanonicalObservation, CanonicalSingleCellDataset
 from bioml_data._split import (
@@ -20,23 +22,6 @@ from bioml_data._split import (
     assignment_receipt_identity,
 )
 from bioml_data._split_capability import SplitCapabilityQuery, query_split_capability
-
-ScalarMetadataMetric = Literal[
-    MetadataMetric.OBSERVATION_COUNT,
-    MetadataMetric.FEATURE_COUNT,
-]
-ValueMetadataMetric = Literal[
-    MetadataMetric.STUDY_IDS,
-    MetadataMetric.DONOR_IDS,
-    MetadataMetric.GROUP_IDS,
-    MetadataMetric.LABEL_VALUES,
-    MetadataMetric.ASSAY_VALUES,
-    MetadataMetric.TISSUE_VALUES,
-]
-DistributionMetadataMetric = Literal[
-    MetadataMetric.LABEL_COUNTS,
-    MetadataMetric.OBSERVATIONS_PER_GROUP,
-]
 
 
 @dataclass(frozen=True, slots=True)

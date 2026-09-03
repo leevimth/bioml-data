@@ -10,7 +10,11 @@ from bioml_data._metadata_concordance_models import (
     MetadataFoldId,
     MetadataMetric,
 )
-from bioml_data._metadata_normalization import canonical_distribution, canonical_values
+from bioml_data._metadata_normalization import (
+    canonical_distribution,
+    canonical_values,
+    validate_metadata_values,
+)
 from bioml_data._split import SplitPartition
 
 
@@ -155,8 +159,15 @@ class PublicationMetadataExpectation:
             canonical_distribution(self.expected_distribution),
         )
         _validate_shape(self)
-        _validate_nonnegative(self)
-
+        validate_metadata_values(
+            (
+                self.expected_count,
+                self.lower_bound,
+                self.upper_bound,
+                self.tolerance,
+            ),
+            self.values,
+        )
 
 def _validate_shape(expectation: PublicationMetadataExpectation) -> None:
     scalar = expectation.metric in {
@@ -259,20 +270,3 @@ def _valid_approximation(
         and not expectation.values
         and not expectation.expected_distribution
     )
-
-
-def _validate_nonnegative(expectation: PublicationMetadataExpectation) -> None:
-    values = (
-        expectation.expected_count,
-        expectation.lower_bound,
-        expectation.upper_bound,
-        expectation.tolerance,
-    )
-    if any(value is not None and value < 0 for value in values):
-        raise InvalidMetadataExpectationError(
-            detail="metadata count bounds and tolerance must be non-negative"
-        )
-    if any(not value.strip() for value in expectation.values):
-        raise InvalidMetadataExpectationError(
-            detail="metadata set values must be non-empty"
-        )
