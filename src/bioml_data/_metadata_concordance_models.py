@@ -100,9 +100,16 @@ class MetadataCount:
 
     def __post_init__(self) -> None:
         """Keep categorical distributions deterministic and non-negative."""
-        if not self.value.strip() or self.count < 0:
+        if (
+            not self.value.strip()
+            or type(self.count) is not int
+            or self.count < 0
+        ):
             raise InvalidMetadataExpectationError(
-                detail="metadata counts need a non-empty value and non-negative count"
+                detail=(
+                    "metadata counts need a non-empty value and exact "
+                    "non-negative integer"
+                )
             )
 
 

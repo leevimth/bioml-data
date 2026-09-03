@@ -473,6 +473,110 @@ def test_metadata_expectation_canonicalizes_unordered_values() -> None:
     )
 
 
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("expected_count", 6.0),
+        ("expected_count", True),
+        ("tolerance", 1.0),
+        ("tolerance", True),
+        ("lower_bound", 0.0),
+        ("lower_bound", True),
+        ("upper_bound", 7.0),
+        ("upper_bound", True),
+    ],
+)
+def test_metadata_expectation_rejects_non_exact_runtime_integer(
+    field: str,
+    value: float | bool,
+) -> None:
+    # Given: a valid expectation changed by an untyped runtime boundary.
+    expectation = _expectation_for_numeric_field(field)
+    object.__setattr__(expectation, field, value)
+
+    # When: its construction validation is applied to the runtime value.
+    with pytest.raises(bio.InvalidMetadataExpectationError):
+        expectation.__post_init__()
+
+    # Then: booleans and floats cannot stand in for metadata integer fields.
+
+
+@pytest.mark.parametrize("value", [True, 6.0])
+def test_metadata_count_rejects_non_exact_runtime_integer(
+    value: float | bool,
+) -> None:
+    # Given: a valid categorical count changed by an untyped runtime boundary.
+    count = bio.MetadataCount(value="endothelial", count=1)
+    object.__setattr__(count, "count", value)
+
+    # When: count validation is reapplied.
+    with pytest.raises(bio.InvalidMetadataExpectationError):
+        count.__post_init__()
+
+    # Then: a categorical count remains an exact non-negative integer.
+
+
+def test_compare_rejects_expectations_for_a_different_fold() -> None:
+    # Given: evidence scoped to a named fold and a different requested fold.
+    dataset = _dataset()
+    assignment = make_split(dataset)
+    expectation = bio.PublicationMetadataExpectation(
+        scope=_scope(),
+        partition=None,
+        fold=bio.MetadataFoldId("fold-1"),
+        metric=bio.MetadataMetric.OBSERVATION_COUNT,
+        kind=bio.MetadataExpectationKind.EXACT,
+        expected_count=6,
+    )
+
+    # When: concordance would otherwise filter the evidence to no comparisons.
+    with pytest.raises(bio.MetadataExpectationScopeMismatchError) as captured:
+        _ = bio.compare_metadata_concordance(
+            dataset,
+            assignment,
+            expectations=(expectation,),
+            fold=bio.MetadataFoldId("fold-2"),
+        )
+
+    # Then: a fold mismatch is explicit instead of a silently empty report.
+    assert captured.value.field == "fold"
+
+
+def _expectation_for_numeric_field(
+    field: str,
+) -> bio.PublicationMetadataExpectation:
+    match field:
+        case "expected_count":
+            return bio.PublicationMetadataExpectation.count(
+                scope=_scope(),
+                metric=bio.MetadataMetric.OBSERVATION_COUNT,
+                expected=6,
+            )
+        case "tolerance":
+            return bio.PublicationMetadataExpectation.approximate(
+                scope=_scope(),
+                metric=bio.MetadataMetric.OBSERVATION_COUNT,
+                expected=6,
+                tolerance=1,
+            )
+        case "lower_bound":
+            return bio.PublicationMetadataExpectation.within_range(
+                scope=_scope(),
+                metric=bio.MetadataMetric.OBSERVATION_COUNT,
+                lower_bound=5,
+                upper_bound=7,
+            )
+        case "upper_bound":
+            return bio.PublicationMetadataExpectation.within_range(
+                scope=_scope(),
+                metric=bio.MetadataMetric.OBSERVATION_COUNT,
+                lower_bound=5,
+                upper_bound=7,
+            )
+        case _:  # pragma: no cover - parameter fixture is the closed boundary.
+            pytest.fail("unsupported numeric field")
+
+
 def test_compare_rejects_stale_assignment_identity() -> None:
     # Given: a receipt whose header seed changed after its identity was recorded.
     dataset = _dataset()

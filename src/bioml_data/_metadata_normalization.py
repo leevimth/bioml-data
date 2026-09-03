@@ -29,6 +29,10 @@ def validate_metadata_values(
     categories: tuple[str, ...],
 ) -> None:
     """Reject negative numeric values and blank categorical declarations."""
+    if any(value is not None and type(value) is not int for value in counts):
+        raise InvalidMetadataExpectationError(
+            detail="metadata count bounds and tolerance must be exact integers"
+        )
     if any(value is not None and value < 0 for value in counts):
         raise InvalidMetadataExpectationError(
             detail="metadata count bounds and tolerance must be non-negative"

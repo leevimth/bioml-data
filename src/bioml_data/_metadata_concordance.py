@@ -65,6 +65,7 @@ def compare_metadata_concordance(
 ) -> MetadataConcordanceReport:
     """Compare exact-scope evidence to complete data and every realized partition."""
     scope = _shared_scope(expectations)
+    _validate_fold(expectations, fold)
     _validate_scope(dataset, assignment, scope)
     assignments = assignment_by_id(dataset, assignment)
     datasets = partitioned_rows(dataset, assignments)
@@ -112,6 +113,19 @@ def _shared_scope(
                 actual=str(expectation.scope),
             )
     return scope
+
+
+def _validate_fold(
+    expectations: tuple[PublicationMetadataExpectation, ...],
+    fold: MetadataFoldId | None,
+) -> None:
+    targeted_folds = {item.fold for item in expectations if item.fold is not None}
+    if targeted_folds and targeted_folds != {fold}:
+        raise MetadataExpectationScopeMismatchError(
+            field="fold",
+            expected=", ".join(sorted(targeted_folds)),
+            actual=str(fold) if fold is not None else "none",
+        )
 
 
 def _validate_scope(
