@@ -87,6 +87,11 @@ class SplitProtocolDefinition:
     evaluation_target: str = ""
     is_canary: bool = False
 
+    def __post_init__(self) -> None:
+        """Project legacy role reads from separate canary usage."""
+        if self.basis is not None and self.role is None and self.is_canary:
+            object.__setattr__(self, "role", SplitProtocolRole.CANARY)
+
 
 @dataclass(frozen=True, slots=True)
 class SplitPlan:

@@ -1,13 +1,17 @@
 """Static registry for built-in dataset vertical slices."""
 
+import re
 from dataclasses import dataclass
-from typing import override
+from typing import Final, assert_never, override
 
 from bioml_data._artifact_lineage import ArtifactLineageReceipt
 from bioml_data._domain import (
     DatasetName,
     DatasetSnapshotIdentity,
     DatasetVersionRequiredError,
+    SplitEvidenceBasis,
+    SplitProtocolDefinition,
+    SplitProtocolRole,
     SplitStrategy,
     UnknownDatasetError,
     UnknownDatasetVersionError,
@@ -23,6 +27,9 @@ from bioml_data.datasets._models import (
     DatasetRegistration,
 )
 from bioml_data.datasets.tms_aorta._registration import TMS_AORTA_REGISTRATION
+
+_SEMANTIC_TOKEN: Final[re.Pattern[str]] = re.compile(r"[a-z][a-z0-9-]*\Z")
+_METADATA_COLUMN: Final[re.Pattern[str]] = re.compile(r"[a-z][a-z0-9_]*\Z")
 
 
 @dataclass(frozen=True, slots=True)
@@ -188,6 +195,7 @@ def _validate_registration(registration: DatasetRegistration) -> None:
             and capability.grouping_column == split_definition.grouping_column
             and capability.evaluation_target == split_definition.evaluation_target
             and capability.is_canary is split_definition.is_canary
+            and _valid_definition_compatibility_projection(split_definition)
         )
         if not coherent:
             raise DatasetCapabilityMismatchError(
@@ -197,45 +205,32 @@ def _validate_registration(registration: DatasetRegistration) -> None:
 
 
 def _valid_contract_mode(capability: SplitCapability) -> bool:
-    if capability.basis is not None:
-        return (
-            capability.role is None
-            and capability.evidence_type is None
-            and capability.basis
-            in tuple(evidence.basis for evidence in capability.evidence)
-            and all(
-                evidence.role is None
-                and evidence.evidence_type is None
-                and evidence.basis is not None
-                for evidence in capability.evidence
-            )
-            and len({evidence.basis for evidence in capability.evidence})
-            == len(capability.evidence)
-        )
-
     return (
-        capability.role is not None
-        and capability.evidence_type is not None
-        and capability.role in tuple(evidence.role for evidence in capability.evidence)
-        and capability.evidence_type == capability.evidence[0].evidence_type
+        type(capability.basis) is SplitEvidenceBasis
+        and capability.role is None
+        and capability.evidence_type is None
+        and capability.basis
+        in tuple(evidence.basis for evidence in capability.evidence)
         and all(
-            evidence.basis is None
-            and evidence.role is not None
-            and evidence.evidence_type is not None
+            evidence.role is None
+            and evidence.evidence_type is None
+            and type(evidence.basis) is SplitEvidenceBasis
             for evidence in capability.evidence
         )
+        and len({evidence.basis for evidence in capability.evidence})
+        == len(capability.evidence)
     )
 
 
 def _valid_semantics(capability: SplitCapability) -> bool:
-    if capability.strategy is None:
-        return capability.basis is None
+    if type(capability.strategy) is not SplitStrategy:
+        return False
 
     common_semantics = (
-        bool(capability.held_out_axis)
-        and bool(capability.leakage_unit)
-        and bool(capability.grouping_column)
-        and bool(capability.evaluation_target)
+        _valid_semantic_token(capability.held_out_axis)
+        and _valid_semantic_token(capability.leakage_unit)
+        and _valid_metadata_column(capability.grouping_column)
+        and capability.evaluation_target == f"unseen {capability.held_out_axis}"
     )
     match capability.strategy:
         case SplitStrategy.GROUP_HELD_OUT:
@@ -247,6 +242,24 @@ def _valid_semantics(capability: SplitCapability) -> bool:
                 and capability.grouping_column == "study_id"
                 and capability.leakage_unit == "study"
             )
+    assert_never(capability.strategy)
+
+
+def _valid_definition_compatibility_projection(
+    definition: SplitProtocolDefinition,
+) -> bool:
+    if type(definition.basis) is not SplitEvidenceBasis:
+        return False
+    expected_role = SplitProtocolRole.CANARY if definition.is_canary else None
+    return definition.role is expected_role
+
+
+def _valid_semantic_token(value: str) -> bool:
+    return _SEMANTIC_TOKEN.fullmatch(value) is not None
+
+
+def _valid_metadata_column(value: str) -> bool:
+    return _METADATA_COLUMN.fullmatch(value) is not None
 
 
 DATASET_REGISTRY = DatasetRegistry(registrations=(TMS_AORTA_REGISTRATION,))

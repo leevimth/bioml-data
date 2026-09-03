@@ -159,6 +159,7 @@ def test_registry_accepts_non_canary_package_defined_split() -> None:
         supported_splits=(
             replace(
                 TMS_AORTA_REGISTRATION.definition.supported_splits[0],
+                role=None,
                 is_canary=False,
             ),
         ),
@@ -323,7 +324,7 @@ def test_legacy_split_contract_constructors_remain_readable() -> None:
     assert definition.basis is None
 
 
-def test_registry_accepts_a_coherent_legacy_split_contract() -> None:
+def test_registry_rejects_a_legacy_only_split_contract() -> None:
     # Given: a fully legacy registration created before the basis migration.
     capability = TMS_AORTA_REGISTRATION.split_capabilities[0]
     legacy_evidence = replace(
@@ -365,10 +366,70 @@ def test_registry_accepts_a_coherent_legacy_split_contract() -> None:
     )
 
     # When: the old contract reaches the upgraded registry.
-    registry = DatasetRegistry(registrations=(registration,))
+    with pytest.raises(DatasetCapabilityMismatchError):
+        _ = DatasetRegistry(registrations=(registration,))
 
-    # Then: legacy role/type contracts remain usable during migration.
-    assert (
-        registry.registrations[0].split_capabilities[0].role
-        is SplitProtocolRole.REFERENCE
+    # Then: legacy constructors are readable but cannot publish active evidence.
+
+
+@pytest.mark.parametrize(
+    "field",
+    ["basis", "strategy"],
+)
+def test_registry_rejects_raw_strings_for_typed_split_semantics(field: str) -> None:
+    # Given: a declaration and capability using a string instead of the enum.
+    value = {
+        "basis": "package_defined",
+        "strategy": "group-held-out",
+    }[field]
+    capability = TMS_AORTA_REGISTRATION.split_capabilities[0]
+    definition = replace(
+        TMS_AORTA_REGISTRATION.definition,
+        supported_splits=(
+            replace(
+                TMS_AORTA_REGISTRATION.definition.supported_splits[0],
+                **{field: value},
+            ),
+        ),
     )
+    registration = replace(
+        TMS_AORTA_REGISTRATION,
+        definition=definition,
+        split_capabilities=(replace(capability, **{field: value}),),
+    )
+
+    # When: untyped split metadata reaches registry publication.
+    with pytest.raises(DatasetCapabilityMismatchError):
+        _ = DatasetRegistry(registrations=(registration,))
+
+    # Then: source and strategy values remain closed typed vocabularies.
+
+
+@pytest.mark.parametrize(
+    "field",
+    ["held_out_axis", "leakage_unit", "grouping_column", "evaluation_target"],
+)
+def test_registry_rejects_noncanonical_group_held_out_semantics(field: str) -> None:
+    # Given: a group-held-out contract with one whitespace-padded semantic value.
+    capability = TMS_AORTA_REGISTRATION.split_capabilities[0]
+    value = f" {getattr(capability, field)} "
+    definition = replace(
+        TMS_AORTA_REGISTRATION.definition,
+        supported_splits=(
+            replace(
+                TMS_AORTA_REGISTRATION.definition.supported_splits[0],
+                **{field: value},
+            ),
+        ),
+    )
+    registration = replace(
+        TMS_AORTA_REGISTRATION,
+        definition=definition,
+        split_capabilities=(replace(capability, **{field: value}),),
+    )
+
+    # When: noncanonical semantics reach registry publication.
+    with pytest.raises(DatasetCapabilityMismatchError):
+        _ = DatasetRegistry(registrations=(registration,))
+
+    # Then: concrete split semantics remain canonical machine-readable values.

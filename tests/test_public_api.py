@@ -42,6 +42,17 @@ def test_researcher_can_plan_the_public_animal_canary_split() -> None:
     assert declaration.required_metadata == ("cell_id", "donor_id")
 
 
+def test_researcher_can_read_the_deprecated_canary_role_projection() -> None:
+    # Given: the public TMS definition under the new basis-and-usage contract.
+    declaration = bio.load_dataset("tms-aorta").supported_splits[0]
+
+    # When: an older reader accesses the previous role field.
+    role = declaration.role
+
+    # Then: canary usage remains readable without becoming evidence authority.
+    assert role is bio.SplitProtocolRole.CANARY
+
+
 def test_researcher_can_inspect_split_semantics_and_evidence_from_public_api() -> None:
     # Given: the public TMS dataset contract and its supported split.
     dataset = bio.load_dataset("tms-aorta")

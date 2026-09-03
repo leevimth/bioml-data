@@ -26,7 +26,7 @@ TMS_PACKAGE_CONTRACT_CITATION: Final = SplitEvidenceCitation(
     title="TMS Aorta package contract",
     uri=(
         "https://github.com/leevimth/bioml-data/blob/"
-        "7bce77e81e8d24008a386cd743ffc3d441a2ce68/docs/tms-aorta.md"
+        "dddd0dc224b9585c1f4d9646c899a29256171c05/docs/tms-aorta.md"
     ),
 )
 
