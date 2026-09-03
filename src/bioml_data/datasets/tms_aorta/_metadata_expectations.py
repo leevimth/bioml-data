@@ -9,6 +9,7 @@ from bioml_data._metadata_concordance_models import (
     MetadataMetric,
 )
 from bioml_data._metadata_expectations import PublicationMetadataExpectation
+from bioml_data._split import SplitPartition
 from bioml_data.datasets.tms_aorta._identity import (
     TMS_ANIMAL_HELD_OUT_PROTOCOL,
     TMS_AORTA_ARTIFACT_SCOPE,
@@ -58,5 +59,20 @@ TMS_AORTA_ARTIFACT_AUDIT_EXPECTATIONS: Final = (
     PublicationMetadataExpectation.not_reported(
         scope=TMS_AORTA_ARTIFACT_AUDIT_SCOPE,
         metric=MetadataMetric.ASSAY_VALUES,
+    ),
+    PublicationMetadataExpectation.not_reported(
+        scope=TMS_AORTA_ARTIFACT_AUDIT_SCOPE,
+        partition=SplitPartition.TRAIN,
+        metric=MetadataMetric.LABEL_COUNTS,
+    ),
+    PublicationMetadataExpectation.not_reported(
+        scope=TMS_AORTA_ARTIFACT_AUDIT_SCOPE,
+        partition=SplitPartition.VALIDATION,
+        metric=MetadataMetric.LABEL_COUNTS,
+    ),
+    PublicationMetadataExpectation.not_reported(
+        scope=TMS_AORTA_ARTIFACT_AUDIT_SCOPE,
+        partition=SplitPartition.TEST,
+        metric=MetadataMetric.LABEL_COUNTS,
     ),
 )

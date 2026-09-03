@@ -1,7 +1,6 @@
 """Deterministic metadata comparisons for prepared single-cell partitions."""
 
 from dataclasses import dataclass
-from typing import assert_never
 
 from bioml_data._metadata_concordance_models import (
     MetadataConcordance,
@@ -228,8 +227,6 @@ def _comparison(
             status = _range_status(expectation, observed)
         case MetadataExpectationKind.APPROXIMATE:
             status = _approximate_status(expectation, observed)
-        case unreachable:
-            assert_never(unreachable)
     return MetadataComparison(expectation=expectation, observed=observed, status=status)
 
 

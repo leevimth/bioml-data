@@ -3,7 +3,7 @@
 from collections import Counter
 from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import assert_never
+from typing import Literal
 
 from bioml_data._metadata_concordance_models import (
     InvalidMetadataPartitionError,
@@ -12,7 +12,31 @@ from bioml_data._metadata_concordance_models import (
     MetadataPartitionViolation,
 )
 from bioml_data._single_cell import CanonicalObservation, CanonicalSingleCellDataset
-from bioml_data._split import SplitAssignmentReceipt, SplitPartition
+from bioml_data._split import (
+    MetadataValue,
+    PartitionGroupCounts,
+    SplitAssignmentReceipt,
+    SplitPartition,
+    assignment_receipt_identity,
+)
+from bioml_data._split_capability import SplitCapabilityQuery, query_split_capability
+
+ScalarMetadataMetric = Literal[
+    MetadataMetric.OBSERVATION_COUNT,
+    MetadataMetric.FEATURE_COUNT,
+]
+ValueMetadataMetric = Literal[
+    MetadataMetric.STUDY_IDS,
+    MetadataMetric.DONOR_IDS,
+    MetadataMetric.GROUP_IDS,
+    MetadataMetric.LABEL_VALUES,
+    MetadataMetric.ASSAY_VALUES,
+    MetadataMetric.TISSUE_VALUES,
+]
+DistributionMetadataMetric = Literal[
+    MetadataMetric.LABEL_COUNTS,
+    MetadataMetric.OBSERVATIONS_PER_GROUP,
+]
 
 
 @dataclass(frozen=True, slots=True)
@@ -51,6 +75,8 @@ def assignment_by_id(
         raise InvalidMetadataPartitionError(
             violation=MetadataPartitionViolation.COVERAGE
         )
+    _validate_receipt_integrity(assignment)
+    _validate_canonical_groups(dataset, assignment)
     return {
         str(item.observation_id): AssignedGroup(
             group=str(item.group),
@@ -58,6 +84,90 @@ def assignment_by_id(
         )
         for item in assignment.assignments
     }
+
+
+def _validate_receipt_integrity(assignment: SplitAssignmentReceipt) -> None:
+    if assignment.assignment_identity != assignment_receipt_identity(assignment):
+        raise InvalidMetadataPartitionError(
+            violation=MetadataPartitionViolation.IDENTITY
+        )
+    actual_counts = _partition_group_counts(assignment)
+    if (
+        assignment.observation_count != len(assignment.assignments)
+        or assignment.group_count
+        != len({item.group for item in assignment.assignments})
+        or assignment.realized_group_counts != actual_counts
+    ):
+        raise InvalidMetadataPartitionError(
+            violation=MetadataPartitionViolation.RECEIPT_COUNTS
+        )
+
+
+def _partition_group_counts(
+    assignment: SplitAssignmentReceipt,
+) -> PartitionGroupCounts:
+    return PartitionGroupCounts(
+        train=len(
+            {
+                item.group
+                for item in assignment.assignments
+                if item.partition is SplitPartition.TRAIN
+            }
+        ),
+        validation=len(
+            {
+                item.group
+                for item in assignment.assignments
+                if item.partition is SplitPartition.VALIDATION
+            }
+        ),
+        test=len(
+            {
+                item.group
+                for item in assignment.assignments
+                if item.partition is SplitPartition.TEST
+            }
+        ),
+    )
+
+
+def _validate_canonical_groups(
+    dataset: CanonicalSingleCellDataset,
+    assignment: SplitAssignmentReceipt,
+) -> None:
+    capability = query_split_capability(
+        SplitCapabilityQuery(
+            dataset=dataset.snapshot,
+            task=assignment.task,
+            protocol=str(assignment.protocol),
+        )
+    ).require_supported()
+    canonical_groups = {
+        str(observation.observation_id): _group_value(
+            observation.metadata,
+            capability.grouping_column,
+        )
+        for observation in dataset.split_observations
+    }
+    if any(
+        str(item.group) != canonical_groups[str(item.observation_id)]
+        for item in assignment.assignments
+    ):
+        raise InvalidMetadataPartitionError(
+            violation=MetadataPartitionViolation.GROUPING
+        )
+
+
+def _group_value(
+    metadata: tuple[MetadataValue, ...],
+    column: str,
+) -> str:
+    values = tuple(item.value for item in metadata if item.column == column)
+    if len(values) != 1:
+        raise InvalidMetadataPartitionError(
+            violation=MetadataPartitionViolation.GROUPING
+        )
+    return values[0]
 
 
 def partitioned_rows(
@@ -78,11 +188,9 @@ def groups_by_partition(
     partition: SplitPartition,
 ) -> tuple[str, ...]:
     """Return distinct groups assigned to one partition in stable order."""
-    return tuple(
-        sorted(
-            item.group for item in assignments.values() if item.partition is partition
-        )
-    )
+    return tuple(sorted({
+        item.group for item in assignments.values() if item.partition is partition
+    }))
 
 
 def cross_partition_groups(
@@ -125,28 +233,24 @@ def observed_value(
             return _observed_values(observations, assignments, metric)
         case MetadataMetric.LABEL_COUNTS | MetadataMetric.OBSERVATIONS_PER_GROUP:
             return _observed_distribution(observations, assignments, metric)
-        case unreachable:
-            assert_never(unreachable)
 
 
 def _observed_count(
     dataset: CanonicalSingleCellDataset,
     observations: tuple[CanonicalObservation, ...],
-    metric: MetadataMetric,
+    metric: ScalarMetadataMetric,
 ) -> MetadataObservedValue:
     match metric:
         case MetadataMetric.OBSERVATION_COUNT:
             return MetadataObservedValue(count=len(observations))
         case MetadataMetric.FEATURE_COUNT:
             return MetadataObservedValue(count=len(dataset.features))
-        case unreachable:
-            assert_never(unreachable)
 
 
 def _observed_values(
     observations: tuple[CanonicalObservation, ...],
     assignments: dict[str, AssignedGroup],
-    metric: MetadataMetric,
+    metric: ValueMetadataMetric,
 ) -> MetadataObservedValue:
     match metric:
         case MetadataMetric.STUDY_IDS:
@@ -161,23 +265,19 @@ def _observed_values(
             values = (item.assay for item in observations if item.assay is not None)
         case MetadataMetric.TISSUE_VALUES:
             values = (item.tissue for item in observations)
-        case unreachable:
-            assert_never(unreachable)
     return MetadataObservedValue(values=tuple(sorted(set(values))))
 
 
 def _observed_distribution(
     observations: tuple[CanonicalObservation, ...],
     assignments: dict[str, AssignedGroup],
-    metric: MetadataMetric,
+    metric: DistributionMetadataMetric,
 ) -> MetadataObservedValue:
     match metric:
         case MetadataMetric.LABEL_COUNTS:
             values = (item.cell_type for item in observations)
         case MetadataMetric.OBSERVATIONS_PER_GROUP:
             values = (assignments[str(item.cell_id)].group for item in observations)
-        case unreachable:
-            assert_never(unreachable)
     return MetadataObservedValue(distribution=_counts(values))
 
 

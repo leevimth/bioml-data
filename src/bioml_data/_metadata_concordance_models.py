@@ -6,6 +6,7 @@ from typing import NewType, override
 
 from bioml_data._domain import DatasetSnapshotIdentity, ProtocolId, TaskId
 from bioml_data._split_capability_models import SplitArtifactScope
+from bioml_data.datasets._evidence_validation import valid_https_citation
 
 MetadataFoldId = NewType("MetadataFoldId", str)
 
@@ -55,9 +56,9 @@ class MetadataCitation:
 
     def __post_init__(self) -> None:
         """Reject empty citations before they become an evidence claim."""
-        if not self.title.strip() or not self.uri.startswith("https://"):
+        if not valid_https_citation(self.title, self.uri):
             raise InvalidMetadataExpectationError(
-                detail="citation must be non-empty HTTPS"
+                detail="citation must be a public uncredentialed HTTPS URL"
             )
 
 
@@ -121,6 +122,9 @@ class MetadataPartitionViolation(StrEnum):
     COVERAGE = "coverage"
     DUPLICATE_OBSERVATION = "duplicate_observation"
     DATASET = "dataset"
+    GROUPING = "grouping"
+    IDENTITY = "identity"
+    RECEIPT_COUNTS = "receipt_counts"
     TASK = "task"
     PROTOCOL = "protocol"
 

@@ -1,7 +1,6 @@
 """Construction and validation of publication metadata expectations."""
 
 from dataclasses import dataclass
-from typing import assert_never
 
 from bioml_data._metadata_concordance_models import (
     InvalidMetadataExpectationError,
@@ -11,6 +10,7 @@ from bioml_data._metadata_concordance_models import (
     MetadataFoldId,
     MetadataMetric,
 )
+from bioml_data._metadata_normalization import canonical_distribution, canonical_values
 from bioml_data._split import SplitPartition
 
 
@@ -148,6 +148,12 @@ class PublicationMetadataExpectation:
 
     def __post_init__(self) -> None:
         """Keep each evidence kind tied to one unambiguous value shape."""
+        object.__setattr__(self, "values", canonical_values(self.values))
+        object.__setattr__(
+            self,
+            "expected_distribution",
+            canonical_distribution(self.expected_distribution),
+        )
         _validate_shape(self)
         _validate_nonnegative(self)
 
@@ -163,19 +169,21 @@ def _validate_shape(expectation: PublicationMetadataExpectation) -> None:
     }
     match expectation.kind:
         case MetadataExpectationKind.EXACT:
-            valid = (scalar and expectation.expected_count is not None) or (
-                distribution and bool(expectation.expected_distribution)
-            )
+            valid = _valid_exact(expectation, scalar, distribution)
         case MetadataExpectationKind.SET:
-            valid = not scalar and not distribution and bool(expectation.values)
+            valid = (
+                not scalar
+                and not distribution
+                and bool(expectation.values)
+                and _empty_numeric_fields(expectation)
+                and not expectation.expected_distribution
+            )
         case MetadataExpectationKind.NOT_REPORTED:
             valid = _empty_expectation(expectation)
         case MetadataExpectationKind.RANGE:
             valid = _valid_range(expectation, scalar)
         case MetadataExpectationKind.APPROXIMATE:
             valid = _valid_approximation(expectation, scalar)
-        case unreachable:
-            assert_never(unreachable)
     if not valid:
         raise InvalidMetadataExpectationError(
             detail=(
@@ -187,13 +195,42 @@ def _validate_shape(expectation: PublicationMetadataExpectation) -> None:
 
 def _empty_expectation(expectation: PublicationMetadataExpectation) -> bool:
     return (
-        expectation.expected_count is None
+        _empty_numeric_fields(expectation)
         and not expectation.values
         and not expectation.expected_distribution
+    )
+
+
+def _empty_numeric_fields(expectation: PublicationMetadataExpectation) -> bool:
+    return (
+        expectation.expected_count is None
         and expectation.lower_bound is None
         and expectation.upper_bound is None
         and expectation.tolerance is None
     )
+
+
+def _valid_exact(
+    expectation: PublicationMetadataExpectation,
+    scalar: bool,
+    distribution: bool,
+) -> bool:
+    scalar_claim = (
+        scalar
+        and expectation.expected_count is not None
+        and expectation.lower_bound is None
+        and expectation.upper_bound is None
+        and expectation.tolerance is None
+        and not expectation.values
+        and not expectation.expected_distribution
+    )
+    distribution_claim = (
+        distribution
+        and bool(expectation.expected_distribution)
+        and _empty_numeric_fields(expectation)
+        and not expectation.values
+    )
+    return scalar_claim or distribution_claim
 
 
 def _valid_range(expectation: PublicationMetadataExpectation, scalar: bool) -> bool:
@@ -235,8 +272,7 @@ def _validate_nonnegative(expectation: PublicationMetadataExpectation) -> None:
         raise InvalidMetadataExpectationError(
             detail="metadata count bounds and tolerance must be non-negative"
         )
-    categories = tuple(item.value for item in expectation.expected_distribution)
-    if len(set(categories)) != len(categories):
+    if any(not value.strip() for value in expectation.values):
         raise InvalidMetadataExpectationError(
-            detail="expected distribution categories must be unique"
+            detail="metadata set values must be non-empty"
         )
