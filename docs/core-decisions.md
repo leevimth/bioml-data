@@ -120,10 +120,12 @@ catalog contains more than one version, callers must select a version rather
 than silently receiving a moving `latest` definition.
 
 Task and split protocol are separate selections. Split planning requires both
-to be explicit; there is no default split. Literature-reused behavior is labeled
-as a reference protocol, while a biologically safer alternative may be exposed
-as a robustness protocol. Neither label claims that one protocol is universally
-correct, and the package must not choose between them silently.
+to be explicit; there is no default split. Every protocol records its evidence
+basis (`LITERATURE_REFERENCE`, `COMMUNITY_REFERENCE`, or `PACKAGE_DEFINED`),
+concrete partition semantics, and optional package canary usage separately. A
+historical literature setting remains usable for performance comparability even
+when a separately documented package-defined protocol has a stricter
+independence target. The package must not choose between them silently.
 
 Small reference models may be used as executable sanity checks. Their results
 verify that a protocol can run end to end; they are not model recommendations or

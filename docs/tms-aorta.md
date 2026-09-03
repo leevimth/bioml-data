@@ -59,27 +59,31 @@ final parser open from following a swapped cache path.
 
 | Field | Value |
 |---|---|
-| Role | `CANARY` |
-| Additional evidence role | `ROBUSTNESS` |
-| Evidence source | `PRODUCT_PROTOCOL` (package-defined) |
+| Evidence basis | `PACKAGE_DEFINED` |
+| Split strategy | `group-held-out` |
 | Held-out axis | animal |
 | Leakage unit | mouse |
 | Canonical grouping column | `donor_id` |
+| Evaluation target | unseen animal |
+| Package test usage | `is_canary=true` |
 | Required columns | `cell_id`, `donor_id` |
 | Requested group fractions | 80% train, 10% validation, 10% test |
 | Allocation | stable seeded group ordering plus largest remainder |
 
-The same executable split has two explicit evidence records: `CANARY` for
-technical lifecycle verification and `ROBUSTNESS` for the package-defined
-animal-independence check. This is a transparent package-defined smoke
-protocol. It is not a reused
-literature split, a `REFERENCE` protocol, a recommended scientific split, or
-evidence that animal holdout is universally preferable. Changing its fractions
-or allocation behavior requires a new protocol version.
+The executable split has one `PACKAGE_DEFINED` evidence record. `is_canary=true`
+states only that the package uses this protocol for technical lifecycle
+verification; it is not a split-evidence role. The protocol separates mouse
+groups and measures performance on an unseen animal. It is not a reused
+literature split, a recommended scientific split, or evidence that animal
+holdout is universally preferable. Changing its fractions or allocation behavior
+requires a new protocol version. For compatibility, the deprecated `.role`
+field is `CANARY` when `is_canary=true`; `.basis` is the active evidence
+source. Its legacy `.evidence_type` reads `PRODUCT_PROTOCOL` from the
+package-defined basis; that reader does not make the split a recommendation.
 
 See the [split and protocol evidence matrix](split-protocol-evidence-matrix.md)
-for the typed role vocabulary, exact artifact scope, and documented pancreas
-candidate.
+for typed evidence-basis and split-semantic vocabulary, exact artifact scope,
+and the documented pancreas candidate.
 
 ## Preparation lifecycle
 

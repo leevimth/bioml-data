@@ -2,16 +2,18 @@
 
 from typing import Final
 
+from bioml_data._dataset_definition import DatasetDefinition
 from bioml_data._dataset_download_models import (
     DatasetDownloadPin,
     Sha256Provenance,
 )
 from bioml_data._domain import (
-    DatasetDefinition,
     DatasetLifecycle,
     SourceReference,
     SourceUri,
+    SplitEvidenceBasis,
     SplitProtocolDefinition,
+    SplitStrategy,
     TaskDefinition,
 )
 from bioml_data._single_cell import SingleCellSourcePin, StudyId
@@ -48,9 +50,16 @@ TMS_AORTA_DEFINITION: Final = DatasetDefinition(
     supported_splits=(
         SplitProtocolDefinition(
             id=TMS_ANIMAL_HELD_OUT_CAPABILITY.protocol,
-            role=TMS_ANIMAL_HELD_OUT_CAPABILITY.role,
+            role=None,
             task=TMS_ANIMAL_HELD_OUT_CAPABILITY.task,
             required_metadata=TMS_ANIMAL_HELD_OUT_CAPABILITY.required_columns,
+            basis=SplitEvidenceBasis.PACKAGE_DEFINED,
+            strategy=SplitStrategy.GROUP_HELD_OUT,
+            held_out_axis="animal",
+            leakage_unit="mouse",
+            grouping_column="donor_id",
+            evaluation_target="unseen animal",
+            is_canary=True,
         ),
     ),
 )

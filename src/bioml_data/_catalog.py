@@ -1,11 +1,12 @@
 """Public facade over the built-in dataset registry."""
 
+from copy import deepcopy
 from dataclasses import dataclass
 from typing import Literal, Never, overload, override
 
 from bioml_data._artifact_lineage import ArtifactLineageReceipt
 from bioml_data._artifacts import ArtifactReceipt
-from bioml_data._domain import DatasetDefinition
+from bioml_data._dataset_definition import DatasetDefinition
 from bioml_data._single_cell import CanonicalSingleCellDataset
 from bioml_data.datasets._models import DatasetMaterialization
 from bioml_data.datasets._registry import DATASET_REGISTRY
@@ -56,7 +57,7 @@ def load_dataset(
     """Resolve a catalog definition or materialize its explicit local artifact."""
     registration = DATASET_REGISTRY.resolve(name, version=version)
     if artifact is None:
-        return registration.definition
+        return deepcopy(registration.definition)
     if isinstance(artifact, ArtifactReceipt):
         raise ArtifactLineageRequiredError(artifact=artifact)
     return DATASET_REGISTRY.materialize(name, artifact, version=version)

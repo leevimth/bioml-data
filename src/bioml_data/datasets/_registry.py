@@ -1,6 +1,7 @@
 """Static registry for built-in dataset vertical slices."""
 
-from dataclasses import dataclass
+from copy import deepcopy
+from dataclasses import dataclass, field
 from typing import override
 
 from bioml_data._artifact_lineage import ArtifactLineageReceipt
@@ -19,6 +20,11 @@ from bioml_data.datasets._materialization_verification import materialize_verifi
 from bioml_data.datasets._models import (
     DatasetMaterialization,
     DatasetRegistration,
+)
+from bioml_data.datasets._split_contract_validation import (
+    valid_definition_compatibility_projection,
+    valid_split_capability_contract_mode,
+    valid_split_semantics,
 )
 from bioml_data.datasets.tms_aorta._registration import TMS_AORTA_REGISTRATION
 
@@ -46,20 +52,28 @@ class DatasetCapabilityMismatchError(Exception):
         return f"split capability is incoherent with {self.snapshot!r}: {self.detail}"
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True, slots=True, init=False)
 class DatasetRegistry:
     """Resolve dataset definitions and their owned implementations."""
 
-    registrations: tuple[DatasetRegistration, ...]
+    _registrations: tuple[DatasetRegistration, ...] = field(repr=False)
 
-    def __post_init__(self) -> None:
+    def __init__(self, registrations: tuple[DatasetRegistration, ...]) -> None:
+        """Snapshot caller-owned registrations before registry validation."""
+        snapshot = deepcopy(registrations)
+        object.__setattr__(self, "_registrations", snapshot)
         seen: set[DatasetSnapshotIdentity] = set()
-        for registration in self.registrations:
-            snapshot = registration.definition.snapshot
-            if snapshot in seen:
-                raise DuplicateDatasetRegistrationError(snapshot=snapshot)
-            seen.add(snapshot)
+        for registration in self._registrations:
+            registration_snapshot = registration.definition.snapshot
+            if registration_snapshot in seen:
+                raise DuplicateDatasetRegistrationError(snapshot=registration_snapshot)
+            seen.add(registration_snapshot)
             _validate_registration(registration)
+
+    @property
+    def registrations(self) -> tuple[DatasetRegistration, ...]:
+        """Return detached registration views without exposing registry authority."""
+        return deepcopy(self._registrations)
 
     def resolve(
         self,
@@ -68,10 +82,19 @@ class DatasetRegistry:
         version: str | None = None,
     ) -> DatasetRegistration:
         """Resolve one explicit registration using public catalog keys."""
+        return deepcopy(self._resolve(name, version=version))
+
+    def _resolve(
+        self,
+        name: str,
+        *,
+        version: str | None = None,
+    ) -> DatasetRegistration:
+        """Resolve trusted internal registrations for catalog dispatch."""
         dataset_name = parse_dataset_name(name)
         candidates = tuple(
             registration
-            for registration in self.registrations
+            for registration in self._registrations
             if registration.definition.snapshot.name == dataset_name
         )
         if not candidates:
@@ -109,7 +132,7 @@ class DatasetRegistry:
         version: str | None = None,
     ) -> DatasetMaterialization:
         """Dispatch an artifact through the adapter owned by its registration."""
-        registration = self.resolve(name, version=version)
+        registration = self._resolve(name, version=version)
         return materialize_verified(registration, lineage)
 
     @property
@@ -118,7 +141,7 @@ class DatasetRegistry:
         return tuple(
             dict.fromkeys(
                 registration.definition.snapshot.name
-                for registration in self.registrations
+                for registration in self._registrations
             )
         )
 
@@ -167,21 +190,26 @@ def _validate_registration(registration: DatasetRegistration) -> None:
             )
             for evidence in capability.evidence
         )
-        evidence_roles = tuple(evidence.role for evidence in capability.evidence)
         coherent = (
             capability.dataset == definition.snapshot
             and capability.artifact == registration.artifact_scope
             and capability.task in task_ids
-            and capability.role == split_definition.role
             and capability.required_columns == split_definition.required_metadata
             and capability.grouping_column in capability.required_columns
             and bool(capability.evidence)
             and all(scope == expected_evidence_scope for scope in evidence_scopes)
-            and capability.role in evidence_roles
-            and len(set(evidence_roles)) == len(evidence_roles)
             and all(evidence.citations for evidence in capability.evidence)
             and all(valid_split_evidence(evidence) for evidence in capability.evidence)
-            and capability.evidence_type == capability.evidence[0].evidence_type
+            and valid_split_capability_contract_mode(capability)
+            and valid_split_semantics(capability)
+            and capability.basis == split_definition.basis
+            and capability.strategy == split_definition.strategy
+            and capability.held_out_axis == split_definition.held_out_axis
+            and capability.leakage_unit == split_definition.leakage_unit
+            and capability.grouping_column == split_definition.grouping_column
+            and capability.evaluation_target == split_definition.evaluation_target
+            and capability.is_canary is split_definition.is_canary
+            and valid_definition_compatibility_projection(split_definition)
         )
         if not coherent:
             raise DatasetCapabilityMismatchError(

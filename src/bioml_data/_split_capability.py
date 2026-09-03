@@ -1,16 +1,20 @@
 """Dataset-specific split capability lookup and compatibility facade."""
 
-from bioml_data._domain import parse_protocol_id
+from copy import deepcopy
+
+from bioml_data._domain import SplitEvidenceBasis, SplitStrategy, parse_protocol_id
 from bioml_data._split_capability_models import (
     SplitArtifactScope,
     SplitCapability,
     SplitCapabilityAvailability,
-    SplitCapabilityQuery,
-    SplitCapabilityResult,
     SplitEvidenceCitation,
     SplitEvidenceScope,
     SplitEvidenceType,
     SplitProtocolEvidence,
+)
+from bioml_data._split_capability_results import (
+    SplitCapabilityQuery,
+    SplitCapabilityResult,
     SupportedSplitCapability,
     UnknownSplitCapability,
     UnknownSplitCapabilityError,
@@ -30,7 +34,7 @@ def query_split_capability(query: SplitCapabilityQuery) -> SplitCapabilityResult
     )
     for capability in candidates:
         if capability.protocol == requested:
-            return SupportedSplitCapability(capability=capability)
+            return SupportedSplitCapability(capability=deepcopy(capability))
     if (query.dataset, query.task) in index.assessed_scopes:
         return UnsupportedSplitCapability(
             query=query,
@@ -45,10 +49,12 @@ __all__ = [
     "SplitCapabilityAvailability",
     "SplitCapabilityQuery",
     "SplitCapabilityResult",
+    "SplitEvidenceBasis",
     "SplitEvidenceCitation",
     "SplitEvidenceScope",
     "SplitEvidenceType",
     "SplitProtocolEvidence",
+    "SplitStrategy",
     "SupportedSplitCapability",
     "UnknownSplitCapability",
     "UnknownSplitCapabilityError",

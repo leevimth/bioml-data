@@ -181,8 +181,8 @@ train-independent preparation, explicit animal-held-out splitting, train-only
 fitting, leakage auditing, and evaluation without downloading the large public
 dataset during CI.
 
-TMS Aorta's `animal-held-out-v1` split is a package-defined
-`PRODUCT_PROTOCOL` with the `CANARY` role. It is not a literature reference,
+TMS Aorta's `animal-held-out-v1` split has `PACKAGE_DEFINED` evidence basis and
+separate `is_canary=true` package-test usage. It is not a literature reference,
 recommended scientific split, model recommendation, or state-of-the-art claim.
 
 ## Quickstart

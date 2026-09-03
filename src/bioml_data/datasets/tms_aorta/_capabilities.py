@@ -2,12 +2,11 @@
 
 from typing import Final
 
-from bioml_data._domain import SplitProtocolRole
+from bioml_data._domain import SplitEvidenceBasis, SplitStrategy
 from bioml_data._split_capability_models import (
     SplitCapability,
     SplitEvidenceCitation,
     SplitEvidenceScope,
-    SplitEvidenceType,
     SplitProtocolEvidence,
 )
 from bioml_data.datasets.tms_aorta._identity import (
@@ -27,7 +26,7 @@ TMS_PACKAGE_CONTRACT_CITATION: Final = SplitEvidenceCitation(
     title="TMS Aorta package contract",
     uri=(
         "https://github.com/leevimth/bioml-data/blob/"
-        "7bce77e81e8d24008a386cd743ffc3d441a2ce68/docs/tms-aorta.md"
+        "dddd0dc224b9585c1f4d9646c899a29256171c05/docs/tms-aorta.md"
     ),
 )
 
@@ -35,33 +34,28 @@ TMS_ANIMAL_HELD_OUT_CAPABILITY: Final = SplitCapability(
     dataset=TMS_AORTA_SNAPSHOT,
     task=TMS_CELL_TYPE_TASK,
     protocol=TMS_ANIMAL_HELD_OUT_PROTOCOL,
-    role=SplitProtocolRole.CANARY,
-    evidence_type=SplitEvidenceType.PRODUCT_PROTOCOL,
+    role=None,
+    evidence_type=None,
     artifact=TMS_AORTA_ARTIFACT_SCOPE,
     evidence=(
         SplitProtocolEvidence(
             scope=TMS_ANIMAL_HELD_OUT_EVIDENCE_SCOPE,
-            role=SplitProtocolRole.CANARY,
-            evidence_type=SplitEvidenceType.PRODUCT_PROTOCOL,
+            role=None,
+            evidence_type=None,
             citations=(TMS_PACKAGE_CONTRACT_CITATION,),
             fit_scope="train-only feature selection",
             leakage_caveat=(
-                "Technical lifecycle canary; not a scientific benchmark claim."
+                "Package-defined mouse separation; not a literature reference."
             ),
-        ),
-        SplitProtocolEvidence(
-            scope=TMS_ANIMAL_HELD_OUT_EVIDENCE_SCOPE,
-            role=SplitProtocolRole.ROBUSTNESS,
-            evidence_type=SplitEvidenceType.PRODUCT_PROTOCOL,
-            citations=(TMS_PACKAGE_CONTRACT_CITATION,),
-            fit_scope="train-only feature selection",
-            leakage_caveat=(
-                "Package-defined animal-independence check; not literature-recommended."
-            ),
+            basis=SplitEvidenceBasis.PACKAGE_DEFINED,
         ),
     ),
     held_out_axis="animal",
     leakage_unit="mouse",
     required_columns=("cell_id", "donor_id"),
     grouping_column="donor_id",
+    basis=SplitEvidenceBasis.PACKAGE_DEFINED,
+    strategy=SplitStrategy.GROUP_HELD_OUT,
+    evaluation_target="unseen animal",
+    is_canary=True,
 )

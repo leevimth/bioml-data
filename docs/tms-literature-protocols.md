@@ -10,19 +10,19 @@ FACS/Smart-seq2 and 245,389 droplet/10x processed cells.
 
 The literature surveyed for this project does **not** establish a universal,
 or TMS-Aorta-specific, recommended split. A protocol must therefore state its
-role and the scientific question it answers rather than inherit a generic
-`recommended` label.
+evidence basis, concrete partition semantics, and scientific question rather
+than inherit a generic `recommended` label.
 
-## Protocol roles
+## Evidence basis and protocol usage
 
-| Role | Current evidence | Intended interpretation |
+| Evidence basis or usage | Current evidence | Intended interpretation |
 |---|---|---|
 | `LITERATURE_REFERENCE` | scArches maps a separate Tabula Muris query to a filtered TMS reference. | Reproduce a prominent cross-study reference-mapping setting; it is not an animal-held-out TMS split. |
 | `COMMUNITY_REFERENCE` | OpenProblems Label Projection v1 includes a TMS Lung derivative. | Compare with a fixed community artifact; its TMS Lung partition is random-cell, not a leakage-safe group holdout. |
-| `ROBUSTNESS` | `animal-held-out-v1` is package-defined; future assay, age, or tissue transitions require separate protocols. | Test one named deployment transition with explicit group independence; never present it as literature-recommended. |
-| `CANARY` | The current TMS Aorta implementation. | Exercise artifact, preparation, split, audit, and evaluation contracts; it is not a scientific benchmark claim. |
+| `PACKAGE_DEFINED` | `animal-held-out-v1` separates TMS Aorta mice. | Its strategy is `group-held-out`, with animal held out through `donor_id`; it targets an unseen animal and is not literature-recommended. |
+| Package usage: `is_canary=true` | The current TMS Aorta implementation. | Exercise artifact, preparation, split, audit, and evaluation contracts; it is not an evidence basis or scientific benchmark claim. |
 
-These roles are not interchangeable. In particular, the scArches setting uses
+These bases and package usage are not interchangeable. In particular, the scArches setting uses
 a separate Tabula Muris query rather than a held-out TMS age slice, and the
 OpenProblems TMS Lung artifact must not be substituted for TMS Aorta.
 
