@@ -230,7 +230,7 @@ def _valid_semantics(capability: SplitCapability) -> bool:
         _valid_semantic_token(capability.held_out_axis)
         and _valid_semantic_token(capability.leakage_unit)
         and _valid_metadata_column(capability.grouping_column)
-        and capability.evaluation_target == f"unseen {capability.held_out_axis}"
+        and _valid_semantic_text(capability.evaluation_target)
     )
     match capability.strategy:
         case SplitStrategy.GROUP_HELD_OUT:
@@ -255,11 +255,15 @@ def _valid_definition_compatibility_projection(
 
 
 def _valid_semantic_token(value: str) -> bool:
-    return _SEMANTIC_TOKEN.fullmatch(value) is not None
+    return type(value) is str and _SEMANTIC_TOKEN.fullmatch(value) is not None
 
 
 def _valid_metadata_column(value: str) -> bool:
-    return _METADATA_COLUMN.fullmatch(value) is not None
+    return type(value) is str and _METADATA_COLUMN.fullmatch(value) is not None
+
+
+def _valid_semantic_text(value: str) -> bool:
+    return type(value) is str and bool(value) and value == value.strip()
 
 
 DATASET_REGISTRY = DatasetRegistry(registrations=(TMS_AORTA_REGISTRATION,))
