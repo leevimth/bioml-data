@@ -169,6 +169,7 @@ class PublicationMetadataExpectation:
             self.values,
         )
 
+
 def _validate_shape(expectation: PublicationMetadataExpectation) -> None:
     scalar = expectation.metric in {
         MetadataMetric.OBSERVATION_COUNT,
