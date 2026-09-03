@@ -1,4 +1,4 @@
-"""Exact-scope metadata evidence observed for the pinned TMS Aorta H5AD."""
+"""Contract-only metadata expectations for the pinned TMS Aorta H5AD."""
 
 from typing import Final
 

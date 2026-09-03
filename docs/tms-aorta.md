@@ -113,9 +113,11 @@ unassessed support, and observed overlap failure remain distinct outcomes.
 every realized train, validation, and test partition against scoped evidence.
 It retains `NOT_REPORTED` fields as unknown, reports group overlap without
 replacing the leakage audit, and makes no model-performance claim. The exact TMS
-Aorta counts are scoped to this 906 × 22,966 source artifact; whole-atlas
+Aorta count expectations are scoped to this 906 × 22,966 source artifact; whole-atlas
 statistics from the primary TMS paper are rejected as a different scope. See
-[publication-scoped metadata concordance](metadata-concordance.md).
+[publication-scoped metadata concordance](metadata-concordance.md). These are
+contract-only expectations until BIO-27/BIO-31 readiness permits a gated local
+artifact verification; this checkout does not claim that execution has occurred.
 
 ## Evaluation
 

@@ -106,13 +106,22 @@ def _shared_scope(
         )
     scope = expectations[0].scope
     for expectation in expectations[1:]:
-        if expectation.scope != scope:
+        if _scientific_scope(expectation.scope) != _scientific_scope(scope):
             raise MetadataExpectationScopeMismatchError(
-                field="expectation_scope",
-                expected=str(scope),
-                actual=str(expectation.scope),
+                field="expectation_scientific_scope",
+                expected=str(_scientific_scope(scope)),
+                actual=str(_scientific_scope(expectation.scope)),
             )
     return scope
+
+
+def _scientific_scope(scope: MetadataExpectationScope) -> tuple[str, ...]:
+    return (
+        str(scope.dataset),
+        str(scope.artifact),
+        str(scope.task),
+        str(scope.protocol),
+    )
 
 
 def _validate_fold(
