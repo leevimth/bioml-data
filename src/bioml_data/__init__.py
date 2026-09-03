@@ -1,6 +1,6 @@
 """Reproducible data protocols for biological machine learning."""
 
-# allow: SIZE_OK — this package-root facade only re-exports public contracts.
+# noqa: SIZE_OK — this package-root facade only re-exports public contracts.
 
 from importlib.metadata import version
 from typing import Final
@@ -53,6 +53,8 @@ from bioml_data._domain import (
     DatasetLifecycle,
     DatasetSnapshotIdentity,
     DatasetVersionRequiredError,
+    InvalidSplitCanaryUsageError,
+    InvalidSplitProtocolRoleError,
     SourceReference,
     SplitEvidenceBasis,
     SplitPlan,
@@ -195,6 +197,8 @@ __all__ = [
     "IncompleteDownloadError",
     "InsecureArtifactUrlError",
     "InvalidRawTmsArtifactError",
+    "InvalidSplitCanaryUsageError",
+    "InvalidSplitProtocolRoleError",
     "LabelRecord",
     "LeakageAuditReport",
     "LeakageAuditRequest",

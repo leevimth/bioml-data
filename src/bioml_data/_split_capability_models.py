@@ -7,6 +7,8 @@ from typing import override
 from bioml_data._artifact_types import ArtifactId, TransformProtocolId
 from bioml_data._domain import (
     DatasetSnapshotIdentity,
+    InvalidSplitCanaryUsageError,
+    InvalidSplitProtocolRoleError,
     ProtocolId,
     SplitEvidenceBasis,
     SplitProtocolCompatibilityRoleError,
@@ -81,6 +83,11 @@ class SplitProtocolEvidence:
 
     def __post_init__(self) -> None:
         """Keep active evidence basis records free of legacy role claims."""
+        if self.role is not None and type(self.role) is not SplitProtocolRole:
+            raise InvalidSplitProtocolRoleError(
+                protocol=self.scope.protocol,
+                actual_type=type(self.role).__name__,
+            )
         if self.basis is not None and self.role is not None:
             raise SplitProtocolCompatibilityRoleError(
                 protocol=self.scope.protocol,
@@ -111,21 +118,41 @@ class SplitCapability:
 
     def __post_init__(self) -> None:
         """Project legacy capability role reads from separate canary usage."""
+        if type(self.is_canary) is not bool:
+            raise InvalidSplitCanaryUsageError(
+                protocol=self.protocol,
+                actual_type=type(self.is_canary).__name__,
+            )
+        if self.role is not None and type(self.role) is not SplitProtocolRole:
+            raise InvalidSplitProtocolRoleError(
+                protocol=self.protocol,
+                actual_type=type(self.role).__name__,
+            )
         if self.basis is None:
             return
         expected_role = SplitProtocolRole.CANARY if self.is_canary else None
-        match self.role:
+        match self.role:  # noqa: MATCH_OK — basedpyright proves the enum branches exhaustive.
             case None:
-                pass
+                object.__setattr__(self, "role", expected_role)
+                object.__setattr__(self, "_role_is_projection", True)
             case SplitProtocolRole.CANARY if self._role_is_projection:
-                pass
-            case mismatch:
+                object.__setattr__(self, "role", expected_role)
+                object.__setattr__(self, "_role_is_projection", True)
+            case SplitProtocolRole.CANARY as mismatch:
                 raise SplitProtocolCompatibilityRoleError(
                     protocol=self.protocol,
                     role=mismatch,
                 )
-        object.__setattr__(self, "role", expected_role)
-        object.__setattr__(self, "_role_is_projection", True)
+            case (
+                SplitProtocolRole.COMMUNITY_REFERENCE
+                | SplitProtocolRole.LITERATURE_REFERENCE
+                | SplitProtocolRole.REFERENCE
+                | SplitProtocolRole.ROBUSTNESS
+            ) as mismatch:
+                raise SplitProtocolCompatibilityRoleError(
+                    protocol=self.protocol,
+                    role=mismatch,
+                )
 
 
 @dataclass(frozen=True, slots=True)

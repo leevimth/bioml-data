@@ -87,6 +87,35 @@ class SplitProtocolCompatibilityRoleError(Exception):
 
 
 @dataclass(frozen=True, slots=True)
+class InvalidSplitCanaryUsageError(Exception):
+    """Raised when package canary usage is not an exact boolean."""
+
+    protocol: ProtocolId
+    actual_type: str
+
+    @override
+    def __str__(self) -> str:
+        return (
+            f"canary usage for {self.protocol!r} must be bool, got {self.actual_type}"
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class InvalidSplitProtocolRoleError(Exception):
+    """Raised when a legacy split role is not a declared enum member."""
+
+    protocol: ProtocolId
+    actual_type: str
+
+    @override
+    def __str__(self) -> str:
+        return (
+            f"legacy split role for {self.protocol!r} must be "
+            f"SplitProtocolRole, got {self.actual_type}"
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class SplitProtocolDefinition:
     """A versioned split contract supported by a dataset task."""
 
@@ -105,21 +134,41 @@ class SplitProtocolDefinition:
 
     def __post_init__(self) -> None:
         """Project legacy role reads from separate canary usage."""
+        if type(self.is_canary) is not bool:
+            raise InvalidSplitCanaryUsageError(
+                protocol=self.id,
+                actual_type=type(self.is_canary).__name__,
+            )
+        if self.role is not None and type(self.role) is not SplitProtocolRole:
+            raise InvalidSplitProtocolRoleError(
+                protocol=self.id,
+                actual_type=type(self.role).__name__,
+            )
         if self.basis is None:
             return
         expected_role = SplitProtocolRole.CANARY if self.is_canary else None
-        match self.role:
+        match self.role:  # noqa: MATCH_OK — basedpyright proves the enum branches exhaustive.
             case None:
-                pass
+                object.__setattr__(self, "role", expected_role)
+                object.__setattr__(self, "_role_is_projection", True)
             case SplitProtocolRole.CANARY if self._role_is_projection:
-                pass
-            case mismatch:
+                object.__setattr__(self, "role", expected_role)
+                object.__setattr__(self, "_role_is_projection", True)
+            case SplitProtocolRole.CANARY as mismatch:
                 raise SplitProtocolCompatibilityRoleError(
                     protocol=self.id,
                     role=mismatch,
                 )
-        object.__setattr__(self, "role", expected_role)
-        object.__setattr__(self, "_role_is_projection", True)
+            case (
+                SplitProtocolRole.COMMUNITY_REFERENCE
+                | SplitProtocolRole.LITERATURE_REFERENCE
+                | SplitProtocolRole.REFERENCE
+                | SplitProtocolRole.ROBUSTNESS
+            ) as mismatch:
+                raise SplitProtocolCompatibilityRoleError(
+                    protocol=self.id,
+                    role=mismatch,
+                )
 
 
 @dataclass(frozen=True, slots=True)

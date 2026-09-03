@@ -5,6 +5,8 @@ from dataclasses import replace
 import pytest
 
 from bioml_data._domain import (
+    InvalidSplitCanaryUsageError,
+    InvalidSplitProtocolRoleError,
     ProtocolId,
     SplitProtocolDefinition,
     SplitProtocolRole,
@@ -81,3 +83,72 @@ def test_registry_rejects_a_legacy_only_split_contract() -> None:
         _ = DatasetRegistry(registrations=(registration,))
 
     # Then: legacy constructors are readable but cannot publish active evidence.
+
+
+def test_new_definition_rejects_non_bool_canary_usage() -> None:
+    # Given: the public new-contract TMS split declaration.
+    split = TMS_AORTA_REGISTRATION.definition.supported_splits[0]
+
+    # When: a caller supplies a truthy string as package-test usage.
+    with pytest.raises(InvalidSplitCanaryUsageError):
+        _ = replace(split, is_canary="true")
+
+    # Then: canary usage remains an exact boolean boundary.
+
+
+def test_new_capability_rejects_non_bool_canary_usage() -> None:
+    # Given: the public new-contract TMS split capability.
+    capability = TMS_AORTA_REGISTRATION.split_capabilities[0]
+
+    # When: a caller supplies an integer as package-test usage.
+    with pytest.raises(InvalidSplitCanaryUsageError):
+        _ = replace(capability, is_canary=1)
+
+    # Then: truthy values cannot alter package-test semantics.
+
+
+def test_registry_rejects_a_forged_non_bool_canary_usage() -> None:
+    # Given: a forged registration that bypassed its public typed constructors.
+    split = replace(TMS_AORTA_REGISTRATION.definition.supported_splits[0])
+    capability = replace(TMS_AORTA_REGISTRATION.split_capabilities[0])
+    object.__setattr__(split, "is_canary", 1)
+    object.__setattr__(capability, "is_canary", 1)
+    definition = replace(
+        TMS_AORTA_REGISTRATION.definition,
+        supported_splits=(split,),
+    )
+    registration = replace(
+        TMS_AORTA_REGISTRATION,
+        definition=definition,
+        split_capabilities=(capability,),
+    )
+
+    # When: the public registry receives the forged split contract.
+    with pytest.raises(DatasetCapabilityMismatchError):
+        _ = DatasetRegistry(registrations=(registration,))
+
+    # Then: registry publication independently requires an exact bool.
+
+
+def test_definition_rejects_a_raw_string_legacy_role() -> None:
+    # Given: the public new-contract TMS split declaration.
+    split = TMS_AORTA_REGISTRATION.definition.supported_splits[0]
+
+    # When: a caller supplies an untyped legacy role.
+    with pytest.raises(InvalidSplitProtocolRoleError) as captured:
+        _ = replace(split, role="canary")
+
+    # Then: the typed boundary error remains printable.
+    assert str(captured.value)
+
+
+def test_capability_rejects_a_raw_string_legacy_role() -> None:
+    # Given: the public new-contract TMS split capability.
+    capability = TMS_AORTA_REGISTRATION.split_capabilities[0]
+
+    # When: a caller supplies an untyped legacy role.
+    with pytest.raises(InvalidSplitProtocolRoleError) as captured:
+        _ = replace(capability, role="canary")
+
+    # Then: the typed boundary error remains printable.
+    assert str(captured.value)

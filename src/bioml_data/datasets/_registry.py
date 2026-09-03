@@ -205,6 +205,8 @@ def _validate_registration(registration: DatasetRegistration) -> None:
 
 
 def _valid_contract_mode(capability: SplitCapability) -> bool:
+    if type(capability.is_canary) is not bool:
+        return False
     return (
         type(capability.basis) is SplitEvidenceBasis
         and capability.role
@@ -233,7 +235,7 @@ def _valid_semantics(capability: SplitCapability) -> bool:
         and _valid_metadata_column(capability.grouping_column)
         and _valid_semantic_text(capability.evaluation_target)
     )
-    match capability.strategy:
+    match capability.strategy:  # noqa: MATCH_OK — basedpyright proves the enum branches exhaustive.
         case SplitStrategy.GROUP_HELD_OUT:
             return common_semantics
         case SplitStrategy.LEAVE_ONE_STUDY_OUT:
@@ -250,6 +252,8 @@ def _valid_definition_compatibility_projection(
     definition: SplitProtocolDefinition,
 ) -> bool:
     if type(definition.basis) is not SplitEvidenceBasis:
+        return False
+    if type(definition.is_canary) is not bool:
         return False
     expected_role = SplitProtocolRole.CANARY if definition.is_canary else None
     return definition.role is expected_role
