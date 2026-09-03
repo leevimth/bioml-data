@@ -6,7 +6,6 @@ import pytest
 
 from bioml_data import (
     DatasetLifecycle,
-    SplitProtocolRole,
     UnknownDatasetError,
     UnknownDatasetVersionError,
     UnsupportedSplitProtocolError,
@@ -14,7 +13,8 @@ from bioml_data import (
 )
 from bioml_data._split_capability import (
     SplitCapabilityQuery,
-    SplitEvidenceType,
+    SplitEvidenceBasis,
+    SplitStrategy,
     query_split_capability,
 )
 
@@ -116,10 +116,11 @@ def test_plan_split_resolves_the_existing_animal_canary_capability() -> None:
         protocol="animal-held-out-v1",
     )
 
-    # Then: the plan and catalog declaration resolve the existing canary.
+    # Then: the plan and catalog declaration resolve the implemented group holdout.
     declaration = dataset.supported_splits[0]
     assert plan.protocol == "animal-held-out-v1"
-    assert declaration.role is SplitProtocolRole.CANARY
+    assert declaration.basis is SplitEvidenceBasis.PACKAGE_DEFINED
+    assert declaration.strategy is SplitStrategy.GROUP_HELD_OUT
     assert declaration.id == plan.protocol
     assert declaration.task == plan.task
     assert declaration.required_metadata == ("cell_id", "donor_id")
@@ -139,9 +140,14 @@ def test_catalog_declaration_matches_split_capability_evidence() -> None:
         )
     ).require_supported()
 
-    # Then: role metadata remains the product canary with animal holdout.
+    # Then: provenance, semantics, and canary usage remain coherent.
     assert declaration.id == capability.protocol
-    assert declaration.role is capability.role
+    assert declaration.basis is capability.basis
+    assert declaration.strategy is capability.strategy
+    assert declaration.held_out_axis == capability.held_out_axis
+    assert declaration.leakage_unit == capability.leakage_unit
+    assert declaration.grouping_column == capability.grouping_column
+    assert declaration.evaluation_target == capability.evaluation_target
+    assert declaration.is_canary is capability.is_canary
     assert declaration.required_metadata == capability.required_columns
-    assert capability.evidence_type is SplitEvidenceType.PRODUCT_PROTOCOL
     assert capability.held_out_axis == "animal"

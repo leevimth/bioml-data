@@ -10,9 +10,15 @@ from bioml_data._domain import (
     DatasetSnapshotIdentity,
     DatasetVersion,
     ProtocolId,
+    SplitProtocolRole,
     TaskId,
 )
-from bioml_data._split_capability_models import SplitEvidenceCitation
+from bioml_data._split_capability_models import (
+    SplitCapability,
+    SplitEvidenceCitation,
+    SplitEvidenceType,
+    SplitProtocolEvidence,
+)
 from bioml_data.datasets._registry import (
     DatasetCapabilityMismatchError,
     DatasetRegistry,
@@ -189,3 +195,36 @@ def test_registry_rejects_invalid_evidence_citations(case: _CitationCase) -> Non
         _ = DatasetRegistry(registrations=(registration,))
 
     # Then: citations remain human-readable and resolvable over HTTPS.
+
+
+def test_legacy_evidence_and_capability_constructors_remain_readable() -> None:
+    # Given: a caller using the pre-BIO-28 positional constructor shapes.
+    capability = TMS_AORTA_REGISTRATION.split_capabilities[0]
+    legacy_evidence = SplitProtocolEvidence(
+        capability.evidence[0].scope,
+        SplitProtocolRole.REFERENCE,
+        SplitEvidenceType.LITERATURE_REUSE,
+        capability.evidence[0].citations,
+        capability.evidence[0].fit_scope,
+        capability.evidence[0].leakage_caveat,
+    )
+    legacy_capability = SplitCapability(
+        capability.dataset,
+        capability.task,
+        capability.protocol,
+        SplitProtocolRole.REFERENCE,
+        SplitEvidenceType.LITERATURE_REUSE,
+        capability.artifact,
+        (legacy_evidence,),
+        capability.held_out_axis,
+        capability.leakage_unit,
+        capability.required_columns,
+        capability.grouping_column,
+    )
+
+    # When: the legacy evidence contract is inspected.
+    evidence_type = legacy_capability.evidence_type
+
+    # Then: old readers retain their vocabulary without new-basis fields.
+    assert evidence_type is SplitEvidenceType.LITERATURE_REUSE
+    assert legacy_capability.basis is None

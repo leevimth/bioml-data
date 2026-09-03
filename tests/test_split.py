@@ -10,7 +10,6 @@ from bioml_data._domain import (
     DatasetName,
     DatasetSnapshotIdentity,
     DatasetVersion,
-    SplitProtocolRole,
     TaskId,
     UnsupportedSplitProtocolError,
 )
@@ -38,7 +37,7 @@ def _observation(cell_id: str, donor_id: str | None) -> _split.SplitObservation:
     )
 
 
-def test_query_reports_tms_animal_canary_capability() -> None:
+def test_query_reports_tms_animal_held_out_capability() -> None:
     # Given: the supported TMS Aorta annotation task and explicit protocol.
     query = capabilities.SplitCapabilityQuery(
         dataset=_tms_snapshot(),
@@ -49,16 +48,19 @@ def test_query_reports_tms_animal_canary_capability() -> None:
     # When: a consumer queries the protocol capability.
     result = capabilities.query_split_capability(query)
 
-    # Then: machine-readable semantics identify the canary and its evidence.
+    # Then: machine-readable semantics identify the held-out animal contract.
     assert isinstance(result, capabilities.SupportedSplitCapability)
-    assert result.capability.role.value == "canary"
-    assert result.capability.evidence_type.value == "product_protocol"
+    assert result.capability.basis is capabilities.SplitEvidenceBasis.PACKAGE_DEFINED
+    assert result.capability.strategy is capabilities.SplitStrategy.GROUP_HELD_OUT
     assert result.capability.held_out_axis == "animal"
     assert result.capability.leakage_unit == "mouse"
+    assert result.capability.grouping_column == "donor_id"
+    assert result.capability.evaluation_target == "unseen animal"
+    assert result.capability.is_canary
     assert result.capability.required_columns == ("cell_id", "donor_id")
 
 
-def test_query_exposes_scoped_canary_and_robustness_evidence() -> None:
+def test_query_exposes_scoped_package_defined_evidence() -> None:
     # Given: the supported TMS Aorta animal-held-out protocol.
     query = capabilities.SplitCapabilityQuery(
         dataset=_tms_snapshot(),
@@ -69,10 +71,9 @@ def test_query_exposes_scoped_canary_and_robustness_evidence() -> None:
     # When: a researcher inspects its evidence-bearing capability.
     capability = capabilities.query_split_capability(query).require_supported()
 
-    # Then: package roles are explicit and every claim has the exact same scope.
-    assert tuple(evidence.role for evidence in capability.evidence) == (
-        SplitProtocolRole.CANARY,
-        SplitProtocolRole.ROBUSTNESS,
+    # Then: package provenance is explicit and every claim has the exact same scope.
+    assert tuple(evidence.basis for evidence in capability.evidence) == (
+        capabilities.SplitEvidenceBasis.PACKAGE_DEFINED,
     )
     assert all(
         evidence.scope.dataset == capability.dataset for evidence in capability.evidence
@@ -93,20 +94,20 @@ def test_query_exposes_scoped_canary_and_robustness_evidence() -> None:
     )
     assert capability.artifact.transform_protocol == "tms-aorta-csr-v1"
     assert (
-        capability.evidence[1].evidence_type
-        is capabilities.SplitEvidenceType.PRODUCT_PROTOCOL
+        capability.evidence[0].basis is capabilities.SplitEvidenceBasis.PACKAGE_DEFINED
     )
 
 
-def test_split_protocol_roles_distinguish_literature_and_community_references() -> None:
-    # Given: the public role vocabulary used by evidence records.
+def test_split_evidence_bases_distinguish_reference_and_package_sources() -> None:
+    # Given: the public source vocabulary used by evidence records.
 
-    # When: reference roles are inspected.
-    values = {role.value for role in SplitProtocolRole}
+    # When: evidence bases are inspected.
+    values = {basis.value for basis in capabilities.SplitEvidenceBasis}
 
-    # Then: literature reproduction and community compatibility are not conflated.
+    # Then: literature, community, and package provenance are not conflated.
     assert "literature_reference" in values
     assert "community_reference" in values
+    assert "package_defined" in values
 
 
 def test_query_distinguishes_unsupported_from_unknown_capability() -> None:

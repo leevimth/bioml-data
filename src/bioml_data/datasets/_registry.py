@@ -8,11 +8,13 @@ from bioml_data._domain import (
     DatasetName,
     DatasetSnapshotIdentity,
     DatasetVersionRequiredError,
+    SplitStrategy,
     UnknownDatasetError,
     UnknownDatasetVersionError,
     parse_dataset_name,
     parse_dataset_version,
 )
+from bioml_data._split_capability_models import SplitCapability
 from bioml_data.datasets._capability_index import publish_registry_capabilities
 from bioml_data.datasets._evidence_validation import valid_split_evidence
 from bioml_data.datasets._materialization_verification import materialize_verified
@@ -167,26 +169,83 @@ def _validate_registration(registration: DatasetRegistration) -> None:
             )
             for evidence in capability.evidence
         )
-        evidence_roles = tuple(evidence.role for evidence in capability.evidence)
         coherent = (
             capability.dataset == definition.snapshot
             and capability.artifact == registration.artifact_scope
             and capability.task in task_ids
-            and capability.role == split_definition.role
             and capability.required_columns == split_definition.required_metadata
             and capability.grouping_column in capability.required_columns
             and bool(capability.evidence)
             and all(scope == expected_evidence_scope for scope in evidence_scopes)
-            and capability.role in evidence_roles
-            and len(set(evidence_roles)) == len(evidence_roles)
             and all(evidence.citations for evidence in capability.evidence)
             and all(valid_split_evidence(evidence) for evidence in capability.evidence)
-            and capability.evidence_type == capability.evidence[0].evidence_type
+            and _valid_contract_mode(capability)
+            and _valid_semantics(capability)
+            and capability.basis == split_definition.basis
+            and capability.strategy == split_definition.strategy
+            and capability.held_out_axis == split_definition.held_out_axis
+            and capability.leakage_unit == split_definition.leakage_unit
+            and capability.grouping_column == split_definition.grouping_column
+            and capability.evaluation_target == split_definition.evaluation_target
+            and capability.is_canary is split_definition.is_canary
         )
         if not coherent:
             raise DatasetCapabilityMismatchError(
                 snapshot=definition.snapshot,
                 detail=f"contract mismatch for {capability.protocol!r}",
+            )
+
+
+def _valid_contract_mode(capability: SplitCapability) -> bool:
+    if capability.basis is not None:
+        return (
+            capability.role is None
+            and capability.evidence_type is None
+            and capability.basis
+            in tuple(evidence.basis for evidence in capability.evidence)
+            and all(
+                evidence.role is None
+                and evidence.evidence_type is None
+                and evidence.basis is not None
+                for evidence in capability.evidence
+            )
+            and len({evidence.basis for evidence in capability.evidence})
+            == len(capability.evidence)
+        )
+
+    return (
+        capability.role is not None
+        and capability.evidence_type is not None
+        and capability.role in tuple(evidence.role for evidence in capability.evidence)
+        and capability.evidence_type == capability.evidence[0].evidence_type
+        and all(
+            evidence.basis is None
+            and evidence.role is not None
+            and evidence.evidence_type is not None
+            for evidence in capability.evidence
+        )
+    )
+
+
+def _valid_semantics(capability: SplitCapability) -> bool:
+    if capability.strategy is None:
+        return capability.basis is None
+
+    common_semantics = (
+        bool(capability.held_out_axis)
+        and bool(capability.leakage_unit)
+        and bool(capability.grouping_column)
+        and bool(capability.evaluation_target)
+    )
+    match capability.strategy:
+        case SplitStrategy.GROUP_HELD_OUT:
+            return common_semantics
+        case SplitStrategy.LEAVE_ONE_STUDY_OUT:
+            return (
+                common_semantics
+                and capability.held_out_axis == "study"
+                and capability.grouping_column == "study_id"
+                and capability.leakage_unit == "study"
             )
 
 

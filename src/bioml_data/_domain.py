@@ -21,13 +21,30 @@ class DatasetLifecycle(StrEnum):
 
 @unique
 class SplitProtocolRole(StrEnum):
-    """Evidence role assigned to a split protocol."""
+    """Deprecated evidence-role vocabulary retained for reader compatibility."""
 
     CANARY = "canary"
     COMMUNITY_REFERENCE = "community_reference"
     LITERATURE_REFERENCE = "literature_reference"
     REFERENCE = "reference"
     ROBUSTNESS = "robustness"
+
+
+@unique
+class SplitEvidenceBasis(StrEnum):
+    """External or package source that justifies publishing a split."""
+
+    LITERATURE_REFERENCE = "literature_reference"
+    COMMUNITY_REFERENCE = "community_reference"
+    PACKAGE_DEFINED = "package_defined"
+
+
+@unique
+class SplitStrategy(StrEnum):
+    """Concrete partitioning strategy independently of evidence source."""
+
+    GROUP_HELD_OUT = "group-held-out"
+    LEAVE_ONE_STUDY_OUT = "leave-one-study-out"
 
 
 @dataclass(frozen=True, slots=True)
@@ -59,9 +76,16 @@ class SplitProtocolDefinition:
     """A versioned split contract supported by a dataset task."""
 
     id: ProtocolId
-    role: SplitProtocolRole
+    role: SplitProtocolRole | None
     task: TaskId
     required_metadata: tuple[str, ...]
+    basis: SplitEvidenceBasis | None = None
+    strategy: SplitStrategy | None = None
+    held_out_axis: str = ""
+    leakage_unit: str = ""
+    grouping_column: str = ""
+    evaluation_target: str = ""
+    is_canary: bool = False
 
 
 @dataclass(frozen=True, slots=True)

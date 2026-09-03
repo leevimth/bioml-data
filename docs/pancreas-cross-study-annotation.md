@@ -29,11 +29,11 @@ feature fitting. Consequently this protocol is a `LITERATURE_REFERENCE`: it
 records historical comparability, not a claim of modern leakage-safe
 preprocessing or universal generalization.
 
-Donor-held-out evaluation, where adequate donor metadata can be verified, is a
-separate `ROBUSTNESS` protocol with a different target of generalization. The
-OpenProblems label-projection pancreas artifact is likewise a separate
-community task with its own labels and upstream preparation; it must not be
-treated as a replacement for this four-cohort reference.
+Donor-held-out evaluation, where adequate donor metadata can be verified, would
+be a separate package-defined protocol with a different target of
+generalization. The OpenProblems label-projection pancreas artifact is likewise
+a separate community task with its own labels and upstream preparation; it must
+not be treated as a replacement for this four-cohort reference.
 
 ## Rights and implementation gate
 
@@ -41,7 +41,9 @@ Public access to the Zenodo record does not by itself clear redistribution. The
 record/file license, access conditions, archive bytes, and compatibility with
 upstream cohort terms must be verified before implementation or release.
 
-Until that gate closes, the appropriate product boundary is a provenance-aware
+Until that gate closes, this protocol is non-executable only because the rights,
+exact archive bytes, and schema are unresolved—not because its historical split
+is considered unusable. The appropriate product boundary is a provenance-aware
 local acquisition/cache recipe, not hosting or mirroring the archive. A future
 supported snapshot must record the exact record and file metadata, byte size,
 published checksum where available, locally verified SHA-256, and the resolved

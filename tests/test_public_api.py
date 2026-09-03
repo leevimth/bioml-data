@@ -28,15 +28,21 @@ def test_researcher_can_plan_the_public_animal_canary_split() -> None:
         protocol="animal-held-out-v1",
     )
 
-    # Then: the plan and public declaration expose the exact canary contract.
+    # Then: the plan and public declaration expose the split semantics.
     declaration = dataset.supported_splits[0]
     assert plan.protocol == "animal-held-out-v1"
     assert declaration.id == plan.protocol
-    assert declaration.role is bio.SplitProtocolRole.CANARY
+    assert declaration.basis is bio.SplitEvidenceBasis.PACKAGE_DEFINED
+    assert declaration.strategy is bio.SplitStrategy.GROUP_HELD_OUT
+    assert declaration.held_out_axis == "animal"
+    assert declaration.leakage_unit == "mouse"
+    assert declaration.grouping_column == "donor_id"
+    assert declaration.evaluation_target == "unseen animal"
+    assert declaration.is_canary
     assert declaration.required_metadata == ("cell_id", "donor_id")
 
 
-def test_researcher_can_inspect_split_roles_and_evidence_from_public_api() -> None:
+def test_researcher_can_inspect_split_semantics_and_evidence_from_public_api() -> None:
     # Given: the public TMS dataset contract and its supported split.
     dataset = bio.load_dataset("tms-aorta")
     declaration = dataset.supported_splits[0]
@@ -49,13 +55,14 @@ def test_researcher_can_inspect_split_roles_and_evidence_from_public_api() -> No
     # When: the researcher queries evidence through the package root.
     capability = bio.query_split_capability(query).require_supported()
 
-    # Then: the split is visibly a package canary and robustness check, not a claim
-    # of literature recommendation.
-    assert tuple(evidence.role for evidence in capability.evidence) == (
-        bio.SplitProtocolRole.CANARY,
-        bio.SplitProtocolRole.ROBUSTNESS,
+    # Then: package provenance, split semantics, and test usage stay separate.
+    assert capability.basis is bio.SplitEvidenceBasis.PACKAGE_DEFINED
+    assert capability.strategy is bio.SplitStrategy.GROUP_HELD_OUT
+    assert capability.held_out_axis == "animal"
+    assert capability.leakage_unit == "mouse"
+    assert capability.grouping_column == "donor_id"
+    assert capability.evaluation_target == "unseen animal"
+    assert capability.is_canary
+    assert tuple(evidence.basis for evidence in capability.evidence) == (
+        bio.SplitEvidenceBasis.PACKAGE_DEFINED,
     )
-    assert (
-        capability.evidence[0].evidence_type is bio.SplitEvidenceType.PRODUCT_PROTOCOL
-    )
-    assert capability.evidence[0].scope == capability.evidence[1].scope

@@ -8,7 +8,9 @@ from bioml_data._artifact_types import ArtifactId, TransformProtocolId
 from bioml_data._domain import (
     DatasetSnapshotIdentity,
     ProtocolId,
+    SplitEvidenceBasis,
     SplitProtocolRole,
+    SplitStrategy,
     TaskId,
     UnsupportedSplitProtocolError,
     parse_protocol_id,
@@ -17,7 +19,7 @@ from bioml_data._domain import (
 
 @unique
 class SplitEvidenceType(StrEnum):
-    """Evidence supporting a protocol's declared role."""
+    """Deprecated evidence-type vocabulary retained for reader compatibility."""
 
     LITERATURE_REUSE = "literature_reuse"
     COMPARATIVE_EVIDENCE = "comparative_evidence"
@@ -66,14 +68,15 @@ class SplitEvidenceCitation:
 
 @dataclass(frozen=True, slots=True)
 class SplitProtocolEvidence:
-    """One role claim, its source, and its interpretation limits."""
+    """One evidence-basis claim, its source, and its interpretation limits."""
 
     scope: SplitEvidenceScope
-    role: SplitProtocolRole
-    evidence_type: SplitEvidenceType
+    role: SplitProtocolRole | None
+    evidence_type: SplitEvidenceType | None
     citations: tuple[SplitEvidenceCitation, ...]
     fit_scope: str
     leakage_caveat: str
+    basis: SplitEvidenceBasis | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -83,14 +86,18 @@ class SplitCapability:
     dataset: DatasetSnapshotIdentity
     task: TaskId
     protocol: ProtocolId
-    role: SplitProtocolRole
-    evidence_type: SplitEvidenceType
+    role: SplitProtocolRole | None
+    evidence_type: SplitEvidenceType | None
     artifact: SplitArtifactScope
     evidence: tuple[SplitProtocolEvidence, ...]
     held_out_axis: str
     leakage_unit: str
     required_columns: tuple[str, ...]
     grouping_column: str
+    basis: SplitEvidenceBasis | None = None
+    strategy: SplitStrategy | None = None
+    evaluation_target: str = ""
+    is_canary: bool = False
 
 
 @dataclass(frozen=True, slots=True)

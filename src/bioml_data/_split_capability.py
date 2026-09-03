@@ -1,6 +1,6 @@
 """Dataset-specific split capability lookup and compatibility facade."""
 
-from bioml_data._domain import parse_protocol_id
+from bioml_data._domain import SplitEvidenceBasis, SplitStrategy, parse_protocol_id
 from bioml_data._split_capability_models import (
     SplitArtifactScope,
     SplitCapability,
@@ -45,10 +45,12 @@ __all__ = [
     "SplitCapabilityAvailability",
     "SplitCapabilityQuery",
     "SplitCapabilityResult",
+    "SplitEvidenceBasis",
     "SplitEvidenceCitation",
     "SplitEvidenceScope",
     "SplitEvidenceType",
     "SplitProtocolEvidence",
+    "SplitStrategy",
     "SupportedSplitCapability",
     "UnknownSplitCapability",
     "UnknownSplitCapabilityError",
