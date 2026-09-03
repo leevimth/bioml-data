@@ -147,6 +147,7 @@ class MetadataPartitionViolation(StrEnum):
     COVERAGE = "coverage"
     DUPLICATE_OBSERVATION = "duplicate_observation"
     DATASET = "dataset"
+    ALLOCATION = "allocation"
     GROUPING = "grouping"
     IDENTITY = "identity"
     RECEIPT_COUNTS = "receipt_counts"

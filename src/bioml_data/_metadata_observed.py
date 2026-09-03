@@ -17,6 +17,7 @@ from bioml_data._single_cell import CanonicalObservation, CanonicalSingleCellDat
 from bioml_data._split import (
     MetadataValue,
     PartitionGroupCounts,
+    SplitAssigner,
     SplitAssignmentReceipt,
     SplitPartition,
     assignment_receipt_identity,
@@ -60,7 +61,7 @@ def assignment_by_id(
         raise InvalidMetadataPartitionError(
             violation=MetadataPartitionViolation.COVERAGE
         )
-    _validate_receipt_integrity(assignment)
+    _validate_receipt_integrity(dataset, assignment)
     _validate_canonical_groups(dataset, assignment)
     return {
         str(item.observation_id): AssignedGroup(
@@ -71,7 +72,10 @@ def assignment_by_id(
     }
 
 
-def _validate_receipt_integrity(assignment: SplitAssignmentReceipt) -> None:
+def _validate_receipt_integrity(
+    dataset: CanonicalSingleCellDataset,
+    assignment: SplitAssignmentReceipt,
+) -> None:
     if assignment.assignment_identity != assignment_receipt_identity(assignment):
         raise InvalidMetadataPartitionError(
             violation=MetadataPartitionViolation.IDENTITY
@@ -85,6 +89,15 @@ def _validate_receipt_integrity(assignment: SplitAssignmentReceipt) -> None:
     ):
         raise InvalidMetadataPartitionError(
             violation=MetadataPartitionViolation.RECEIPT_COUNTS
+        )
+    expected = SplitAssigner(
+        dataset=dataset.snapshot,
+        task=assignment.task,
+        observations=dataset.split_observations,
+    ).split(protocol=str(assignment.protocol), seed=assignment.seed)
+    if assignment != expected:
+        raise InvalidMetadataPartitionError(
+            violation=MetadataPartitionViolation.ALLOCATION
         )
 
 
@@ -173,9 +186,11 @@ def groups_by_partition(
     partition: SplitPartition,
 ) -> tuple[str, ...]:
     """Return distinct groups assigned to one partition in stable order."""
-    return tuple(sorted({
-        item.group for item in assignments.values() if item.partition is partition
-    }))
+    return tuple(
+        sorted(
+            {item.group for item in assignments.values() if item.partition is partition}
+        )
+    )
 
 
 def cross_partition_groups(

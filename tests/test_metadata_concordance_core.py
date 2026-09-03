@@ -2,6 +2,8 @@
 
 from dataclasses import replace
 
+import pytest
+
 import bioml_data as bio
 from bioml_data._split import (
     PartitionGroupCounts,
@@ -120,8 +122,8 @@ def test_compare_reports_whole_dataset_and_each_realized_partition() -> None:
     assert report.covered_observation_count == 6
 
 
-def test_compare_omits_empty_validation_partition_from_receipt_report() -> None:
-    # Given: a valid five-train, one-test receipt with no validation observations.
+def test_compare_rejects_noncanonical_empty_validation_receipt() -> None:
+    # Given: a forged five-train, one-test receipt with no validation observations.
     dataset = metadata_dataset()
     original = make_split(dataset)
     assignments = tuple(
@@ -152,20 +154,14 @@ def test_compare_omits_empty_validation_partition_from_receipt_report() -> None:
         for partition in SplitPartition
     )
 
-    # When: concordance reports only partitions realized by the receipt.
-    report = bio.compare_metadata_concordance(
-        dataset, assignment, expectations=expectations
-    )
+    # When: concordance verifies the named deterministic allocation.
+    with pytest.raises(bio.InvalidMetadataPartitionError) as captured:
+        _ = bio.compare_metadata_concordance(
+            dataset, assignment, expectations=expectations
+        )
 
-    # Then: no empty validation report or comparison is synthesized.
-    assert tuple(item.partition for item in report.partition_reports) == (
-        SplitPartition.TRAIN,
-        SplitPartition.TEST,
-    )
-    assert all(
-        item.partition is not SplitPartition.VALIDATION
-        for item in report.partition_reports
-    )
+    # Then: named TMS protocols do not accept custom empty-validation receipts.
+    assert captured.value.violation is bio.MetadataPartitionViolation.ALLOCATION
 
 
 def test_compare_marks_not_reported_metadata_as_unknown_not_a_match() -> None:

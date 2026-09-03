@@ -81,26 +81,18 @@ def test_compare_rejects_publication_expectation_from_global_dataset_scope() -> 
     assert captured.value.field == "dataset"
 
 
-def test_compare_enforces_partition_coverage_and_reports_group_overlap() -> None:
-    # Given: an assignment that covers every cell but splits one mouse.
+def test_compare_rejects_receipt_with_recomputed_all_test_allocation() -> None:
+    # Given: a forged receipt that moves every canonical group into test.
     dataset = metadata_dataset()
     original = make_split(dataset)
     assignments = tuple(
-        SplitAssignment(
-            observation_id=item.observation_id,
-            group=item.group,
-            partition=(
-                SplitPartition.TEST
-                if item.observation_id == "cell-2"
-                else item.partition
-            ),
-        )
+        SplitAssignment(item.observation_id, item.group, SplitPartition.TEST)
         for item in original.assignments
     )
     receipt = replace(
         original,
         assignments=assignments,
-        realized_group_counts=PartitionGroupCounts(train=3, validation=1, test=2),
+        realized_group_counts=PartitionGroupCounts(train=0, validation=0, test=5),
     )
     split_groups = replace(
         receipt, assignment_identity=assignment_receipt_identity(receipt)
@@ -111,14 +103,14 @@ def test_compare_enforces_partition_coverage_and_reports_group_overlap() -> None
         expected=6,
     )
 
-    # When: independent metadata check receives the split receipt.
-    report = bio.compare_metadata_concordance(
-        dataset, split_groups, expectations=(expectation,)
-    )
+    # When: metadata concordance verifies the named protocol allocation.
+    with pytest.raises(bio.InvalidMetadataPartitionError) as captured:
+        _ = bio.compare_metadata_concordance(
+            dataset, split_groups, expectations=(expectation,)
+        )
 
-    # Then: coverage holds while group overlap stays visible for leakage audit.
-    assert report.covered_observation_count == 6
-    assert report.cross_partition_groups == ("mouse-a",)
+    # Then: a self-consistent hash/count receipt cannot replace named allocation.
+    assert captured.value.violation is bio.MetadataPartitionViolation.ALLOCATION
 
 
 def test_compare_reports_each_group_once_when_multiple_cells_share_a_mouse() -> None:
@@ -192,9 +184,7 @@ def test_compare_rejects_assignment_group_not_in_canonical_grouping_column() -> 
     dataset = metadata_dataset()
     original = make_split(dataset)
     assignments = tuple(
-        replace(item, group="forged-group")
-        if item.observation_id == "cell-1"
-        else item
+        replace(item, group="forged-group") if item.observation_id == "cell-1" else item
         for item in original.assignments
     )
     receipt = replace(
@@ -217,4 +207,4 @@ def test_compare_rejects_assignment_group_not_in_canonical_grouping_column() -> 
         )
 
     # Then: receipt rows cannot substitute arbitrary biological groups.
-    assert captured.value.violation is bio.MetadataPartitionViolation.GROUPING
+    assert captured.value.violation is bio.MetadataPartitionViolation.ALLOCATION

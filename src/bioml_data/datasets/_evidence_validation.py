@@ -64,7 +64,7 @@ def _valid_hostname(hostname: str) -> bool:
             and hostname.lower() not in {"localhost", "local"}
             and all(_valid_hostname_label(label) for label in labels)
         )
-    return not address.is_loopback and not address.is_private
+    return address.is_global and not address.is_multicast and not address.is_reserved
 
 
 def _valid_hostname_label(label: str) -> bool:
