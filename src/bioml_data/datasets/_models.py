@@ -5,7 +5,8 @@ from dataclasses import dataclass
 from typing import Protocol
 
 from bioml_data._artifacts import ArtifactManifest
-from bioml_data._domain import DatasetDefinition, DatasetSnapshotIdentity
+from bioml_data._dataset_definition import DatasetDefinition
+from bioml_data._domain import DatasetSnapshotIdentity
 from bioml_data._split_capability_models import SplitArtifactScope, SplitCapability
 from bioml_data._verified_artifact import VerifiedArtifactInput
 

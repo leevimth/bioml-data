@@ -6,12 +6,12 @@ import pytest
 
 from bioml_data import _split
 from bioml_data import _split_capability as capabilities
+from bioml_data._dataset_definition import UnsupportedSplitProtocolError
 from bioml_data._domain import (
     DatasetName,
     DatasetSnapshotIdentity,
     DatasetVersion,
     TaskId,
-    UnsupportedSplitProtocolError,
 )
 
 

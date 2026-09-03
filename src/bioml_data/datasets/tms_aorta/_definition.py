@@ -2,12 +2,12 @@
 
 from typing import Final
 
+from bioml_data._dataset_definition import DatasetDefinition
 from bioml_data._dataset_download_models import (
     DatasetDownloadPin,
     Sha256Provenance,
 )
 from bioml_data._domain import (
-    DatasetDefinition,
     DatasetLifecycle,
     SourceReference,
     SourceUri,

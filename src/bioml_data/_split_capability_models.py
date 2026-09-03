@@ -1,6 +1,6 @@
 """Typed outcomes for dataset-specific split capability evidence."""
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import StrEnum, unique
 
 from bioml_data._artifact_types import ArtifactId, TransformProtocolId
@@ -12,11 +12,11 @@ from bioml_data._domain import (
     SplitProtocolRole,
     SplitStrategy,
     TaskId,
+    normalize_split_contract_role,
 )
 from bioml_data._split_contract_errors import (
     require_exact_bool,
     require_exact_split_enum,
-    require_split_contract_field,
 )
 
 
@@ -102,13 +102,14 @@ class SplitProtocolEvidence:
             )
 
 
-@dataclass(frozen=True, slots=True, init=False)
+@dataclass(frozen=True, slots=True)
 class SplitCapability:
     """Machine-readable contract for one supported split protocol."""
 
     dataset: DatasetSnapshotIdentity
     task: TaskId
     protocol: ProtocolId
+    role: SplitProtocolRole | None
     evidence_type: SplitEvidenceType | None
     artifact: SplitArtifactScope
     evidence: tuple[SplitProtocolEvidence, ...]
@@ -120,101 +121,36 @@ class SplitCapability:
     strategy: SplitStrategy | None = None
     evaluation_target: str = ""
     is_canary: bool = False
-    _legacy_role: SplitProtocolRole | None = field(
-        init=False,
-        repr=False,
-        compare=False,
-    )
 
-    def __init__(  # noqa: PLR0913, PLR0917 — preserves the legacy dataclass constructor.
-        self,
-        dataset: DatasetSnapshotIdentity | None = None,
-        task: TaskId | None = None,
-        protocol: ProtocolId | None = None,
-        role: SplitProtocolRole | None = None,
-        evidence_type: SplitEvidenceType | None = None,
-        artifact: SplitArtifactScope | None = None,
-        evidence: tuple[SplitProtocolEvidence, ...] | None = None,
-        held_out_axis: str | None = None,
-        leakage_unit: str | None = None,
-        required_columns: tuple[str, ...] | None = None,
-        grouping_column: str | None = None,
-        basis: SplitEvidenceBasis | None = None,
-        strategy: SplitStrategy | None = None,
-        evaluation_target: str = "",
-        is_canary: bool = False,
-    ) -> None:
-        """Create a split capability while retaining legacy role inputs."""
-        resolved_dataset = require_split_contract_field(dataset, field="dataset")
-        resolved_task = require_split_contract_field(task, field="task")
-        resolved_protocol = require_split_contract_field(protocol, field="protocol")
-        resolved_artifact = require_split_contract_field(artifact, field="artifact")
-        resolved_evidence = require_split_contract_field(evidence, field="evidence")
-        resolved_held_out_axis = require_split_contract_field(
-            held_out_axis,
-            field="held-out axis",
-        )
-        resolved_leakage_unit = require_split_contract_field(
-            leakage_unit,
-            field="leakage unit",
-        )
-        resolved_required_columns = require_split_contract_field(
-            required_columns,
-            field="required columns",
-        )
-        resolved_grouping_column = require_split_contract_field(
-            grouping_column,
-            field="grouping column",
-        )
-        resolved_is_canary = require_exact_bool(
-            is_canary,
-            protocol=resolved_protocol,
-        )
-        resolved_role = require_exact_split_enum(
-            role,
+    def __post_init__(self) -> None:
+        """Parse closed semantic inputs and normalize the active role view."""
+        is_canary = require_exact_bool(self.is_canary, protocol=self.protocol)
+        role = require_exact_split_enum(
+            self.role,
             expected_type=SplitProtocolRole,
-            protocol=resolved_protocol,
+            protocol=self.protocol,
             field="role",
         )
-        resolved_basis = require_exact_split_enum(
-            basis,
+        basis = require_exact_split_enum(
+            self.basis,
             expected_type=SplitEvidenceBasis,
-            protocol=resolved_protocol,
+            protocol=self.protocol,
             field="basis",
         )
-        resolved_strategy = require_exact_split_enum(
-            strategy,
+        _ = require_exact_split_enum(
+            self.strategy,
             expected_type=SplitStrategy,
-            protocol=resolved_protocol,
+            protocol=self.protocol,
             field="strategy",
         )
-        if resolved_basis is not None and resolved_role is not None:
-            raise SplitProtocolCompatibilityRoleError(
-                protocol=resolved_protocol,
-                role=resolved_role,
-            )
-        for field_name, value in (
-            ("dataset", resolved_dataset),
-            ("task", resolved_task),
-            ("protocol", resolved_protocol),
-            ("evidence_type", evidence_type),
-            ("artifact", resolved_artifact),
-            ("evidence", resolved_evidence),
-            ("held_out_axis", resolved_held_out_axis),
-            ("leakage_unit", resolved_leakage_unit),
-            ("required_columns", resolved_required_columns),
-            ("grouping_column", resolved_grouping_column),
-            ("basis", resolved_basis),
-            ("strategy", resolved_strategy),
-            ("evaluation_target", evaluation_target),
-            ("is_canary", resolved_is_canary),
-            ("_legacy_role", resolved_role),
-        ):
-            object.__setattr__(self, field_name, value)
-
-    @property
-    def role(self) -> SplitProtocolRole | None:
-        """Return the deprecated role view derived from active package usage."""
-        if self.basis is not None:
-            return SplitProtocolRole.CANARY if self.is_canary else None
-        return self._legacy_role
+        object.__setattr__(self, "is_canary", is_canary)
+        object.__setattr__(
+            self,
+            "role",
+            normalize_split_contract_role(
+                protocol=self.protocol,
+                role=role,
+                basis=basis,
+                is_canary=is_canary,
+            ),
+        )

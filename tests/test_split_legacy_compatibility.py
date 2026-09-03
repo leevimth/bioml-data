@@ -1,11 +1,12 @@
 """Compatibility tests for the deprecated split evidence vocabulary."""
 
-from dataclasses import replace
+from dataclasses import asdict, replace
 
 import pytest
 
 from bioml_data._domain import (
     ProtocolId,
+    SplitProtocolCompatibilityRoleError,
     SplitProtocolDefinition,
     SplitProtocolRole,
     TaskId,
@@ -37,6 +38,25 @@ def test_legacy_split_contract_constructors_remain_readable() -> None:
     # Then: the legacy field remains available without new semantics.
     assert role is SplitProtocolRole.REFERENCE
     assert definition.basis is None
+
+
+def test_legacy_split_role_remains_a_dataclass_field() -> None:
+    # Given: two legacy definitions that differ only in their role.
+    reference = SplitProtocolDefinition(
+        ProtocolId("legacy-v1"),
+        SplitProtocolRole.REFERENCE,
+        TaskId("task-v1"),
+        ("study_id",),
+    )
+    robustness = replace(reference, role=SplitProtocolRole.ROBUSTNESS)
+
+    # When: standard dataclass operations inspect and replace the contracts.
+    serialized = asdict(reference)
+
+    # Then: role participates in equality, replacement, and serialization.
+    assert reference != robustness
+    assert serialized["role"] is SplitProtocolRole.REFERENCE
+    assert replace(reference).role is SplitProtocolRole.REFERENCE
 
 
 def test_registry_rejects_a_legacy_only_split_contract() -> None:
@@ -156,39 +176,21 @@ def test_capability_rejects_a_raw_string_legacy_role() -> None:
     assert str(captured.value)
 
 
-def test_new_contract_does_not_accept_a_role_projection_marker() -> None:
+def test_new_contract_uses_a_coherent_real_role_field() -> None:
     # Given: public new-contract definition and capability declarations.
     split = TMS_AORTA_REGISTRATION.definition.supported_splits[0]
     capability = TMS_AORTA_REGISTRATION.split_capabilities[0]
 
-    # When: a caller tries to provide removed private provenance.
-    with pytest.raises(ValueError, match="init=False"):
-        _ = replace(
-            split,
-            role=SplitProtocolRole.CANARY,
-            _legacy_role=SplitProtocolRole.CANARY,
-        )
-    with pytest.raises(ValueError, match="init=False"):
-        _ = replace(
-            capability,
-            role=SplitProtocolRole.CANARY,
-            _legacy_role=SplitProtocolRole.CANARY,
-        )
-    private_field = "_legacy_role"
-    with pytest.raises(TypeError, match=private_field):
-        _ = SplitProtocolDefinition(
-            split.id,
-            None,
-            split.task,
-            split.required_metadata,
-            split.basis,
-            split.strategy,
-            split.held_out_axis,
-            split.leakage_unit,
-            split.grouping_column,
-            split.evaluation_target,
-            split.is_canary,
-            **{private_field: SplitProtocolRole.CANARY},
-        )
+    # When: the package usage changes with its role updated explicitly.
+    with pytest.raises(SplitProtocolCompatibilityRoleError):
+        _ = replace(split, is_canary=False)
+    with pytest.raises(SplitProtocolCompatibilityRoleError):
+        _ = replace(capability, is_canary=False)
+    definition_without_canary = replace(split, is_canary=False, role=None)
+    capability_without_canary = replace(capability, is_canary=False, role=None)
 
-    # Then: compatibility provenance cannot be supplied through replacement or init.
+    # Then: role remains a real compatibility field with coherent active semantics.
+    assert split.role is SplitProtocolRole.CANARY
+    assert capability.role is SplitProtocolRole.CANARY
+    assert definition_without_canary.role is None
+    assert capability_without_canary.role is None

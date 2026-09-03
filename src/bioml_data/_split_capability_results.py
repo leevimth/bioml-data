@@ -3,11 +3,11 @@
 from dataclasses import dataclass
 from typing import override
 
+from bioml_data._dataset_definition import UnsupportedSplitProtocolError
 from bioml_data._domain import (
     DatasetSnapshotIdentity,
     ProtocolId,
     TaskId,
-    UnsupportedSplitProtocolError,
     parse_protocol_id,
 )
 from bioml_data._split_capability_models import (

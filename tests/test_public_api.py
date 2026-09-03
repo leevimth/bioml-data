@@ -1,6 +1,7 @@
 """Public consumer scenarios."""
 
 import bioml_data as bio
+from bioml_data._domain import DatasetName, SourceUri
 
 
 def test_researcher_can_inspect_a_dataset_contract() -> None:
@@ -98,3 +99,56 @@ def test_researcher_can_inspect_split_semantics_and_evidence_from_public_api() -
     assert tuple(evidence.basis for evidence in capability.evidence) == (
         bio.SplitEvidenceBasis.PACKAGE_DEFINED,
     )
+
+
+def test_public_catalog_and_capability_graphs_are_detached_from_registry_state() -> (
+    None
+):
+    # Given: public definition and capability graphs backed by the built-in registry.
+    dataset = bio.load_dataset("tms-aorta")
+    split = dataset.supported_splits[0]
+    capability_result = bio.query_split_capability(
+        bio.SplitCapabilityQuery(
+            dataset=dataset.snapshot,
+            task=split.task,
+            protocol=split.id,
+        )
+    )
+    capability = capability_result.require_supported()
+    artifact_scope = capability.artifact
+    evidence = capability.evidence[0]
+    citation = evidence.citations[0]
+
+    # When: hostile code bypasses frozen dataclass assignment on each public layer.
+    object.__setattr__(dataset.snapshot, "name", DatasetName("corrupted"))
+    object.__setattr__(dataset.source, "uri", SourceUri("https://corrupted.invalid"))
+    object.__setattr__(dataset, "supported_splits", ())
+    object.__setattr__(split, "basis", bio.SplitEvidenceBasis.LITERATURE_REFERENCE)
+    object.__setattr__(capability_result, "capability", None)
+    object.__setattr__(capability.dataset, "name", DatasetName("corrupted"))
+    object.__setattr__(capability, "basis", bio.SplitEvidenceBasis.LITERATURE_REFERENCE)
+    object.__setattr__(capability, "is_canary", False)
+    object.__setattr__(capability, "role", bio.SplitProtocolRole.REFERENCE)
+    object.__setattr__(capability, "evidence", ())
+    object.__setattr__(artifact_scope, "transform_protocol", "corrupted-transform")
+    object.__setattr__(evidence.scope, "protocol", "corrupted-protocol")
+    object.__setattr__(evidence, "citations", ())
+    object.__setattr__(citation, "uri", "https://corrupted.invalid")
+
+    # Then: new public reads still return the registry's canonical contract.
+    fresh_dataset = bio.load_dataset("tms-aorta")
+    fresh_split = fresh_dataset.supported_splits[0]
+    fresh_capability = bio.query_split_capability(
+        bio.SplitCapabilityQuery(
+            dataset=fresh_dataset.snapshot,
+            task=fresh_split.task,
+            protocol=fresh_split.id,
+        )
+    ).require_supported()
+    assert fresh_dataset.snapshot.name == "tms-aorta"
+    assert fresh_dataset.source.uri == (
+        "https://figshare.com/projects/Tabula_Muris_Senis/64982"
+    )
+    assert fresh_split.basis is bio.SplitEvidenceBasis.PACKAGE_DEFINED
+    assert fresh_capability.evidence[0].scope.protocol == "animal-held-out-v1"
+    assert fresh_capability.evidence[0].citations[0].uri.startswith("https://github")

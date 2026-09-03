@@ -17,8 +17,8 @@ split is scientifically best.
 The legacy `SplitProtocolRole` and `SplitEvidenceType` enums remain readable
 for API compatibility. New registrations use `SplitEvidenceBasis`; in
 particular, `CANARY` and `ROBUSTNESS` are not active evidence roles.
-For compatibility, a canary split's deprecated `.role` field projects
-`CANARY` from `is_canary=true`; `.basis` remains the only active evidence
+For compatibility, an active canary split's deprecated `.role` field is
+`CANARY` when `is_canary=true`; `.basis` remains the only active evidence
 source. A new-contract registration that explicitly supplies a different legacy
 role is rejected rather than silently normalized.
 

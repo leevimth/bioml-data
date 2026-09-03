@@ -17,8 +17,8 @@ from bioml_data._artifacts import (
     ArtifactRequest,
     TransformProtocolId,
 )
+from bioml_data._dataset_definition import DatasetDefinition
 from bioml_data._domain import (
-    DatasetDefinition,
     DatasetLifecycle,
     DatasetName,
     DatasetSnapshotIdentity,

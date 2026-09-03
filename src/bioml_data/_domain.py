@@ -1,15 +1,12 @@
 """Immutable dataset protocol contracts."""
 
-# noqa: SIZE_OK — cohesive catalog contracts retain legacy split-constructor compatibility.
-
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import StrEnum, unique
-from typing import NewType, override
+from typing import NewType, assert_never, override
 
 from bioml_data._split_contract_errors import (
     require_exact_bool,
     require_exact_split_enum,
-    require_split_contract_field,
 )
 
 DatasetName = NewType("DatasetName", str)
@@ -56,6 +53,21 @@ class SplitStrategy(StrEnum):
 
 
 @dataclass(frozen=True, slots=True)
+class SplitProtocolCompatibilityRoleError(Exception):
+    """Raised when a legacy role conflicts with active split semantics."""
+
+    protocol: ProtocolId
+    role: SplitProtocolRole
+
+    @override
+    def __str__(self) -> str:
+        return (
+            f"legacy split role {self.role.value!r} conflicts with active "
+            f"semantics for {self.protocol!r}"
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class DatasetSnapshotIdentity:
     """Immutable catalog identity for one upstream dataset snapshot."""
 
@@ -80,25 +92,11 @@ class TaskDefinition:
 
 
 @dataclass(frozen=True, slots=True)
-class SplitProtocolCompatibilityRoleError(Exception):
-    """Raised when new split semantics conflict with a legacy role input."""
-
-    protocol: ProtocolId
-    role: SplitProtocolRole
-
-    @override
-    def __str__(self) -> str:
-        return (
-            f"legacy split role {self.role.value!r} conflicts with active "
-            f"semantics for {self.protocol!r}"
-        )
-
-
-@dataclass(frozen=True, slots=True, init=False)
 class SplitProtocolDefinition:
     """A versioned split contract supported by a dataset task."""
 
     id: ProtocolId
+    role: SplitProtocolRole | None
     task: TaskId
     required_metadata: tuple[str, ...]
     basis: SplitEvidenceBasis | None = None
@@ -108,88 +106,80 @@ class SplitProtocolDefinition:
     grouping_column: str = ""
     evaluation_target: str = ""
     is_canary: bool = False
-    _legacy_role: SplitProtocolRole | None = field(
-        init=False,
-        repr=False,
-        compare=False,
-    )
 
-    def __init__(  # noqa: PLR0913, PLR0917 — preserves the legacy dataclass constructor.
-        self,
-        id: ProtocolId,  # noqa: A002 — preserves the legacy keyword constructor.
-        role: SplitProtocolRole | None = None,
-        task: TaskId | None = None,
-        required_metadata: tuple[str, ...] | None = None,
-        basis: SplitEvidenceBasis | None = None,
-        strategy: SplitStrategy | None = None,
-        held_out_axis: str = "",
-        leakage_unit: str = "",
-        grouping_column: str = "",
-        evaluation_target: str = "",
-        is_canary: bool = False,
-    ) -> None:
-        """Create a split declaration while retaining legacy role inputs."""
-        resolved_task = require_split_contract_field(
-            task,
-            field="task",
-            contract="split protocol definition",
-        )
-        resolved_required_metadata = require_split_contract_field(
-            required_metadata,
-            field="required metadata",
-            contract="split protocol definition",
-        )
-        resolved_is_canary = require_exact_bool(is_canary, protocol=id)
-        resolved_role = require_exact_split_enum(
-            role,
+    def __post_init__(self) -> None:
+        """Parse closed semantic inputs and normalize the active role view."""
+        is_canary = require_exact_bool(self.is_canary, protocol=self.id)
+        role = require_exact_split_enum(
+            self.role,
             expected_type=SplitProtocolRole,
-            protocol=id,
+            protocol=self.id,
             field="role",
         )
-        resolved_basis = require_exact_split_enum(
-            basis,
+        basis = require_exact_split_enum(
+            self.basis,
             expected_type=SplitEvidenceBasis,
-            protocol=id,
+            protocol=self.id,
             field="basis",
         )
-        resolved_strategy = require_exact_split_enum(
-            strategy,
+        _ = require_exact_split_enum(
+            self.strategy,
             expected_type=SplitStrategy,
-            protocol=id,
+            protocol=self.id,
             field="strategy",
         )
-        if resolved_basis is not None and resolved_role is not None:
-            raise SplitProtocolCompatibilityRoleError(protocol=id, role=resolved_role)
-        for field_name, value in (
-            ("id", id),
-            ("task", resolved_task),
-            ("required_metadata", resolved_required_metadata),
-            ("basis", resolved_basis),
-            ("strategy", resolved_strategy),
-            ("held_out_axis", held_out_axis),
-            ("leakage_unit", leakage_unit),
-            ("grouping_column", grouping_column),
-            ("evaluation_target", evaluation_target),
-            ("is_canary", resolved_is_canary),
-            ("_legacy_role", resolved_role),
-        ):
-            object.__setattr__(self, field_name, value)
-
-    @property
-    def role(self) -> SplitProtocolRole | None:
-        """Return the deprecated role view derived from active package usage."""
-        if self.basis is not None:
-            return SplitProtocolRole.CANARY if self.is_canary else None
-        return self._legacy_role
+        object.__setattr__(self, "is_canary", is_canary)
+        object.__setattr__(
+            self,
+            "role",
+            normalize_split_contract_role(
+                protocol=self.id,
+                role=role,
+                basis=basis,
+                is_canary=is_canary,
+            ),
+        )
 
 
-@dataclass(frozen=True, slots=True)
-class SplitPlan:
-    """Resolved identities required before split assignment is materialized."""
+def normalize_split_contract_role(
+    *,
+    protocol: ProtocolId,
+    role: SplitProtocolRole | None,
+    basis: SplitEvidenceBasis | None,
+    is_canary: bool,
+) -> SplitProtocolRole | None:
+    """Keep a legacy role field coherent with active basis and usage semantics."""
+    match basis:
+        case None:
+            return role
+        case SplitEvidenceBasis():
+            return _normalize_active_split_contract_role(
+                protocol=protocol,
+                role=role,
+                is_canary=is_canary,
+            )
+        case _:
+            assert_never(basis)
 
-    dataset: DatasetSnapshotIdentity
-    task: TaskId
-    protocol: ProtocolId
+
+def _normalize_active_split_contract_role(
+    *,
+    protocol: ProtocolId,
+    role: SplitProtocolRole | None,
+    is_canary: bool,
+) -> SplitProtocolRole | None:
+    """Normalize the deprecated role without treating it as evidence authority."""
+    match role:
+        case None:
+            return SplitProtocolRole.CANARY if is_canary else None
+        case SplitProtocolRole.CANARY:
+            if is_canary:
+                return SplitProtocolRole.CANARY
+            raise SplitProtocolCompatibilityRoleError(protocol=protocol, role=role)
+        case SplitProtocolRole():
+            raise SplitProtocolCompatibilityRoleError(protocol=protocol, role=role)
+        case _:
+            assert_never(role)
 
 
 @dataclass(frozen=True, slots=True)
@@ -241,68 +231,6 @@ class DatasetVersionRequiredError(Exception):
     @override
     def __str__(self) -> str:
         return f"version required for {self.name!r}; available: {self.available!r}"
-
-
-@dataclass(frozen=True, slots=True)
-class UnknownTaskError(Exception):
-    """Raised when a task is absent from a dataset definition."""
-
-    dataset: DatasetSnapshotIdentity
-    task: TaskId
-    available: tuple[TaskId, ...]
-
-    @override
-    def __str__(self) -> str:
-        return f"unknown task {self.task!r} for {self.dataset!r}"
-
-
-@dataclass(frozen=True, slots=True)
-class UnsupportedSplitProtocolError(Exception):
-    """Raised when a split protocol is not declared for a dataset task."""
-
-    dataset: DatasetSnapshotIdentity
-    protocol: ProtocolId
-    supported: tuple[ProtocolId, ...]
-
-    @override
-    def __str__(self) -> str:
-        return f"unsupported split protocol {self.protocol!r} for {self.dataset!r}"
-
-
-@dataclass(frozen=True, slots=True)
-class DatasetDefinition:
-    """Immutable dataset contract available before artifact materialization."""
-
-    snapshot: DatasetSnapshotIdentity
-    source: SourceReference
-    lifecycle: DatasetLifecycle
-    tasks: tuple[TaskDefinition, ...]
-    supported_splits: tuple[SplitProtocolDefinition, ...]
-
-    def plan_split(self, *, task: str, protocol: str) -> SplitPlan:
-        """Resolve an explicit task and split protocol without assigning rows."""
-        task_id = parse_task_id(task)
-        available_tasks = tuple(definition.id for definition in self.tasks)
-        if task_id not in available_tasks:
-            raise UnknownTaskError(
-                dataset=self.snapshot,
-                task=task_id,
-                available=available_tasks,
-            )
-
-        protocol_id = parse_protocol_id(protocol)
-        supported = tuple(
-            definition.id
-            for definition in self.supported_splits
-            if definition.task == task_id
-        )
-        if protocol_id not in supported:
-            raise UnsupportedSplitProtocolError(
-                dataset=self.snapshot,
-                protocol=protocol_id,
-                supported=supported,
-            )
-        return SplitPlan(dataset=self.snapshot, task=task_id, protocol=protocol_id)
 
 
 def parse_dataset_name(raw: str) -> DatasetName:

@@ -28,13 +28,14 @@ def test_registry_accepts_non_canary_package_defined_split() -> None:
             replace(
                 TMS_AORTA_REGISTRATION.definition.supported_splits[0],
                 is_canary=False,
+                role=None,
             ),
         ),
     )
     registration = replace(
         TMS_AORTA_REGISTRATION,
         definition=definition,
-        split_capabilities=(replace(capability, is_canary=False),),
+        split_capabilities=(replace(capability, is_canary=False, role=None),),
     )
 
     # When: coherent package-defined semantics are registered without canary use.
@@ -138,12 +139,17 @@ def test_registry_rejects_divergent_definition_and_capability_semantics(
         "held_out_axis": "study",
         "is_canary": False,
     }[field]
+    changes: dict[str, SplitEvidenceBasis | SplitStrategy | str | bool | None] = {
+        field: replacement,
+    }
+    if field == "is_canary":
+        changes["role"] = None
     definition = replace(
         TMS_AORTA_REGISTRATION.definition,
         supported_splits=(
             replace(
                 TMS_AORTA_REGISTRATION.definition.supported_splits[0],
-                **{field: replacement},
+                **changes,
             ),
         ),
     )

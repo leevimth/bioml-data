@@ -76,9 +76,9 @@ verification; it is not a split-evidence role. The protocol separates mouse
 groups and measures performance on an unseen animal. It is not a reused
 literature split, a recommended scientific split, or evidence that animal
 holdout is universally preferable. Changing its fractions or allocation behavior
-requires a new protocol version. The deprecated `.role` reader projects
-`CANARY` from `is_canary=true` for compatibility; `.basis` is the active
-evidence source.
+requires a new protocol version. For compatibility, the deprecated `.role`
+field is `CANARY` when `is_canary=true`; `.basis` is the active evidence
+source.
 
 See the [split and protocol evidence matrix](split-protocol-evidence-matrix.md)
 for typed evidence-basis and split-semantic vocabulary, exact artifact scope,
