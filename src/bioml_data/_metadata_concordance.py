@@ -8,6 +8,8 @@ from bioml_data._metadata_concordance_models import (
     MetadataExpectationScope,
     MetadataExpectationScopeMismatchError,
     MetadataFoldId,
+    metadata_scientific_scope,
+    require_matching_scope_value,
 )
 from bioml_data._metadata_expectations import PublicationMetadataExpectation
 from bioml_data._metadata_observed import (
@@ -106,22 +108,15 @@ def _shared_scope(
         )
     scope = expectations[0].scope
     for expectation in expectations[1:]:
-        if _scientific_scope(expectation.scope) != _scientific_scope(scope):
+        if metadata_scientific_scope(expectation.scope) != metadata_scientific_scope(
+            scope
+        ):
             raise MetadataExpectationScopeMismatchError(
                 field="expectation_scientific_scope",
-                expected=str(_scientific_scope(scope)),
-                actual=str(_scientific_scope(expectation.scope)),
+                expected=str(metadata_scientific_scope(scope)),
+                actual=str(metadata_scientific_scope(expectation.scope)),
             )
     return scope
-
-
-def _scientific_scope(scope: MetadataExpectationScope) -> tuple[str, ...]:
-    return (
-        str(scope.dataset),
-        str(scope.artifact),
-        str(scope.task),
-        str(scope.protocol),
-    )
 
 
 def _validate_fold(
@@ -142,10 +137,12 @@ def _validate_scope(
     assignment: SplitAssignmentReceipt,
     scope: MetadataExpectationScope,
 ) -> None:
-    _require_equal("dataset", scope.dataset, dataset.snapshot)
-    _require_equal("assignment_dataset", scope.dataset, assignment.dataset)
-    _require_equal("task", scope.task, assignment.task)
-    _require_equal("protocol", scope.protocol, assignment.protocol)
+    require_matching_scope_value("dataset", scope.dataset, dataset.snapshot)
+    require_matching_scope_value(
+        "assignment_dataset", scope.dataset, assignment.dataset
+    )
+    require_matching_scope_value("task", scope.task, assignment.task)
+    require_matching_scope_value("protocol", scope.protocol, assignment.protocol)
     derivation = dataset.artifact.derivation
     if derivation is None:
         raise MetadataExpectationScopeMismatchError(
@@ -153,25 +150,16 @@ def _validate_scope(
             expected=str(scope.artifact),
             actual="none",
         )
-    _require_equal(
+    require_matching_scope_value(
         "source_artifacts",
         scope.artifact.parent_artifacts,
         derivation.parent_artifacts,
     )
-    _require_equal(
+    require_matching_scope_value(
         "transform_protocol",
         scope.artifact.transform_protocol,
         derivation.transform_protocol,
     )
-
-
-def _require_equal(field: str, expected: object, actual: object) -> None:
-    if expected != actual:
-        raise MetadataExpectationScopeMismatchError(
-            field=field,
-            expected=str(expected),
-            actual=str(actual),
-        )
 
 
 def _expectations_for(

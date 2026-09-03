@@ -13,14 +13,12 @@ from bioml_data._metadata_concordance_models import (
     ScalarMetadataMetric,
     ValueMetadataMetric,
 )
+from bioml_data._metadata_receipt_validation import validate_receipt_integrity
 from bioml_data._single_cell import CanonicalObservation, CanonicalSingleCellDataset
 from bioml_data._split import (
     MetadataValue,
-    PartitionGroupCounts,
-    SplitAssigner,
     SplitAssignmentReceipt,
     SplitPartition,
-    assignment_receipt_identity,
 )
 from bioml_data._split_capability import SplitCapabilityQuery, query_split_capability
 
@@ -61,7 +59,7 @@ def assignment_by_id(
         raise InvalidMetadataPartitionError(
             violation=MetadataPartitionViolation.COVERAGE
         )
-    _validate_receipt_integrity(dataset, assignment)
+    validate_receipt_integrity(dataset, assignment)
     _validate_canonical_groups(dataset, assignment)
     return {
         str(item.observation_id): AssignedGroup(
@@ -70,63 +68,6 @@ def assignment_by_id(
         )
         for item in assignment.assignments
     }
-
-
-def _validate_receipt_integrity(
-    dataset: CanonicalSingleCellDataset,
-    assignment: SplitAssignmentReceipt,
-) -> None:
-    if assignment.assignment_identity != assignment_receipt_identity(assignment):
-        raise InvalidMetadataPartitionError(
-            violation=MetadataPartitionViolation.IDENTITY
-        )
-    actual_counts = _partition_group_counts(assignment)
-    if (
-        assignment.observation_count != len(assignment.assignments)
-        or assignment.group_count
-        != len({item.group for item in assignment.assignments})
-        or assignment.realized_group_counts != actual_counts
-    ):
-        raise InvalidMetadataPartitionError(
-            violation=MetadataPartitionViolation.RECEIPT_COUNTS
-        )
-    expected = SplitAssigner(
-        dataset=dataset.snapshot,
-        task=assignment.task,
-        observations=dataset.split_observations,
-    ).split(protocol=str(assignment.protocol), seed=assignment.seed)
-    if assignment != expected:
-        raise InvalidMetadataPartitionError(
-            violation=MetadataPartitionViolation.ALLOCATION
-        )
-
-
-def _partition_group_counts(
-    assignment: SplitAssignmentReceipt,
-) -> PartitionGroupCounts:
-    return PartitionGroupCounts(
-        train=len(
-            {
-                item.group
-                for item in assignment.assignments
-                if item.partition is SplitPartition.TRAIN
-            }
-        ),
-        validation=len(
-            {
-                item.group
-                for item in assignment.assignments
-                if item.partition is SplitPartition.VALIDATION
-            }
-        ),
-        test=len(
-            {
-                item.group
-                for item in assignment.assignments
-                if item.partition is SplitPartition.TEST
-            }
-        ),
-    )
 
 
 def _validate_canonical_groups(

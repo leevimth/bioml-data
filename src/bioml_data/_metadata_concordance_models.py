@@ -91,6 +91,16 @@ class MetadataExpectationScope:
     citation: MetadataCitation
 
 
+def metadata_scientific_scope(scope: MetadataExpectationScope) -> tuple[str, ...]:
+    """Return the data identity, deliberately excluding citation provenance."""
+    return (
+        str(scope.dataset),
+        str(scope.artifact),
+        str(scope.task),
+        str(scope.protocol),
+    )
+
+
 @dataclass(frozen=True, slots=True)
 class MetadataCount:
     """One stable category and its observed cardinality."""
@@ -133,6 +143,16 @@ class MetadataExpectationScopeMismatchError(Exception):
         return (
             f"metadata expectation scope mismatch for {self.field}: "
             f"expected {self.expected!r}, received {self.actual!r}"
+        )
+
+
+def require_matching_scope_value[T](field: str, expected: T, actual: T) -> None:
+    """Raise when one scientific scope value differs from another."""
+    if expected != actual:
+        raise MetadataExpectationScopeMismatchError(
+            field=field,
+            expected=str(expected),
+            actual=str(actual),
         )
 
 

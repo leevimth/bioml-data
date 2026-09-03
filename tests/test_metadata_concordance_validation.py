@@ -18,6 +18,8 @@ from ._single_cell_fixtures import make_split
         "https://127.1/source",
         "https://127.0.1/source",
         "https://0x7f.0x0.0x0.0x1/source",
+        "https://0X7F.0X0.0X0.0X1/source",
+        "https://0177.00.00.01/source",
         "https://100.64.0.1/source",
         "https://169.254.1.1/source",
         "https://224.0.0.1/source",
