@@ -1,5 +1,6 @@
 """One-shot immutable capability index for the validated built-in registry."""
 
+from copy import deepcopy
 from dataclasses import dataclass
 from typing import override
 
@@ -65,7 +66,7 @@ def publish_registry_capabilities(
 ) -> None:
     """Atomically publish capabilities from the validated built-in registry."""
     capabilities = tuple(
-        capability
+        deepcopy(capability)
         for registration in registrations
         for capability in registration.split_capabilities
     )

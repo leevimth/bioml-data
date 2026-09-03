@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass
 from enum import StrEnum, unique
+from typing import assert_never
 
 from bioml_data._artifact_types import ArtifactId, TransformProtocolId
 from bioml_data._domain import (
@@ -15,6 +16,7 @@ from bioml_data._domain import (
     normalize_split_contract_role,
 )
 from bioml_data._split_contract_errors import (
+    SplitEvidenceTypeCompatibilityError,
     require_exact_bool,
     require_exact_split_enum,
 )
@@ -83,23 +85,38 @@ class SplitProtocolEvidence:
 
     def __post_init__(self) -> None:
         """Keep active evidence basis records free of legacy role claims."""
-        _ = require_exact_split_enum(
+        role = require_exact_split_enum(
             self.role,
             expected_type=SplitProtocolRole,
             protocol=self.scope.protocol,
             field="role",
         )
-        _ = require_exact_split_enum(
+        basis = require_exact_split_enum(
             self.basis,
             expected_type=SplitEvidenceBasis,
             protocol=self.scope.protocol,
             field="basis",
         )
-        if self.basis is not None and self.role is not None:
+        evidence_type = require_exact_split_enum(
+            self.evidence_type,
+            expected_type=SplitEvidenceType,
+            protocol=self.scope.protocol,
+            field="evidence type",
+        )
+        if basis is not None and role is not None:
             raise SplitProtocolCompatibilityRoleError(
                 protocol=self.scope.protocol,
-                role=self.role,
+                role=role,
             )
+        object.__setattr__(
+            self,
+            "evidence_type",
+            _normalize_legacy_evidence_type(
+                protocol=self.scope.protocol,
+                basis=basis,
+                evidence_type=evidence_type,
+            ),
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -143,6 +160,12 @@ class SplitCapability:
             protocol=self.protocol,
             field="strategy",
         )
+        evidence_type = require_exact_split_enum(
+            self.evidence_type,
+            expected_type=SplitEvidenceType,
+            protocol=self.protocol,
+            field="evidence type",
+        )
         object.__setattr__(self, "is_canary", is_canary)
         object.__setattr__(
             self,
@@ -154,3 +177,57 @@ class SplitCapability:
                 is_canary=is_canary,
             ),
         )
+        object.__setattr__(
+            self,
+            "evidence_type",
+            _normalize_legacy_evidence_type(
+                protocol=self.protocol,
+                basis=basis,
+                evidence_type=evidence_type,
+            ),
+        )
+
+
+def legacy_evidence_type_for_basis(
+    basis: SplitEvidenceBasis,
+) -> SplitEvidenceType:
+    """Return the deterministic legacy evidence-type projection for one basis."""
+    match basis:
+        case SplitEvidenceBasis.PACKAGE_DEFINED:
+            return SplitEvidenceType.PRODUCT_PROTOCOL
+        case (
+            SplitEvidenceBasis.LITERATURE_REFERENCE
+            | SplitEvidenceBasis.COMMUNITY_REFERENCE
+        ):
+            return SplitEvidenceType.LITERATURE_REUSE
+        case _:
+            assert_never(basis)
+
+
+def _normalize_legacy_evidence_type(
+    *,
+    protocol: ProtocolId,
+    basis: SplitEvidenceBasis | None,
+    evidence_type: SplitEvidenceType | None,
+) -> SplitEvidenceType | None:
+    """Project active evidence basis into a non-authoritative legacy reader."""
+    match basis:
+        case None:
+            return evidence_type
+        case SplitEvidenceBasis():
+            expected_type = legacy_evidence_type_for_basis(basis)
+            match evidence_type:
+                case None:
+                    return expected_type
+                case actual_type if actual_type is expected_type:
+                    return expected_type
+                case SplitEvidenceType() as actual_type:
+                    raise SplitEvidenceTypeCompatibilityError(
+                        protocol=protocol,
+                        expected_type=expected_type.value,
+                        actual_type=actual_type.value,
+                    )
+                case _:
+                    assert_never(evidence_type)
+        case _:
+            assert_never(basis)

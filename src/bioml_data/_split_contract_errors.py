@@ -85,3 +85,19 @@ class InvalidSplitSemanticTypeError(Exception):
             f"split {self.field} for {self.protocol!r} must be {self.expected_type}, "
             f"got {self.actual_type}"
         )
+
+
+@dataclass(frozen=True, slots=True)
+class SplitEvidenceTypeCompatibilityError(Exception):
+    """Raised when a legacy evidence type conflicts with active evidence basis."""
+
+    protocol: str
+    expected_type: str
+    actual_type: str
+
+    @override
+    def __str__(self) -> str:
+        return (
+            f"legacy evidence type for {self.protocol!r} must be "
+            f"{self.expected_type}, got {self.actual_type}"
+        )

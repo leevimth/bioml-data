@@ -1,24 +1,19 @@
 """Static registry for built-in dataset vertical slices."""
 
-import re
-from dataclasses import dataclass
-from typing import Final, assert_never, override
+from copy import deepcopy
+from dataclasses import dataclass, field
+from typing import override
 
 from bioml_data._artifact_lineage import ArtifactLineageReceipt
 from bioml_data._domain import (
     DatasetName,
     DatasetSnapshotIdentity,
     DatasetVersionRequiredError,
-    SplitEvidenceBasis,
-    SplitProtocolDefinition,
-    SplitProtocolRole,
-    SplitStrategy,
     UnknownDatasetError,
     UnknownDatasetVersionError,
     parse_dataset_name,
     parse_dataset_version,
 )
-from bioml_data._split_capability_models import SplitCapability
 from bioml_data.datasets._capability_index import publish_registry_capabilities
 from bioml_data.datasets._evidence_validation import valid_split_evidence
 from bioml_data.datasets._materialization_verification import materialize_verified
@@ -26,10 +21,12 @@ from bioml_data.datasets._models import (
     DatasetMaterialization,
     DatasetRegistration,
 )
+from bioml_data.datasets._split_contract_validation import (
+    valid_definition_compatibility_projection,
+    valid_split_capability_contract_mode,
+    valid_split_semantics,
+)
 from bioml_data.datasets.tms_aorta._registration import TMS_AORTA_REGISTRATION
-
-_SEMANTIC_TOKEN: Final[re.Pattern[str]] = re.compile(r"[a-z][a-z0-9-]*\Z")
-_METADATA_COLUMN: Final[re.Pattern[str]] = re.compile(r"[a-z][a-z0-9_]*\Z")
 
 
 @dataclass(frozen=True, slots=True)
@@ -55,20 +52,28 @@ class DatasetCapabilityMismatchError(Exception):
         return f"split capability is incoherent with {self.snapshot!r}: {self.detail}"
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True, slots=True, init=False)
 class DatasetRegistry:
     """Resolve dataset definitions and their owned implementations."""
 
-    registrations: tuple[DatasetRegistration, ...]
+    _registrations: tuple[DatasetRegistration, ...] = field(repr=False)
 
-    def __post_init__(self) -> None:
+    def __init__(self, registrations: tuple[DatasetRegistration, ...]) -> None:
+        """Snapshot caller-owned registrations before registry validation."""
+        snapshot = deepcopy(registrations)
+        object.__setattr__(self, "_registrations", snapshot)
         seen: set[DatasetSnapshotIdentity] = set()
-        for registration in self.registrations:
-            snapshot = registration.definition.snapshot
-            if snapshot in seen:
-                raise DuplicateDatasetRegistrationError(snapshot=snapshot)
-            seen.add(snapshot)
+        for registration in self._registrations:
+            registration_snapshot = registration.definition.snapshot
+            if registration_snapshot in seen:
+                raise DuplicateDatasetRegistrationError(snapshot=registration_snapshot)
+            seen.add(registration_snapshot)
             _validate_registration(registration)
+
+    @property
+    def registrations(self) -> tuple[DatasetRegistration, ...]:
+        """Return detached registration views without exposing registry authority."""
+        return deepcopy(self._registrations)
 
     def resolve(
         self,
@@ -77,10 +82,19 @@ class DatasetRegistry:
         version: str | None = None,
     ) -> DatasetRegistration:
         """Resolve one explicit registration using public catalog keys."""
+        return deepcopy(self._resolve(name, version=version))
+
+    def _resolve(
+        self,
+        name: str,
+        *,
+        version: str | None = None,
+    ) -> DatasetRegistration:
+        """Resolve trusted internal registrations for catalog dispatch."""
         dataset_name = parse_dataset_name(name)
         candidates = tuple(
             registration
-            for registration in self.registrations
+            for registration in self._registrations
             if registration.definition.snapshot.name == dataset_name
         )
         if not candidates:
@@ -118,7 +132,7 @@ class DatasetRegistry:
         version: str | None = None,
     ) -> DatasetMaterialization:
         """Dispatch an artifact through the adapter owned by its registration."""
-        registration = self.resolve(name, version=version)
+        registration = self._resolve(name, version=version)
         return materialize_verified(registration, lineage)
 
     @property
@@ -127,7 +141,7 @@ class DatasetRegistry:
         return tuple(
             dict.fromkeys(
                 registration.definition.snapshot.name
-                for registration in self.registrations
+                for registration in self._registrations
             )
         )
 
@@ -186,8 +200,8 @@ def _validate_registration(registration: DatasetRegistration) -> None:
             and all(scope == expected_evidence_scope for scope in evidence_scopes)
             and all(evidence.citations for evidence in capability.evidence)
             and all(valid_split_evidence(evidence) for evidence in capability.evidence)
-            and _valid_contract_mode(capability)
-            and _valid_semantics(capability)
+            and valid_split_capability_contract_mode(capability)
+            and valid_split_semantics(capability)
             and capability.basis == split_definition.basis
             and capability.strategy == split_definition.strategy
             and capability.held_out_axis == split_definition.held_out_axis
@@ -195,80 +209,13 @@ def _validate_registration(registration: DatasetRegistration) -> None:
             and capability.grouping_column == split_definition.grouping_column
             and capability.evaluation_target == split_definition.evaluation_target
             and capability.is_canary is split_definition.is_canary
-            and _valid_definition_compatibility_projection(split_definition)
+            and valid_definition_compatibility_projection(split_definition)
         )
         if not coherent:
             raise DatasetCapabilityMismatchError(
                 snapshot=definition.snapshot,
                 detail=f"contract mismatch for {capability.protocol!r}",
             )
-
-
-def _valid_contract_mode(capability: SplitCapability) -> bool:
-    if type(capability.is_canary) is not bool:
-        return False
-    return (
-        type(capability.basis) is SplitEvidenceBasis
-        and capability.role
-        is (SplitProtocolRole.CANARY if capability.is_canary else None)
-        and capability.evidence_type is None
-        and capability.basis
-        in tuple(evidence.basis for evidence in capability.evidence)
-        and all(
-            evidence.role is None
-            and evidence.evidence_type is None
-            and type(evidence.basis) is SplitEvidenceBasis
-            for evidence in capability.evidence
-        )
-        and len({evidence.basis for evidence in capability.evidence})
-        == len(capability.evidence)
-    )
-
-
-def _valid_semantics(capability: SplitCapability) -> bool:
-    if type(capability.strategy) is not SplitStrategy:
-        return False
-
-    common_semantics = (
-        _valid_semantic_token(capability.held_out_axis)
-        and _valid_semantic_token(capability.leakage_unit)
-        and _valid_metadata_column(capability.grouping_column)
-        and _valid_semantic_text(capability.evaluation_target)
-    )
-    match capability.strategy:  # noqa: MATCH_OK — basedpyright proves the enum branches exhaustive.
-        case SplitStrategy.GROUP_HELD_OUT:
-            return common_semantics
-        case SplitStrategy.LEAVE_ONE_STUDY_OUT:
-            return (
-                common_semantics
-                and capability.held_out_axis == "study"
-                and capability.grouping_column == "study_id"
-                and capability.leakage_unit == "study"
-            )
-    assert_never(capability.strategy)
-
-
-def _valid_definition_compatibility_projection(
-    definition: SplitProtocolDefinition,
-) -> bool:
-    if type(definition.basis) is not SplitEvidenceBasis:
-        return False
-    if type(definition.is_canary) is not bool:
-        return False
-    expected_role = SplitProtocolRole.CANARY if definition.is_canary else None
-    return definition.role is expected_role
-
-
-def _valid_semantic_token(value: str) -> bool:
-    return type(value) is str and _SEMANTIC_TOKEN.fullmatch(value) is not None
-
-
-def _valid_metadata_column(value: str) -> bool:
-    return type(value) is str and _METADATA_COLUMN.fullmatch(value) is not None
-
-
-def _valid_semantic_text(value: str) -> bool:
-    return type(value) is str and bool(value) and value == value.strip()
 
 
 DATASET_REGISTRY = DatasetRegistry(registrations=(TMS_AORTA_REGISTRATION,))

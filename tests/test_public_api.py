@@ -99,6 +99,10 @@ def test_researcher_can_inspect_split_semantics_and_evidence_from_public_api() -
     assert tuple(evidence.basis for evidence in capability.evidence) == (
         bio.SplitEvidenceBasis.PACKAGE_DEFINED,
     )
+    assert capability.evidence_type is bio.SplitEvidenceType.PRODUCT_PROTOCOL
+    assert (
+        capability.evidence[0].evidence_type is bio.SplitEvidenceType.PRODUCT_PROTOCOL
+    )
 
 
 def test_public_catalog_and_capability_graphs_are_detached_from_registry_state() -> (

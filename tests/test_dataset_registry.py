@@ -1,9 +1,11 @@
 """Dataset registry dispatch contract tests."""
 
+from copy import deepcopy
 from dataclasses import fields, replace
 
 import pytest
 
+import bioml_data as bio
 from bioml_data._domain import (
     DatasetName,
     DatasetSnapshotIdentity,
@@ -17,6 +19,7 @@ from bioml_data.datasets._capability_index import (
 )
 from bioml_data.datasets._models import DatasetRegistration
 from bioml_data.datasets._registry import (
+    DATASET_REGISTRY,
     DatasetCapabilityMismatchError,
     DatasetRegistry,
     DuplicateDatasetRegistrationError,
@@ -54,6 +57,44 @@ def test_builtin_capability_index_cannot_be_republished() -> None:
         publish_registry_capabilities(())
 
     # Then: live capability queries cannot be mutated after startup.
+
+
+def test_registry_snapshots_inputs_and_detaches_registration_views() -> None:
+    # Given: a registry built from caller-owned registrations and the built-in view.
+    source_registration = deepcopy(TMS_AORTA_REGISTRATION)
+    registry = DatasetRegistry(registrations=(source_registration,))
+    public_registration = DATASET_REGISTRY.registrations[0]
+    public_capability = public_registration.split_capabilities[0]
+    original_basis = public_capability.basis
+    original_canary = public_capability.is_canary
+
+    try:
+        # When: caller-owned inputs and public registration views are corrupted.
+        object.__setattr__(
+            source_registration.definition.snapshot,
+            "name",
+            DatasetName("corrupted-constructor-input"),
+        )
+        object.__setattr__(
+            public_capability, "basis", bio.SplitEvidenceBasis.LITERATURE_REFERENCE
+        )
+        object.__setattr__(public_capability, "is_canary", False)
+
+        # Then: registry resolution and fresh public queries remain canonical.
+        assert registry.resolve("tms-aorta").definition.snapshot.name == "tms-aorta"
+        fresh_dataset = bio.load_dataset("tms-aorta")
+        fresh_capability = bio.query_split_capability(
+            bio.SplitCapabilityQuery(
+                dataset=fresh_dataset.snapshot,
+                task=fresh_dataset.supported_splits[0].task,
+                protocol=fresh_dataset.supported_splits[0].id,
+            )
+        ).require_supported()
+        assert fresh_capability.basis is bio.SplitEvidenceBasis.PACKAGE_DEFINED
+        assert fresh_capability.is_canary
+    finally:
+        object.__setattr__(public_capability, "basis", original_basis)
+        object.__setattr__(public_capability, "is_canary", original_canary)
 
 
 @pytest.mark.parametrize(

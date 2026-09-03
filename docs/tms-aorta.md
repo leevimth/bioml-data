@@ -78,7 +78,8 @@ literature split, a recommended scientific split, or evidence that animal
 holdout is universally preferable. Changing its fractions or allocation behavior
 requires a new protocol version. For compatibility, the deprecated `.role`
 field is `CANARY` when `is_canary=true`; `.basis` is the active evidence
-source.
+source. Its legacy `.evidence_type` reads `PRODUCT_PROTOCOL` from the
+package-defined basis; that reader does not make the split a recommendation.
 
 See the [split and protocol evidence matrix](split-protocol-evidence-matrix.md)
 for typed evidence-basis and split-semantic vocabulary, exact artifact scope,

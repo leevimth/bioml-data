@@ -22,6 +22,12 @@ For compatibility, an active canary split's deprecated `.role` field is
 source. A new-contract registration that explicitly supplies a different legacy
 role is rejected rather than silently normalized.
 
+`SplitEvidenceType` is likewise a deprecated reader, not evidence authority.
+An active `PACKAGE_DEFINED` record reads as `PRODUCT_PROTOCOL`; active
+`LITERATURE_REFERENCE` and `COMMUNITY_REFERENCE` records read as
+`LITERATURE_REUSE`. A mismatched supplied legacy type is rejected, while the
+typed `SplitEvidenceBasis` remains the source of truth.
+
 One executable split can carry several evidence records from different bases.
 Each record repeats the exact dataset snapshot, source artifact, transform,
 task, and split identity so evidence cannot silently move to another scope.
@@ -95,3 +101,10 @@ capability, and evidence scope; it cannot defend against a malicious source-code
 change that rewrites all three authorities together. The current TMS download
 pin and registration both derive from the same typed identity constant, so the
 download index is not misrepresented as an independent trust anchor.
+
+Registry construction snapshots caller registrations, and its public
+`registrations`, loader, and capability-query results are detached views. This
+prevents ordinary same-process mutation of a returned public object from
+changing later public reads. Direct mutation of private registry or index backing
+objects remains outside this public API boundary; frozen dataclasses are not a
+tamper-proof security boundary in Python.

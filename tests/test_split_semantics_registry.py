@@ -76,6 +76,7 @@ def test_registry_accepts_multiple_evidence_bases_for_explicit_semantics() -> No
     community_evidence = replace(
         capability.evidence[0],
         basis=SplitEvidenceBasis.COMMUNITY_REFERENCE,
+        evidence_type=None,
         citations=(
             SplitEvidenceCitation(
                 title="OpenProblems Label Projection v1",
@@ -86,6 +87,7 @@ def test_registry_accepts_multiple_evidence_bases_for_explicit_semantics() -> No
     literature_evidence = replace(
         capability.evidence[0],
         basis=SplitEvidenceBasis.LITERATURE_REFERENCE,
+        evidence_type=None,
         citations=(
             SplitEvidenceCitation(
                 title="Abdelaal, Michielsen et al. 2019",
@@ -97,6 +99,7 @@ def test_registry_accepts_multiple_evidence_bases_for_explicit_semantics() -> No
         capability,
         evidence=(community_evidence, literature_evidence),
         basis=SplitEvidenceBasis.COMMUNITY_REFERENCE,
+        evidence_type=None,
     )
     definition = replace(
         TMS_AORTA_REGISTRATION.definition,
@@ -178,7 +181,11 @@ def test_registry_rejects_evidence_basis_without_a_matching_record() -> None:
         TMS_AORTA_REGISTRATION,
         definition=definition,
         split_capabilities=(
-            replace(capability, basis=SplitEvidenceBasis.LITERATURE_REFERENCE),
+            replace(
+                capability,
+                basis=SplitEvidenceBasis.LITERATURE_REFERENCE,
+                evidence_type=None,
+            ),
         ),
     )
 

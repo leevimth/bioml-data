@@ -143,6 +143,7 @@ from bioml_data._split_contract_errors import (
     InvalidSplitCanaryUsageError,
     InvalidSplitProtocolRoleError,
     InvalidSplitSemanticTypeError,
+    SplitEvidenceTypeCompatibilityError,
 )
 from bioml_data._verified_artifact import VerifiedArtifactChangedError
 from bioml_data.datasets._materialization_verification import (
@@ -190,7 +191,7 @@ __all__ = [
     "SplitArtifactScope", "SplitAssigner", "SplitAssignmentReceipt", "SplitCapability",
     "SplitCapabilityAvailability", "SplitCapabilityQuery", "SplitCapabilityResult",
     "SplitEvidenceBasis", "SplitEvidenceCitation", "SplitEvidenceScope",
-    "SplitEvidenceType",
+    "SplitEvidenceType", "SplitEvidenceTypeCompatibilityError",
     "SplitPlan", "SplitProtocolCompatibilityRoleError", "SplitProtocolDefinition",
     "SplitProtocolEvidence", "SplitProtocolRole", "SplitStrategy",
     "SupportedSplitCapability",

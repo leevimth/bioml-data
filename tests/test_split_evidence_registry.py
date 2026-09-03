@@ -19,6 +19,10 @@ from bioml_data._split_capability_models import (
     SplitEvidenceType,
     SplitProtocolEvidence,
 )
+from bioml_data._split_contract_errors import (
+    InvalidSplitSemanticTypeError,
+    SplitEvidenceTypeCompatibilityError,
+)
 from bioml_data.datasets._registry import (
     DatasetCapabilityMismatchError,
     DatasetRegistry,
@@ -228,3 +232,38 @@ def test_legacy_evidence_and_capability_constructors_remain_readable() -> None:
     # Then: old readers retain their vocabulary without new-basis fields.
     assert evidence_type is SplitEvidenceType.LITERATURE_REUSE
     assert legacy_capability.basis is None
+
+
+def test_active_evidence_projects_the_historical_product_protocol_type() -> None:
+    # Given: the active package-defined TMS capability and its scoped evidence.
+    capability = TMS_AORTA_REGISTRATION.split_capabilities[0]
+
+    # When: legacy readers inspect their evidence-type fields.
+    capability_type = capability.evidence_type
+    evidence_type = capability.evidence[0].evidence_type
+
+    # Then: package-defined basis supplies the non-authoritative legacy projection.
+    assert capability_type is SplitEvidenceType.PRODUCT_PROTOCOL
+    assert evidence_type is SplitEvidenceType.PRODUCT_PROTOCOL
+
+
+def test_active_evidence_rejects_a_raw_legacy_type() -> None:
+    # Given: one active package-defined evidence record.
+    evidence = TMS_AORTA_REGISTRATION.split_capabilities[0].evidence[0]
+
+    # When: an untyped legacy evidence type reaches its constructor boundary.
+    with pytest.raises(InvalidSplitSemanticTypeError):
+        _ = replace(evidence, evidence_type="product_protocol")
+
+    # Then: active evidence accepts only the closed legacy enum vocabulary.
+
+
+def test_active_evidence_rejects_an_incoherent_legacy_type() -> None:
+    # Given: one active package-defined evidence record.
+    evidence = TMS_AORTA_REGISTRATION.split_capabilities[0].evidence[0]
+
+    # When: a literature legacy type contradicts package-defined basis.
+    with pytest.raises(SplitEvidenceTypeCompatibilityError):
+        _ = replace(evidence, evidence_type=SplitEvidenceType.LITERATURE_REUSE)
+
+    # Then: legacy readers cannot override active evidence basis.
