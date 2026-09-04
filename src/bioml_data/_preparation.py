@@ -1,18 +1,26 @@
 """Split-aware single-cell preparation lifecycle."""
 
-from hashlib import sha256
+from dataclasses import replace
 
 import bioml_data._preparation_models as _models
+from bioml_data._preparation_identities import (
+    FittedStateIdentityInput,
+    PreparedOutputIdentityInput,
+    fitted_state_identity,
+    prepared_benchmark_receipt_identity,
+    prepared_output_artifact_identity,
+    training_membership_identity,
+)
 from bioml_data._preparation_models import (
+    FittedProtocolSemanticMismatchError,
     FittedStateMismatchError,
     InsufficientPreparationDataError,
     PreparationReceiptIdentity,
-    PreparationStateIdentity,
-    PreparedArtifactIdentity,
     PreparedBenchmarkReceipt,
     PreparedObservation,
     TrainIndependentPreparation,
     UnknownAlignmentFeatureError,
+    preparation_protocol_semantic_identity,
 )
 from bioml_data._preparation_rows import (
     PreparationRun,
@@ -21,12 +29,12 @@ from bioml_data._preparation_rows import (
     independent_identity,
     normalize_row,
 )
-from bioml_data._single_cell import CanonicalSingleCellDataset, FeatureId
+from bioml_data._preparation_selection import select_features
+from bioml_data._single_cell import CanonicalSingleCellDataset
 from bioml_data._split import ObservationId, SplitAssignmentReceipt, SplitPartition
 
 FeatureSelectionParameters = _models.FeatureSelectionParameters
 FittedPreparationState = _models.FittedPreparationState
-FittedSplitMismatchError = _models.FittedSplitMismatchError
 GeneAlignmentParameters = _models.GeneAlignmentParameters
 NormalizationParameters = _models.NormalizationParameters
 PreparationProtocol = _models.PreparationProtocol
@@ -110,36 +118,38 @@ def fit_train_preprocessing(
             if assignment.partition is SplitPartition.TRAIN
         )
     )
+    observations_by_id = {
+        observation.observation_id: observation for observation in prepared.observations
+    }
     training_rows = tuple(
-        observation
-        for observation in prepared.observations
-        if observation.observation_id in training_ids
+        observations_by_id[item] for item in training_ids if item in observations_by_id
     )
     if not training_rows:
         raise InsufficientPreparationDataError(phase="training_partition")
 
-    selected = _select_features(prepared, training_rows)
-    training_values = "\0".join(
-        (
-            f"{row.observation_id}:"
-            + "|".join(f"{value.feature_id}={value.value!r}" for value in row.values)
-        )
-        for row in training_rows
-    )
-    state_input = (
-        f"{prepared.protocol.protocol_id}\0"
-        f"{prepared.protocol.version}\0{prepared.seed}\0"
-        f"{'|'.join(training_ids)}\0{training_values}\0{'|'.join(selected)}"
-    )
+    selected = select_features(prepared, training_rows)
     return FittedPreparationState(
-        state_identity=PreparationStateIdentity(
-            sha256(state_input.encode()).hexdigest()
+        state_identity=fitted_state_identity(
+            FittedStateIdentityInput(
+                protocol=prepared.protocol,
+                seed=prepared.seed,
+                training_membership_identity=training_membership_identity(
+                    tuple(str(item) for item in training_ids)
+                ),
+                training_observation_ids=training_ids,
+                training_observations=training_rows,
+                selected_feature_ids=selected,
+            )
         ),
-        independent_artifact_identity=prepared.output_artifact_identity,
         protocol_id=prepared.protocol.protocol_id,
         protocol_version=prepared.protocol.version,
+        protocol_semantic_identity=preparation_protocol_semantic_identity(
+            prepared.protocol
+        ),
         seed=prepared.seed,
-        split_assignment_identity=split.assignment_identity,
+        training_membership_identity=training_membership_identity(
+            tuple(str(item) for item in training_ids)
+        ),
         training_observation_ids=training_ids,
         selected_feature_ids=selected,
     )
@@ -152,15 +162,19 @@ def apply_fitted_preprocessing(
     split: SplitAssignmentReceipt,
 ) -> PreparedBenchmarkReceipt:
     """Apply serialized train-fitted state to train, validation, and test rows."""
-    if fitted.independent_artifact_identity != prepared.output_artifact_identity:
-        raise FittedStateMismatchError(
-            expected=fitted.independent_artifact_identity,
-            actual=prepared.output_artifact_identity,
+    protocol_semantic_identity = preparation_protocol_semantic_identity(
+        prepared.protocol
+    )
+    if fitted.protocol_semantic_identity != protocol_semantic_identity:
+        raise FittedProtocolSemanticMismatchError(
+            expected=fitted.protocol_semantic_identity,
+            actual=protocol_semantic_identity,
         )
-    if fitted.split_assignment_identity != split.assignment_identity:
-        raise FittedSplitMismatchError(
-            expected=fitted.split_assignment_identity,
-            actual=split.assignment_identity,
+    expected_fitted = fit_train_preprocessing(prepared, split=split)
+    if fitted != expected_fitted:
+        raise FittedStateMismatchError(
+            expected=str(expected_fitted.state_identity),
+            actual=str(fitted.state_identity),
         )
     selected = frozenset(fitted.selected_feature_ids)
     observations = tuple(
@@ -172,29 +186,33 @@ def apply_fitted_preprocessing(
         )
         for observation in prepared.observations
     )
-    output_input = (
-        f"{prepared.input_artifact_identity}\0{prepared.output_artifact_identity}\0"
-        f"{fitted.state_identity}\0{split.assignment_identity}\0{prepared.seed}"
+    output_identity = prepared_output_artifact_identity(
+        PreparedOutputIdentityInput(
+            input_artifact_identity=prepared.input_artifact_identity,
+            independent_artifact_identity=prepared.output_artifact_identity,
+            fitted_state=fitted,
+            protocol_semantic_identity=protocol_semantic_identity,
+            split_assignment_identity=split.assignment_identity,
+            seed=prepared.seed,
+            observations=observations,
+        )
     )
-    output_identity = PreparedArtifactIdentity(
-        sha256(output_input.encode()).hexdigest()
-    )
-    receipt_input = (
-        f"{output_identity}\0{prepared.protocol.protocol_id}\0"
-        f"{prepared.protocol.version}\0{prepared.seed}"
-    )
-    return PreparedBenchmarkReceipt(
-        receipt_identity=PreparationReceiptIdentity(
-            sha256(receipt_input.encode()).hexdigest()
-        ),
+    receipt = PreparedBenchmarkReceipt(
+        receipt_identity=PreparationReceiptIdentity(""),
         input_artifact_identity=prepared.input_artifact_identity,
         output_artifact_identity=output_identity,
+        independent_artifact_identity=prepared.output_artifact_identity,
         protocol_id=prepared.protocol.protocol_id,
         protocol_version=prepared.protocol.version,
+        protocol_semantic_identity=protocol_semantic_identity,
         seed=prepared.seed,
         split_assignment_identity=split.assignment_identity,
         fitted_state=fitted,
         observations=observations,
+    )
+    return replace(
+        receipt,
+        receipt_identity=prepared_benchmark_receipt_identity(receipt),
     )
 
 
@@ -210,42 +228,4 @@ def prepare_benchmark(request: PreparationRequest) -> PreparedBenchmarkReceipt:
         independent,
         fitted=fitted,
         split=request.split,
-    )
-
-
-def _select_features(
-    prepared: TrainIndependentPreparation,
-    training_rows: tuple[PreparedObservation, ...],
-) -> tuple[FeatureId, ...]:
-    supported = tuple(
-        feature_id
-        for feature_id in prepared.feature_ids
-        if sum(
-            1
-            for row in training_rows
-            if any(
-                value.feature_id == feature_id and value.value > 0
-                for value in row.values
-            )
-        )
-        >= prepared.protocol.qc.minimum_feature_cells
-    )
-    if not supported:
-        raise InsufficientPreparationDataError(phase="feature_qc")
-    selection = prepared.protocol.feature_selection
-    if selection is None:
-        return supported
-    totals = {
-        feature_id: sum(
-            value.value
-            for row in training_rows
-            for value in row.values
-            if value.feature_id == feature_id
-        )
-        for feature_id in supported
-    }
-    return tuple(
-        sorted(supported, key=lambda item: (-totals[item], item))[
-            : selection.max_features
-        ]
     )

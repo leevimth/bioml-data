@@ -78,6 +78,18 @@ dimensionality reduction, and data-driven thresholds.
 The protocol records which phase owns each transformation. A split is created
 before any train-fitted transformation.
 
+## Execution receipts are context records
+
+An execution receipt joins a verified input artifact, canonical materialization
+receipt, realized split receipt, split-aware preparation receipt, and optional
+metadata-concordance report into one path-free scientific context. Its identity
+commits to the rendered fields, including semantic preparation parameters,
+expression input, fit scope, split identity/seed, and bounded runtime versions.
+It is not evidence that arbitrary transform code produced its referenced bytes;
+that remains the artifact and materialization trust boundary. See
+[preparation execution receipts](preparation-execution-receipts.md) for the
+complete API and non-recorded fields.
+
 ## Initial modality and use cases
 
 Single-cell is the first major modality to validate. It forces the toolkit to

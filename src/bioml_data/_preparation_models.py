@@ -1,17 +1,31 @@
 """Immutable contracts for split-aware single-cell preparation."""
 
+import json
 from dataclasses import dataclass
-from typing import ClassVar, NewType, override
+from hashlib import sha256
+from math import isfinite
+from typing import ClassVar, NewType
 
 from pydantic import BaseModel, ConfigDict
 
 from bioml_data._artifacts import ArtifactId
+from bioml_data._preparation_contracts import ExpressionInput
+from bioml_data._preparation_errors import (
+    FittedProtocolSemanticMismatchError,
+    FittedSplitMismatchError,
+    FittedStateMismatchError,
+    InsufficientPreparationDataError,
+    InvalidNormalizationTargetError,
+    InvalidPreparedStructureError,
+    InvalidPreparedValueError,
+    SplitAssignmentRequiredError,
+    UnknownAlignmentFeatureError,
+)
 from bioml_data._single_cell import (
     CanonicalSingleCellDataset,
     FeatureId,
 )
 from bioml_data._split import (
-    AssignmentIdentity,
     ObservationId,
     SplitAssignmentReceipt,
 )
@@ -19,6 +33,22 @@ from bioml_data._split import (
 PreparedArtifactIdentity = NewType("PreparedArtifactIdentity", str)
 PreparationReceiptIdentity = NewType("PreparationReceiptIdentity", str)
 PreparationStateIdentity = NewType("PreparationStateIdentity", str)
+TrainingMembershipIdentity = NewType("TrainingMembershipIdentity", str)
+PreparationProtocolSemanticIdentity = NewType(
+    "PreparationProtocolSemanticIdentity", str
+)
+
+__all__ = (
+    "FittedProtocolSemanticMismatchError",
+    "FittedSplitMismatchError",
+    "FittedStateMismatchError",
+    "InsufficientPreparationDataError",
+    "InvalidNormalizationTargetError",
+    "InvalidPreparedStructureError",
+    "InvalidPreparedValueError",
+    "SplitAssignmentRequiredError",
+    "UnknownAlignmentFeatureError",
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -42,6 +72,11 @@ class NormalizationParameters:
 
     target_sum: float
 
+    def __post_init__(self) -> None:
+        """Reject non-finite normalization semantics at the domain boundary."""
+        if type(self.target_sum) not in (int, float) or not isfinite(self.target_sum):
+            raise InvalidNormalizationTargetError(target_sum=self.target_sum)
+
 
 @dataclass(frozen=True, slots=True)
 class FeatureSelectionParameters:
@@ -62,12 +97,54 @@ class PreparationProtocol:
     feature_selection: FeatureSelectionParameters | None
 
 
+def preparation_protocol_semantic_identity(
+    protocol: PreparationProtocol,
+) -> PreparationProtocolSemanticIdentity:
+    """Identify every ordered fixed and train-fitted protocol semantic input."""
+    selection = protocol.feature_selection
+    target_sum = protocol.normalization.target_sum
+    if type(target_sum) not in (int, float) or not isfinite(target_sum):
+        raise InvalidNormalizationTargetError(target_sum=target_sum)
+    payload = {
+        "domain": "bioml-data/preparation-protocol-semantics",
+        "schema": "v1",
+        "protocol_id": protocol.protocol_id,
+        "version": protocol.version,
+        "qc": {
+            "minimum_cell_count": protocol.qc.minimum_cell_count,
+            "minimum_feature_cells": protocol.qc.minimum_feature_cells,
+        },
+        "alignment_feature_ids": tuple(
+            str(item) for item in protocol.alignment.feature_ids
+        ),
+        "normalization_target_sum": target_sum,
+        "feature_selection_max_features": (
+            None if selection is None else selection.max_features
+        ),
+        "expression_input": ExpressionInput.RAW_X.value,
+        "canonical_materialization_fit_scope": "none",
+        "prepared_fit_scope": "train_only",
+    }
+    encoded = json.dumps(
+        payload,
+        sort_keys=True,
+        separators=(",", ":"),
+        allow_nan=False,
+    )
+    return PreparationProtocolSemanticIdentity(sha256(encoded.encode()).hexdigest())
+
+
 @dataclass(frozen=True, slots=True)
 class PreparedValue:
     """One nonzero normalized feature value."""
 
     feature_id: FeatureId
     value: float
+
+    def __post_init__(self) -> None:
+        """Reject non-finite values before they can reach identity rendering."""
+        if type(self.value) not in (int, float) or not isfinite(self.value):
+            raise InvalidPreparedValueError(value=self.value)
 
 
 @dataclass(frozen=True, slots=True)
@@ -76,6 +153,10 @@ class PreparedObservation:
 
     observation_id: ObservationId
     values: tuple[PreparedValue, ...]
+
+    def __post_init__(self) -> None:
+        """Revalidate nested values at this broader immutable boundary."""
+        validate_prepared_observations((self,))
 
 
 @dataclass(frozen=True, slots=True)
@@ -96,11 +177,11 @@ class FittedPreparationState(BaseModel):
     model_config: ClassVar[ConfigDict] = ConfigDict(frozen=True)
 
     state_identity: PreparationStateIdentity
-    independent_artifact_identity: PreparedArtifactIdentity
     protocol_id: str
     protocol_version: str
+    protocol_semantic_identity: PreparationProtocolSemanticIdentity
     seed: int
-    split_assignment_identity: AssignmentIdentity
+    training_membership_identity: TrainingMembershipIdentity
     training_observation_ids: tuple[ObservationId, ...]
     selected_feature_ids: tuple[FeatureId, ...]
 
@@ -122,66 +203,29 @@ class PreparedBenchmarkReceipt:
     receipt_identity: PreparationReceiptIdentity
     input_artifact_identity: ArtifactId
     output_artifact_identity: PreparedArtifactIdentity
+    independent_artifact_identity: PreparedArtifactIdentity
     protocol_id: str
     protocol_version: str
+    protocol_semantic_identity: PreparationProtocolSemanticIdentity
     seed: int
     split_assignment_identity: str
     fitted_state: FittedPreparationState
     observations: tuple[PreparedObservation, ...]
 
 
-@dataclass(frozen=True, slots=True)
-class SplitAssignmentRequiredError(Exception):
-    """Raised when train-fitted preprocessing is attempted before splitting."""
-
-    protocol_id: str
-
-    @override
-    def __str__(self) -> str:
-        return f"split assignment required before fitting {self.protocol_id!r}"
-
-
-@dataclass(frozen=True, slots=True)
-class InsufficientPreparationDataError(Exception):
-    """Raised when preparation filters leave no usable rows or features."""
-
-    phase: str
-
-    @override
-    def __str__(self) -> str:
-        return f"preparation has no usable data after {self.phase}"
-
-
-@dataclass(frozen=True, slots=True)
-class UnknownAlignmentFeatureError(Exception):
-    """Raised when a fixed alignment requests a feature absent from the input."""
-
-    feature_id: FeatureId
-
-    @override
-    def __str__(self) -> str:
-        return f"alignment feature {self.feature_id!r} is absent"
-
-
-@dataclass(frozen=True, slots=True)
-class FittedStateMismatchError(Exception):
-    """Raised when fitted state is applied to a different prepared artifact."""
-
-    expected: PreparedArtifactIdentity
-    actual: PreparedArtifactIdentity
-
-    @override
-    def __str__(self) -> str:
-        return f"fitted state expects {self.expected}; received {self.actual}"
-
-
-@dataclass(frozen=True, slots=True)
-class FittedSplitMismatchError(Exception):
-    """Raised when fitted state is applied under a different split receipt."""
-
-    expected: AssignmentIdentity
-    actual: AssignmentIdentity
-
-    @override
-    def __str__(self) -> str:
-        return f"fitted state expects split {self.expected}; received {self.actual}"
+def validate_prepared_observations(
+    observations: tuple[PreparedObservation, ...],
+) -> None:
+    """Parse nested sparse rows before deterministic identity work."""
+    if type(observations) is not tuple:
+        raise InvalidPreparedStructureError(field="observations")
+    for observation in observations:
+        if type(observation) is not PreparedObservation:
+            raise InvalidPreparedStructureError(field="observations")
+        if type(observation.values) is not tuple:
+            raise InvalidPreparedStructureError(field="values")
+        for value in observation.values:
+            if type(value) is not PreparedValue:
+                raise InvalidPreparedStructureError(field="values")
+            if type(value.value) not in (int, float) or not isfinite(value.value):
+                raise InvalidPreparedValueError(value=value.value)

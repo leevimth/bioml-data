@@ -9,6 +9,7 @@ from bioml_data._preparation_models import (
     PreparedArtifactIdentity,
     PreparedObservation,
     PreparedValue,
+    preparation_protocol_semantic_identity,
 )
 from bioml_data._single_cell import CanonicalSingleCellDataset, FeatureId
 
@@ -70,8 +71,8 @@ def independent_identity(
 ) -> PreparedArtifactIdentity:
     protocol = run.protocol
     parameters = (
-        f"{protocol.protocol_id}\0{protocol.version}\0{protocol.qc}\0"
-        f"{protocol.alignment}\0{protocol.normalization}\0{run.seed}"
+        f"{protocol.protocol_id}\0{protocol.version}\0"
+        f"{preparation_protocol_semantic_identity(protocol)}\0{run.seed}"
     )
     row_values = "".join(
         f"\0{row.observation_id}:"

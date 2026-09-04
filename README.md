@@ -277,3 +277,7 @@ canary.
 
 See [core product decisions](docs/core-decisions.md) for the current conceptual
 model and [development](docs/development.md) for local setup and quality checks.
+Completed split-aware preparation can be recorded through the
+[preparation-execution receipt](docs/preparation-execution-receipts.md), which
+joins existing artifact, materialization, split, and preprocessing receipts
+without claiming a new filesystem or transform-verification boundary.
