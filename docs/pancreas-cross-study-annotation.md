@@ -42,11 +42,11 @@ package records these values in
 | Segerstolpe | 2,133 | 22,757 | 13 |
 | Xin | 1,449 | 33,889 | 4 |
 
-These are whole-cohort observations, not post-harmonization train/test
-statistics. The paper does not report train/test sample counts, post-
-harmonization feature dimensions, or per-label counts for each fold. Those
-fields therefore remain `NOT_REPORTED` in metadata concordance; they must not
-be reconstructed from the cohort totals.
+These are whole-cohort observations, not post-harmonization fold statistics.
+The paper does not report train/test sample counts, harmonized feature
+dimensions, or per-label counts for any fold. Those fields therefore remain
+`NOT_REPORTED` in metadata concordance; they must not be reconstructed from
+the cohort totals. No validation partition is part of the paper's protocol.
 
 Donor-held-out evaluation, where adequate donor metadata can be verified, would
 be a separate package-defined protocol with a different target of
@@ -70,7 +70,8 @@ upstream terms.
 
 ## Sources
 
-- [Abdelaal, Michielsen *et al.* (2019)](https://pmc.ncbi.nlm.nih.gov/articles/PMC6734286/)
+- [Abdelaal, Michielsen *et al.* (2019)](https://link.springer.com/article/10.1186/s13059-019-1795-z)
+- [Paper supplementary table](https://academic.oup.com/view-large/531233769)
 - [Benchmark dataset v2 on Zenodo](https://zenodo.org/records/3357167)
 - [Earlier benchmark dataset record](https://zenodo.org/records/2877646)
 - [OpenProblems Label Projection v1](https://www.openproblems.bio/benchmarks/label_projection/v1.0.0/)
