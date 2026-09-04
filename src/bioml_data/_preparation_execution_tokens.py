@@ -16,7 +16,7 @@ def validate_safe_identifier(*, field: str, value: str) -> str:
         raise PreparationExecutionReceiptMismatchError(
             field=field,
             expected="safe identifier syntax up to 128 characters",
-            actual=repr(value),
+            actual=type(value).__name__,
         )
     return value
 
@@ -29,6 +29,6 @@ def validate_sha256(*, field: str, value: str, prefixed: bool) -> str:
         raise PreparationExecutionReceiptMismatchError(
             field=field,
             expected=f"{prefix}64 lowercase hexadecimal characters",
-            actual=repr(value),
+            actual=type(value).__name__,
         )
     return value

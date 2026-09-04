@@ -125,7 +125,7 @@ def _concordance_status(
 
 def _require[T](field: str, expected: T, actual: T) -> None:
     if expected != actual:
-        raise _mismatch(field, str(expected), str(actual))
+        raise _mismatch(field, "matching validated concordance", "mismatch")
 
 
 def _mismatch(

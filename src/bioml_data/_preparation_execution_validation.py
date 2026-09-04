@@ -11,7 +11,7 @@ from bioml_data._preparation_execution_errors import (
 from bioml_data._preparation_execution_models import PreparationSemanticParameters
 from bioml_data._preparation_execution_receipt import PreparationExecutionRequest
 from bioml_data._preparation_execution_request_validation import (
-    validate_execution_request_nested_tuples,
+    validate_execution_request_structure,
 )
 from bioml_data._preparation_identities import (
     PreparedOutputIdentityInput,
@@ -28,7 +28,7 @@ from bioml_data.datasets._registry import DATASET_REGISTRY
 
 def validate_execution_context(request: PreparationExecutionRequest) -> None:
     """Require that all parent receipts and canonical replay agree exactly."""
-    validate_execution_request_nested_tuples(request)
+    validate_execution_request_structure(request)
     dataset = request.dataset
     input_artifact = request.input_artifact
     materialization = request.materialization
@@ -152,7 +152,7 @@ def semantic_parameters(
 
 def require[T](field: str, expected: T, actual: T) -> None:
     if expected != actual:
-        raise mismatch(field, str(expected), str(actual))
+        raise mismatch(field, "matching validated lineage", "mismatch")
 
 
 def mismatch(

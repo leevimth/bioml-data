@@ -136,7 +136,7 @@ def _require_positive_integer(field: str, value: int) -> None:
         raise PreparationExecutionReceiptMismatchError(
             field=field,
             expected="positive integer",
-            actual=repr(value),
+            actual=type(value).__name__,
         )
 
 
@@ -146,7 +146,7 @@ def _require_non_negative_integer(field: str, value: int) -> None:
         raise PreparationExecutionReceiptMismatchError(
             field=field,
             expected="non-negative integer",
-            actual=repr(value),
+            actual=type(value).__name__,
         )
 
 
@@ -156,7 +156,7 @@ def _require_finite_number(field: str, value: float) -> None:
         raise PreparationExecutionReceiptMismatchError(
             field=field,
             expected="finite number",
-            actual=repr(value),
+            actual=type(value).__name__,
         )
 
 
@@ -166,5 +166,5 @@ def _require_optional_positive_integer(field: str, value: int | None) -> None:
         raise PreparationExecutionReceiptMismatchError(
             field=field,
             expected="positive integer or none",
-            actual=repr(value),
+            actual=type(value).__name__,
         )

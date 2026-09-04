@@ -79,9 +79,7 @@ class PreparationExecutionReceipt:
         """Return only fully validated canonical JSON."""
         expected = preparation_execution_receipt_identity(self)
         if self.receipt_identity != expected:
-            raise_mismatch(
-                "receipt_identity", str(expected), str(self.receipt_identity)
-            )
+            raise_mismatch("receipt_identity", "matching receipt identity", "mismatch")
         return _canonical_json_unchecked(self, include_receipt_identity=True)
 
 

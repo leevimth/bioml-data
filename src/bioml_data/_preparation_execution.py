@@ -14,6 +14,9 @@ from bioml_data._preparation_execution_receipt import (
     PreparationExecutionRequest,
     preparation_execution_receipt_identity,
 )
+from bioml_data._preparation_execution_request_validation import (
+    validate_execution_request_roots,
+)
 from bioml_data._preparation_execution_validation import (
     mismatch,
     semantic_parameters,
@@ -25,6 +28,7 @@ def record_preparation_execution(
     request: PreparationExecutionRequest,
 ) -> PreparationExecutionReceipt:
     """Join exact materialization, split, preparation, and evidence receipts."""
+    validate_execution_request_roots(request)
     validate_receipt_integrity(request.dataset, request.assignment)
     validate_execution_context(request)
     receipt = PreparationExecutionReceipt(
@@ -65,7 +69,7 @@ def validate_preparation_execution_receipt(
     expected = preparation_execution_receipt_identity(receipt)
     if receipt.receipt_identity != expected:
         field = "receipt_identity"
-        raise mismatch(field, str(expected), str(receipt.receipt_identity))
+        raise mismatch(field, "matching receipt identity", "mismatch")
 
 
 def _expression_input(request: PreparationExecutionRequest) -> ExpressionInput:
@@ -81,7 +85,7 @@ def _expression_input(request: PreparationExecutionRequest) -> ExpressionInput:
     if len(values) != 1:
         field = "expression_input"
         expected = "one declared expression_input"
-        raise mismatch(field, expected, str(values))
+        raise mismatch(field, expected, "invalid declaration")
     return _parse_expression_input(values[0])
 
 

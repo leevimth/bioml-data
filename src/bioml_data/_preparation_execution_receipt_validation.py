@@ -127,10 +127,10 @@ def _require_runtime(value: PreparationExecutionRuntime | str) -> None:
 
 
 def _require_enum(field: str, value: StrEnum, enum: type[StrEnum]) -> None:
-    try:
-        _ = enum(value)
-    except (TypeError, ValueError):
-        raise_mismatch(field, "/".join(item.value for item in enum), repr(value))
+    if type(value) is not enum:
+        raise_mismatch(
+            field, "/".join(item.value for item in enum), type(value).__name__
+        )
 
 
 def _require_fit_scopes(receipt: ExecutionReceiptLike) -> None:
@@ -177,7 +177,7 @@ def _require_execution_scalars(receipt: ExecutionReceiptLike) -> None:
             "dataset", "DatasetSnapshotIdentity", type(receipt.dataset).__name__
         )
     if type(receipt.seed) is not int or receipt.seed < 0:
-        raise_mismatch("seed", "non-negative integer", repr(receipt.seed))
+        raise_mismatch("seed", "non-negative integer", type(receipt.seed).__name__)
     parent_ids = receipt.materialization_parent_artifact_identities
     if type(parent_ids) is not tuple:
         raise_mismatch(

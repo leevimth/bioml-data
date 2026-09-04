@@ -26,15 +26,21 @@ class InsufficientPreparationDataError(Exception):
         return f"preparation has no usable data after {self.phase}"
 
 
-@dataclass(frozen=True, slots=True)
+@final
 class InvalidNormalizationTargetError(Exception):
     """Raised when library-size normalization cannot be represented safely."""
 
+    __slots__ = ("target_sum",)
+
     target_sum: float
+
+    def __init__(self, target_sum: float) -> None:
+        super().__init__("invalid normalization target")
+        self.target_sum = target_sum
 
     @override
     def __str__(self) -> str:
-        return f"normalization target must be finite; received {self.target_sum!r}"
+        return "normalization target must be finite"
 
 
 @final
@@ -46,12 +52,12 @@ class InvalidPreparedValueError(Exception):
     value: float
 
     def __init__(self, value: float) -> None:
-        super().__init__(value)
+        super().__init__("invalid prepared value")
         self.value = value
 
     @override
     def __str__(self) -> str:
-        return f"prepared value must be finite; received {self.value!r}"
+        return "prepared value must be finite"
 
 
 @final
