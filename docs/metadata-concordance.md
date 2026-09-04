@@ -38,9 +38,33 @@ scoped to `tms-aorta@figshare-project-64982`, source SHA-256
 `animal-held-out-v1`. They are not statistics for the Tabula Muris Senis atlas
 or its primary paper. The source file has no explicit assay field, so canonical
 assay evidence is `NOT_REPORTED`, rather than inferred from `method`. They are
-contract-only declarations: this checkout has not verified them against a locally
-materialized 906 × 22,966 artifact. Actual-artifact execution remains gated on
-BIO-27/BIO-31 readiness.
+not primary-paper statistics.
+
+On 2026-09-04, implementation commit
+`67cb61dfafb739fa85504b6bf27eee52eb617d0f` reproduced the exact official
+source SHA-256 `0fbf731…ced3c3`, canonical `tms-aorta-csr-v1` artifact SHA-256
+`680a5ef…bf56b3`, and 906 × 22,966 shape. With
+`animal-held-out-v1` at seed 17, the realized train/validation/test partitions
+contained 692/182/32 cells across 11/2/1 mice with no mouse shared between
+partitions. The path-sanitized whole- and partition-level observations and
+comparison statuses are recorded in
+[`evidence/tms-aorta-real-metadata-v1.json`](evidence/tms-aorta-real-metadata-v1.json).
+
+That execution record does not make the dataset supported. BIO-31 readiness,
+the file-level rights and redistribution boundary, and publication-reported
+partition values remain unresolved. Because neither the Figshare record nor the
+publication reports this package-defined seed-17 partition, every partition
+comparison is explicitly `NOT_REPORTED`, not a publication match.
+
+The live check is opt-in so ordinary CI never downloads the artifact:
+
+```bash
+BIOML_RUN_LIVE_TMS=1 \
+BIOML_TMS_DATA_DIR=.cache/bioml-data \
+uv run pytest tests/test_tms_aorta_live_metadata.py
+```
+
+The selected content-addressed cache is verified and reused on later runs.
 
 See the [TMS Aorta artifact audit](tms-aorta-artifact-audit.md) for the
 source-level observations and the [TMS Aorta contract](tms-aorta.md) for the

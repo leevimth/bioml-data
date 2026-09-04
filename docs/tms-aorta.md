@@ -116,8 +116,16 @@ replacing the leakage audit, and makes no model-performance claim. The exact TMS
 Aorta count expectations are scoped to this 906 × 22,966 source artifact; whole-atlas
 statistics from the primary TMS paper are rejected as a different scope. See
 [publication-scoped metadata concordance](metadata-concordance.md). These are
-contract-only expectations until BIO-27/BIO-31 readiness permits a gated local
-artifact verification; this checkout does not claim that execution has occurred.
+source-artifact expectations, not publication partition statistics.
+
+The official artifact was executed through download, preparation,
+materialization, `animal-held-out-v1` seed 17, and concordance on 2026-09-04 at
+implementation commit `67cb61dfafb739fa85504b6bf27eee52eb617d0f`. The checked
+[path-sanitized evidence](evidence/tms-aorta-real-metadata-v1.json) records the
+exact source and canonical identities, whole-dataset observations, and realized
+692/182/32-cell train/validation/test metadata. This verification does not close
+BIO-31 support readiness, the unresolved file-level rights and redistribution
+boundary, or the absence of publication-reported values for those partitions.
 
 ## Evaluation
 
