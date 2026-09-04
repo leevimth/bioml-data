@@ -5,6 +5,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import bioml_data as bio
+import bioml_data.preparation_execution as execution
 from bioml_data._artifact_derivation import ArtifactDerivationParameter
 from bioml_data._artifacts import (
     ArtifactDerivation,
@@ -40,7 +41,7 @@ class ExecutionContext:
     prepared: bio.PreparedBenchmarkReceipt
     assignment: bio.SplitAssignmentReceipt
     protocol: PreparationProtocol
-    runtime: bio.PreparationExecutionRuntime
+    runtime: execution.PreparationExecutionRuntime
     concordance: bio.MetadataConcordanceReport
 
 
@@ -107,14 +108,14 @@ def execution_context(tmp_path: Path) -> ExecutionContext:
         prepared=prepared,
         assignment=split,
         protocol=protocol,
-        runtime=bio.PreparationExecutionRuntime(
+        runtime=execution.PreparationExecutionRuntime(
             toolkit_version="0.0.0",
             dependencies=(
-                bio.DependencyVersion(
-                    component=bio.RuntimeComponent.ANNDATA, version="0.12"
+                execution.DependencyVersion(
+                    component=execution.RuntimeComponent.ANNDATA, version="0.12"
                 ),
-                bio.DependencyVersion(
-                    component=bio.RuntimeComponent.NUMPY, version="2.0"
+                execution.DependencyVersion(
+                    component=execution.RuntimeComponent.NUMPY, version="2.0"
                 ),
             ),
         ),
@@ -122,10 +123,10 @@ def execution_context(tmp_path: Path) -> ExecutionContext:
     )
 
 
-def record(context: ExecutionContext) -> bio.PreparationExecutionReceipt:
+def record(context: ExecutionContext) -> execution.PreparationExecutionReceipt:
     """Invoke the public receipt boundary with complete typed fixture inputs."""
-    return bio.record_preparation_execution(
-        bio.PreparationExecutionRequest(
+    return execution.record_preparation_execution(
+        execution.PreparationExecutionRequest(
             dataset=context.dataset,
             input_artifact=context.input_artifact,
             materialization=context.materialization,

@@ -4,32 +4,14 @@
 split-aware preparation without becoming a cache manifest, a notebook log, or a
 model-training record. It is intentionally path-free and deterministic: two
 calls with the same inputs emit the same canonical JSON and receipt identity.
-
-```python
-import bioml_data as bio
-
-execution = bio.record_preparation_execution(
-    bio.PreparationExecutionRequest(
-        dataset=dataset,
-        input_artifact=download.artifact,
-        materialization=prepared_artifact,
-        prepared=prepared_rows,
-        assignment=split_receipt,
-        protocol=preparation_protocol,
-        runtime=bio.PreparationExecutionRuntime(
-            toolkit_version=bio.__version__,
-            dependencies=(
-                bio.DependencyVersion(bio.RuntimeComponent.ANNDATA, "0.12.0"),
-                bio.DependencyVersion(bio.RuntimeComponent.NUMPY, "2.0.0"),
-            ),
-        ),
-        concordance=metadata_report,
-    )
-)
-
-bio.validate_preparation_execution_receipt(execution)
-print(execution.to_json())
-```
+The current public TMS flow in the README stops at `run_tms_aorta_canary()` and
+does not expose every intermediate artifact, split, prepared-output, and
+concordance receipt required here. It must not therefore be presented as a
+runnable construction example. Import the API from
+`bioml_data.preparation_execution` and call
+`record_preparation_execution()` only at an integration point that already
+holds those complete receipt objects; call
+`validate_preparation_execution_receipt()` before consuming its JSON.
 
 The receipt joins the following layers; none replaces the others.
 
@@ -37,7 +19,7 @@ The receipt joins the following layers; none replaces the others.
 | --- | --- |
 | `ArtifactReceipt` | Exact acquired input bytes and their immutable manifest. |
 | `DatasetPreparationReceipt` | The canonical artifact, its exact input parent receipts, and whether materialization transformed or reused it. |
-| `PreparedBenchmarkReceipt` | The split-bound, train-fitted preparation output and fitted-state identity. |
+| `PreparedBenchmarkReceipt` | The split-bound, train-fitted preparation output, fitted-state identity, and full preparation-protocol semantic identity. |
 | `PreparationExecutionReceipt` | Dataset/task, canonical input-to-output chain, semantic preparation parameters, expression matrix, split/seed, bounded runtime versions, and optional metadata-concordance identity/status. |
 
 The execution receipt validates that its supplied artifacts, split receipt,
@@ -48,9 +30,10 @@ that it renders. It includes the transform's declared `expression_input`
 `none` fit scope and the split-aware prepared output as `train_only` fit scope.
 Before consuming a split receipt, it replays the named allocation against the
 canonical split observations; a stale identity or a rehashed invented allocation
-is rejected. Alignment semantics are directly inspectable as a sorted immutable
-feature-ID tuple, its count, and its SHA-256 identity. The tuple is bounded at
-50,000 IDs so this is a reproducibility record, not a replacement data matrix.
+is rejected. Alignment semantics are directly inspectable as the exact immutable
+feature-ID tuple in operational preparation order, its count, and its SHA-256
+identity. The tuple is bounded at 50,000 IDs so this is a reproducibility
+record, not a replacement data matrix.
 
 ## Deliberate trust boundary
 
@@ -75,4 +58,14 @@ timestamps, arbitrary command lines, secrets, or a full dependency freeze.
 Components are parsed through that allowlist; toolkit and dependency versions
 must be compact, path-free version strings of at most 64 characters. Semantic
 numeric parameters must be finite before either receipt identity or JSON is
-rendered.
+rendered. The same checks are replayed at every public identity, validation,
+and JSON boundary, so frozen-object mutation followed by a forged hash cannot
+introduce unsafe runtime metadata.
+
+Preparation-protocol semantic identity is a fail-closed, canonical JSON hash
+with an explicit `bioml-data/preparation-protocol-semantics` domain and `v1`
+schema. It binds ordered feature IDs, QC, normalization, feature selection,
+and the fixed RAW_X/fit-scope contract into the prepared-output receipt. The
+execution receipt records those matrix/scope values as separate fields too.
+This is pre-release protocol work: older receipts are not accepted and must be
+regenerated under this schema.

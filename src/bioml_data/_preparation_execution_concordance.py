@@ -10,8 +10,8 @@ from bioml_data._preparation_execution_errors import (
 from bioml_data._preparation_execution_models import (
     MetadataConcordanceAttachment,
     MetadataConcordanceAttachmentStatus,
-    PreparationExecutionRequest,
 )
+from bioml_data._preparation_execution_receipt import PreparationExecutionRequest
 
 
 def concordance_attachment(

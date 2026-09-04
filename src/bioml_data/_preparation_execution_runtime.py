@@ -47,31 +47,70 @@ class PreparationExecutionRuntime:
 
     def __post_init__(self) -> None:
         """Keep runtime metadata small, normalized, unique, and deterministic."""
-        components = tuple(item.component for item in self.dependencies)
         object.__setattr__(
             self,
             "toolkit_version",
             _runtime_version(field="toolkit_version", value=self.toolkit_version),
         )
-        if components != tuple(sorted(components, key=str)):
-            raise PreparationExecutionReceiptMismatchError(
-                field="runtime_dependencies",
-                expected="sorted by component",
-                actual=str(components),
-            )
-        if len(components) != len(set(components)):
-            raise PreparationExecutionReceiptMismatchError(
-                field="runtime_dependencies",
-                expected="unique components",
-                actual=str(components),
-            )
+        normalized_dependencies = tuple(
+            _validated_dependency(item) for item in self.dependencies
+        )
+        object.__setattr__(self, "dependencies", normalized_dependencies)
+        validate_runtime_metadata(self)
+
+
+def validate_runtime_metadata(runtime: PreparationExecutionRuntime) -> None:
+    """Revalidate public runtime fields after hostile frozen-object mutation."""
+    _ = _runtime_version(field="toolkit_version", value=runtime.toolkit_version)
+    dependencies = tuple(
+        _validated_dependency(item)
+        for item in runtime.dependencies
+        if _require_dependency(item)
+    )
+    components = tuple(item.component for item in dependencies)
+    if components != tuple(sorted(components, key=str)):
+        raise PreparationExecutionReceiptMismatchError(
+            field="runtime_dependencies",
+            expected="sorted by component",
+            actual=str(components),
+        )
+    if len(components) != len(set(components)):
+        raise PreparationExecutionReceiptMismatchError(
+            field="runtime_dependencies",
+            expected="unique components",
+            actual=str(components),
+        )
+
+
+def _validated_dependency(dependency: DependencyVersion) -> DependencyVersion:
+    """Parse every nested dependency while preserving its immutable payload."""
+    component = _runtime_component(dependency.component)
+    version = _runtime_version(field="dependency_version", value=dependency.version)
+    if component is not dependency.component or version != dependency.version:
+        raise PreparationExecutionReceiptMismatchError(
+            field="runtime_dependency",
+            expected="canonical RuntimeComponent and version",
+            actual=f"{dependency.component!r}:{dependency.version!r}",
+        )
+    return dependency
+
+
+def _require_dependency(value: DependencyVersion) -> bool:
+    """Narrow an untrusted nested value before reading dependency fields."""
+    if type(value) is not DependencyVersion:
+        raise PreparationExecutionReceiptMismatchError(
+            field="runtime_dependencies",
+            expected="DependencyVersion items",
+            actual=type(value).__name__,
+        )
+    return True
 
 
 def _runtime_component(component: RuntimeComponent | str) -> RuntimeComponent:
     """Parse a dependency name into the bounded runtime component allowlist."""
     try:
         return RuntimeComponent(component)
-    except ValueError:
+    except (TypeError, ValueError):
         raise PreparationExecutionReceiptMismatchError(
             field="dependency_component",
             expected="anndata, numpy, or scipy",
@@ -81,7 +120,7 @@ def _runtime_component(component: RuntimeComponent | str) -> RuntimeComponent:
 
 def _runtime_version(*, field: str, value: str) -> str:
     """Reject paths, URIs, secrets, environment text, and command-like values."""
-    if _RUNTIME_VERSION.fullmatch(value) is None:
+    if type(value) is not str or _RUNTIME_VERSION.fullmatch(value) is None:
         raise PreparationExecutionReceiptMismatchError(
             field=field,
             expected="safe version syntax up to 64 characters",

@@ -1,6 +1,8 @@
 """Immutable contracts for split-aware single-cell preparation."""
 
+import json
 from dataclasses import dataclass
+from hashlib import sha256
 from typing import ClassVar, NewType, override
 
 from pydantic import BaseModel, ConfigDict
@@ -19,6 +21,9 @@ from bioml_data._split import (
 PreparedArtifactIdentity = NewType("PreparedArtifactIdentity", str)
 PreparationReceiptIdentity = NewType("PreparationReceiptIdentity", str)
 PreparationStateIdentity = NewType("PreparationStateIdentity", str)
+PreparationProtocolSemanticIdentity = NewType(
+    "PreparationProtocolSemanticIdentity", str
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -62,6 +67,40 @@ class PreparationProtocol:
     feature_selection: FeatureSelectionParameters | None
 
 
+def preparation_protocol_semantic_identity(
+    protocol: PreparationProtocol,
+) -> PreparationProtocolSemanticIdentity:
+    """Identify every ordered fixed and train-fitted protocol semantic input."""
+    selection = protocol.feature_selection
+    payload = {
+        "domain": "bioml-data/preparation-protocol-semantics",
+        "schema": "v1",
+        "protocol_id": protocol.protocol_id,
+        "version": protocol.version,
+        "qc": {
+            "minimum_cell_count": protocol.qc.minimum_cell_count,
+            "minimum_feature_cells": protocol.qc.minimum_feature_cells,
+        },
+        "alignment_feature_ids": tuple(
+            str(item) for item in protocol.alignment.feature_ids
+        ),
+        "normalization_target_sum": protocol.normalization.target_sum,
+        "feature_selection_max_features": (
+            None if selection is None else selection.max_features
+        ),
+        "expression_input": "raw_x",
+        "canonical_materialization_fit_scope": "none",
+        "prepared_fit_scope": "train_only",
+    }
+    encoded = json.dumps(
+        payload,
+        sort_keys=True,
+        separators=(",", ":"),
+        allow_nan=False,
+    )
+    return PreparationProtocolSemanticIdentity(sha256(encoded.encode()).hexdigest())
+
+
 @dataclass(frozen=True, slots=True)
 class PreparedValue:
     """One nonzero normalized feature value."""
@@ -99,6 +138,7 @@ class FittedPreparationState(BaseModel):
     independent_artifact_identity: PreparedArtifactIdentity
     protocol_id: str
     protocol_version: str
+    protocol_semantic_identity: PreparationProtocolSemanticIdentity
     seed: int
     split_assignment_identity: AssignmentIdentity
     training_observation_ids: tuple[ObservationId, ...]
@@ -124,6 +164,7 @@ class PreparedBenchmarkReceipt:
     output_artifact_identity: PreparedArtifactIdentity
     protocol_id: str
     protocol_version: str
+    protocol_semantic_identity: PreparationProtocolSemanticIdentity
     seed: int
     split_assignment_identity: str
     fitted_state: FittedPreparationState
@@ -185,3 +226,18 @@ class FittedSplitMismatchError(Exception):
     @override
     def __str__(self) -> str:
         return f"fitted state expects split {self.expected}; received {self.actual}"
+
+
+@dataclass(frozen=True, slots=True)
+class FittedProtocolSemanticMismatchError(Exception):
+    """Raised when fitted state belongs to another protocol semantic identity."""
+
+    expected: PreparationProtocolSemanticIdentity
+    actual: PreparationProtocolSemanticIdentity
+
+    @override
+    def __str__(self) -> str:
+        return (
+            f"fitted state expects protocol semantics {self.expected}; "
+            f"received {self.actual}"
+        )

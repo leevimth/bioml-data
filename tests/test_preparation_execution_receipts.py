@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-import bioml_data as bio
+import bioml_data.preparation_execution as execution
 from bioml_data._artifacts import ArtifactId, TransformProtocolId
 from bioml_data._split_capability_models import SplitArtifactScope
 
@@ -34,8 +34,10 @@ def test_record_preparation_execution_commits_to_the_complete_scientific_context
     assert (
         first.prepared_benchmark_receipt_identity == context.prepared.receipt_identity
     )
-    assert first.canonical_materialization_fit_scope is bio.PreparationFitScope.NONE
-    assert first.prepared_fit_scope is bio.PreparationFitScope.TRAIN_ONLY
+    assert (
+        first.canonical_materialization_fit_scope is execution.PreparationFitScope.NONE
+    )
+    assert first.prepared_fit_scope is execution.PreparationFitScope.TRAIN_ONLY
     assert first.semantic_parameters.alignment_feature_ids == (
         "gene-1",
         "gene-2",
@@ -44,7 +46,7 @@ def test_record_preparation_execution_commits_to_the_complete_scientific_context
     assert first.metadata_concordance is not None
     assert (
         first.metadata_concordance.status
-        is bio.MetadataConcordanceAttachmentStatus.NOT_REPORTED
+        is execution.MetadataConcordanceAttachmentStatus.NOT_REPORTED
     )
     assert str(tmp_path) not in first.to_json()
 
@@ -64,7 +66,7 @@ def test_record_preparation_execution_rejects_cross_receipt_scope_mismatch(
     )
 
     # When: recording tries to join the incompatible receipts.
-    with pytest.raises(bio.PreparationExecutionReceiptMismatchError) as captured:
+    with pytest.raises(execution.PreparationExecutionReceiptMismatchError) as captured:
         _ = record(context)
 
     # Then: the failure names the exact cross-receipt field.
@@ -80,8 +82,8 @@ def test_validate_preparation_execution_receipt_rejects_identity_tampering(
     forged = replace(receipt, seed=18)
 
     # When: a consumer verifies the altered receipt.
-    with pytest.raises(bio.PreparationExecutionReceiptMismatchError) as captured:
-        bio.validate_preparation_execution_receipt(forged)
+    with pytest.raises(execution.PreparationExecutionReceiptMismatchError) as captured:
+        execution.validate_preparation_execution_receipt(forged)
 
     # Then: identity verification refuses the altered semantic value.
     assert captured.value.field == "receipt_identity"
@@ -101,7 +103,7 @@ def test_record_preparation_execution_rejects_unlinked_input_artifact(
     )
 
     # When: execution recording joins that unrelated raw receipt.
-    with pytest.raises(bio.PreparationExecutionReceiptMismatchError) as captured:
+    with pytest.raises(execution.PreparationExecutionReceiptMismatchError) as captured:
         _ = record(replace(context, input_artifact=unlinked))
 
     # Then: it rejects the claimed input before emitting an identity.
@@ -120,7 +122,7 @@ def test_record_preparation_execution_rejects_tampered_prepared_identity(
     )
 
     # When: receipt construction checks the existing preparation output.
-    with pytest.raises(bio.PreparationExecutionReceiptMismatchError) as captured:
+    with pytest.raises(execution.PreparationExecutionReceiptMismatchError) as captured:
         _ = record(context)
 
     # Then: tampering is stopped at the cross-receipt validation boundary.
@@ -145,7 +147,7 @@ def test_record_preparation_execution_rejects_concordance_from_another_artifact(
     forged = replace(context.concordance, scope=forged_scope)
 
     # When: an execution receipt tries to attach the incompatible report.
-    with pytest.raises(bio.PreparationExecutionReceiptMismatchError) as captured:
+    with pytest.raises(execution.PreparationExecutionReceiptMismatchError) as captured:
         _ = record(replace(context, concordance=forged))
 
     # Then: the source artifact mismatch is explicit and receipt construction stops.
@@ -156,20 +158,20 @@ def test_record_preparation_execution_rejects_concordance_from_another_artifact(
     ("component", "version", "field"),
     [
         ("DATABASE_URL", "1.0.0", "dependency_component"),
-        (bio.RuntimeComponent.ANNDATA, "/Users/alice/work", "dependency_version"),
-        (bio.RuntimeComponent.ANNDATA, "../secret", "dependency_version"),
+        (execution.RuntimeComponent.ANNDATA, "/Users/alice/work", "dependency_version"),
+        (execution.RuntimeComponent.ANNDATA, "../secret", "dependency_version"),
         (
-            bio.RuntimeComponent.ANNDATA,
+            execution.RuntimeComponent.ANNDATA,
             "postgres://alice:secret@host/db",
             "dependency_version",
         ),
-        (bio.RuntimeComponent.ANNDATA, "$API_KEY", "dependency_version"),
-        (bio.RuntimeComponent.ANNDATA, "1.0.0;rm", "dependency_version"),
-        (bio.RuntimeComponent.ANNDATA, "1" * 65, "dependency_version"),
+        (execution.RuntimeComponent.ANNDATA, "$API_KEY", "dependency_version"),
+        (execution.RuntimeComponent.ANNDATA, "1.0.0;rm", "dependency_version"),
+        (execution.RuntimeComponent.ANNDATA, "1" * 65, "dependency_version"),
     ],
 )
 def test_runtime_rejects_untrusted_component_or_version(
-    component: bio.RuntimeComponent | str,
+    component: execution.RuntimeComponent | str,
     version: str,
     field: str,
 ) -> None:
@@ -177,8 +179,8 @@ def test_runtime_rejects_untrusted_component_or_version(
     # Given: one untrusted runtime component or version boundary value.
 
     # When: a public dependency version is parsed.
-    with pytest.raises(bio.PreparationExecutionReceiptMismatchError) as captured:
-        _ = bio.DependencyVersion(component=component, version=version)
+    with pytest.raises(execution.PreparationExecutionReceiptMismatchError) as captured:
+        _ = execution.DependencyVersion(component=component, version=version)
 
     # Then: it fails before a receipt can serialize it.
     assert captured.value.field == field
@@ -190,11 +192,11 @@ def test_runtime_accepts_bounded_package_version_forms(version: str) -> None:
     # Given: one safe bounded package-version representation.
 
     # When: it is used for both toolkit and a named dependency.
-    runtime = bio.PreparationExecutionRuntime(
+    runtime = execution.PreparationExecutionRuntime(
         toolkit_version=version,
         dependencies=(
-            bio.DependencyVersion(
-                component=bio.RuntimeComponent.ANNDATA, version=version
+            execution.DependencyVersion(
+                component=execution.RuntimeComponent.ANNDATA, version=version
             ),
         ),
     )
@@ -208,8 +210,8 @@ def test_runtime_rejects_untrusted_toolkit_version() -> None:
     # Given: a host-local value that is not a compact package version.
 
     # When: it is used as the toolkit version.
-    with pytest.raises(bio.PreparationExecutionReceiptMismatchError) as captured:
-        _ = bio.PreparationExecutionRuntime(
+    with pytest.raises(execution.PreparationExecutionReceiptMismatchError) as captured:
+        _ = execution.PreparationExecutionRuntime(
             toolkit_version="/Users/alice/work; API_KEY=top-secret",
             dependencies=(),
         )

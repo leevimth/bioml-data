@@ -11,14 +11,19 @@ from bioml_data._preparation_execution_errors import (
 )
 from bioml_data._preparation_execution_models import (
     ExpressionInput,
-    PreparationExecutionReceipt,
     PreparationExecutionReceiptIdentity,
-    PreparationExecutionRequest,
     PreparationFitScope,
     PreparationSemanticParameters,
+)
+from bioml_data._preparation_execution_receipt import (
+    PreparationExecutionReceipt,
+    PreparationExecutionRequest,
     preparation_execution_receipt_identity,
 )
-from bioml_data._preparation_models import PreparedBenchmarkReceipt
+from bioml_data._preparation_models import (
+    PreparedBenchmarkReceipt,
+    preparation_protocol_semantic_identity,
+)
 
 
 def record_preparation_execution(
@@ -39,6 +44,7 @@ def record_preparation_execution(
         materialization_outcome=request.materialization.outcome,
         preparation_protocol_id=request.protocol.protocol_id,
         preparation_protocol_version=request.protocol.version,
+        preparation_protocol_semantic_identity=request.prepared.protocol_semantic_identity,
         semantic_parameters=_semantic_parameters(request),
         expression_input=_expression_input(request),
         canonical_materialization_fit_scope=PreparationFitScope.NONE,
@@ -109,6 +115,11 @@ def _validate_context(request: PreparationExecutionRequest) -> None:
     _require("prepared_protocol_id", protocol.protocol_id, prepared.protocol_id)
     _require("prepared_protocol_version", protocol.version, prepared.protocol_version)
     _require(
+        "prepared_protocol_semantic_identity",
+        preparation_protocol_semantic_identity(protocol),
+        prepared.protocol_semantic_identity,
+    )
+    _require(
         "fitted_split_assignment_identity",
         assignment.assignment_identity,
         prepared.fitted_state.split_assignment_identity,
@@ -122,6 +133,11 @@ def _validate_context(request: PreparationExecutionRequest) -> None:
         protocol.version,
         prepared.fitted_state.protocol_version,
     )
+    _require(
+        "fitted_protocol_semantic_identity",
+        prepared.protocol_semantic_identity,
+        prepared.fitted_state.protocol_semantic_identity,
+    )
     _require_prepared_identities(prepared)
 
 
@@ -130,6 +146,7 @@ def _require_prepared_identities(prepared: PreparedBenchmarkReceipt) -> None:
         f"{prepared.input_artifact_identity}\0"
         f"{prepared.fitted_state.independent_artifact_identity}\0"
         f"{prepared.fitted_state.state_identity}\0"
+        f"{prepared.protocol_semantic_identity}\0"
         f"{prepared.split_assignment_identity}\0{prepared.seed}"
     )
     expected_output = sha256(output_payload.encode()).hexdigest()
@@ -140,7 +157,8 @@ def _require_prepared_identities(prepared: PreparedBenchmarkReceipt) -> None:
     )
     receipt_payload = (
         f"{prepared.output_artifact_identity}\0{prepared.protocol_id}\0"
-        f"{prepared.protocol_version}\0{prepared.seed}"
+        f"{prepared.protocol_version}\0{prepared.protocol_semantic_identity}\0"
+        f"{prepared.seed}"
     )
     _require(
         "prepared_benchmark_receipt_identity",
@@ -153,7 +171,7 @@ def _semantic_parameters(
     request: PreparationExecutionRequest,
 ) -> PreparationSemanticParameters:
     protocol = request.protocol
-    feature_ids = tuple(sorted(str(item) for item in protocol.alignment.feature_ids))
+    feature_ids = tuple(str(item) for item in protocol.alignment.feature_ids)
     feature_payload = "\0".join(feature_ids)
     selection = protocol.feature_selection
     return PreparationSemanticParameters(
