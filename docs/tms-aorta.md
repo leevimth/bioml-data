@@ -53,6 +53,12 @@ nonzero-count, metadata-string, and serialized-output sizes. H5AD parsing uses a
 private copy whose bytes are reverified during a no-follow read, preventing the
 final parser open from following a swapped cache path.
 
+The official H5AD uses legacy AnnData encodings. The opt-in integration test
+captures the resulting `anndata._warnings.OldFormatWarning` only around this
+H5AD preparation boundary and rejects any other warning category there. This
+acknowledges source serialization age; it is not a metadata match, readiness
+result, or a suppression applied to package users.
+
 ## Split protocol
 
 `animal-held-out-v1` is explicit and has no default selection.
@@ -106,6 +112,26 @@ and label metadata. Each axis records coverage; missing metadata is `UNKNOWN`,
 not safe. Required leakage-unit overlap is `FAIL`, informative overlap is
 `WARN`, and complete covered separation is `PASS`. Unsupported protocol support,
 unassessed support, and observed overlap failure remain distinct outcomes.
+
+## Metadata concordance
+
+`compare_metadata_concordance()` compares the complete prepared artifact and
+every realized train, validation, and test partition against scoped evidence.
+It retains `NOT_REPORTED` fields as unknown, reports group overlap without
+replacing the leakage audit, and makes no model-performance claim. The exact TMS
+Aorta count expectations are scoped to this 906 × 22,966 source artifact; whole-atlas
+statistics from the primary TMS paper are rejected as a different scope. See
+[publication-scoped metadata concordance](metadata-concordance.md). These are
+source-artifact expectations, not publication partition statistics.
+
+The official artifact was executed through download, preparation,
+materialization, `animal-held-out-v1` seed 17, and concordance on 2026-09-04 at
+implementation commit `67cb61dfafb739fa85504b6bf27eee52eb617d0f`. The checked
+[path-sanitized evidence](evidence/tms-aorta-real-metadata-v1.json) records the
+exact source and canonical identities, whole-dataset observations, and realized
+692/182/32-cell train/validation/test metadata. This verification does not close
+BIO-31 support readiness, the unresolved file-level rights and redistribution
+boundary, or the absence of publication-reported values for those partitions.
 
 ## Evaluation
 

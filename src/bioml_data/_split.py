@@ -1,6 +1,6 @@
 """Deterministic grouped split assignment."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from enum import StrEnum, unique
 from hashlib import sha256
 from typing import Final, NewType, override
@@ -205,21 +205,12 @@ def _assign(
             key=lambda assignment: assignment.observation_id,
         )
     )
-    header = (
-        f"{assigner.dataset.name}\0{assigner.dataset.version}\0{assigner.task}\0"
-        f"{capability.protocol}\0{seed}"
-    )
-    rows = "".join(
-        f"\0{item.observation_id}\0{item.group}\0{item.partition}"
-        for item in assignments
-    )
-    identity = AssignmentIdentity(sha256(f"{header}{rows}".encode()).hexdigest())
-    return SplitAssignmentReceipt(
+    receipt = SplitAssignmentReceipt(
         dataset=assigner.dataset,
         task=assigner.task,
         protocol=capability.protocol,
         seed=seed,
-        assignment_identity=identity,
+        assignment_identity=AssignmentIdentity(""),
         assignments=assignments,
         requested_group_fractions=PartitionFractions(
             train=_TRAIN_WEIGHT / _GROUP_WEIGHT_TOTAL,
@@ -230,6 +221,25 @@ def _assign(
         observation_count=len(assignments),
         group_count=len(groups),
     )
+    return replace(
+        receipt,
+        assignment_identity=assignment_receipt_identity(receipt),
+    )
+
+
+def assignment_receipt_identity(
+    receipt: SplitAssignmentReceipt,
+) -> AssignmentIdentity:
+    """Recompute the deterministic identity covering receipt headers and rows."""
+    header = (
+        f"{receipt.dataset.name}\0{receipt.dataset.version}\0{receipt.task}\0"
+        f"{receipt.protocol}\0{receipt.seed}"
+    )
+    rows = "".join(
+        f"\0{item.observation_id}\0{item.group}\0{item.partition}"
+        for item in receipt.assignments
+    )
+    return AssignmentIdentity(sha256(f"{header}{rows}".encode()).hexdigest())
 
 
 def _group_for(

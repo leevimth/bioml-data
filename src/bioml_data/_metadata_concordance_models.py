@@ -1,0 +1,202 @@
+"""Immutable, publication-scoped metadata concordance contracts."""
+
+from dataclasses import dataclass
+from enum import StrEnum, unique
+from typing import Literal, NewType, final, override
+
+from bioml_data._domain import DatasetSnapshotIdentity, ProtocolId, TaskId
+from bioml_data._split_capability_models import SplitArtifactScope
+from bioml_data.datasets._evidence_validation import valid_https_citation
+
+MetadataFoldId = NewType("MetadataFoldId", str)
+
+
+@unique
+class MetadataExpectationKind(StrEnum):
+    """Evidence precision explicitly supported by metadata comparisons."""
+
+    EXACT = "exact"
+    RANGE = "range"
+    APPROXIMATE = "approximate"
+    SET = "set"
+    NOT_REPORTED = "not_reported"
+
+
+@unique
+class MetadataMetric(StrEnum):
+    """Canonical prepared-dataset metadata that can be compared safely."""
+
+    OBSERVATION_COUNT = "observation_count"
+    FEATURE_COUNT = "feature_count"
+    STUDY_IDS = "study_ids"
+    DONOR_IDS = "donor_ids"
+    GROUP_IDS = "group_ids"
+    LABEL_VALUES = "label_values"
+    ASSAY_VALUES = "assay_values"
+    TISSUE_VALUES = "tissue_values"
+    LABEL_COUNTS = "label_counts"
+    OBSERVATIONS_PER_GROUP = "observations_per_group"
+
+
+ScalarMetadataMetric = Literal[
+    MetadataMetric.OBSERVATION_COUNT,
+    MetadataMetric.FEATURE_COUNT,
+]
+ValueMetadataMetric = Literal[
+    MetadataMetric.STUDY_IDS,
+    MetadataMetric.DONOR_IDS,
+    MetadataMetric.GROUP_IDS,
+    MetadataMetric.LABEL_VALUES,
+    MetadataMetric.ASSAY_VALUES,
+    MetadataMetric.TISSUE_VALUES,
+]
+DistributionMetadataMetric = Literal[
+    MetadataMetric.LABEL_COUNTS,
+    MetadataMetric.OBSERVATIONS_PER_GROUP,
+]
+
+
+@unique
+class MetadataConcordance(StrEnum):
+    """Outcome of comparing an observation with scoped external evidence."""
+
+    MATCH = "match"
+    MISMATCH = "mismatch"
+    NOT_REPORTED = "not_reported"
+
+
+@dataclass(frozen=True, slots=True)
+class MetadataCitation:
+    """One human-verifiable source for a metadata expectation."""
+
+    title: str
+    uri: str
+
+    def __post_init__(self) -> None:
+        """Reject empty citations before they become an evidence claim."""
+        if not valid_https_citation(self.title, self.uri):
+            raise InvalidMetadataExpectationError(
+                detail="citation must be a public uncredentialed HTTPS URL"
+            )
+
+
+@dataclass(frozen=True, slots=True)
+class MetadataExpectationScope:
+    """Exact scientific scope that prevents metadata evidence substitution."""
+
+    dataset: DatasetSnapshotIdentity
+    artifact: SplitArtifactScope
+    task: TaskId
+    protocol: ProtocolId
+    citation: MetadataCitation
+
+
+def metadata_scientific_scope(scope: MetadataExpectationScope) -> tuple[str, ...]:
+    """Return the data identity, deliberately excluding citation provenance."""
+    return (
+        str(scope.dataset),
+        str(scope.artifact),
+        str(scope.task),
+        str(scope.protocol),
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class MetadataCount:
+    """One stable category and its observed cardinality."""
+
+    value: str
+    count: int
+
+    def __post_init__(self) -> None:
+        """Keep categorical distributions deterministic and non-negative."""
+        if not self.value.strip() or type(self.count) is not int or self.count < 0:
+            raise InvalidMetadataExpectationError(
+                detail=(
+                    "metadata counts need a non-empty value and exact "
+                    "non-negative integer"
+                )
+            )
+
+
+@final
+class InvalidMetadataExpectationError(Exception):
+    """Raised when an evidence declaration has no sound comparison meaning."""
+
+    __slots__ = ("detail",)
+
+    detail: str
+
+    def __init__(self, detail: str) -> None:
+        super().__init__(detail)
+        self.detail = detail
+
+    @override
+    def __str__(self) -> str:
+        return f"invalid metadata expectation: {self.detail}"
+
+
+@final
+class MetadataExpectationScopeMismatchError(Exception):
+    """Raised when evidence does not name the exact prepared-data scope."""
+
+    __slots__ = ("actual", "expected", "field")
+
+    field: str
+    expected: str
+    actual: str
+
+    def __init__(self, field: str, expected: str, actual: str) -> None:
+        super().__init__(field, expected, actual)
+        self.field = field
+        self.expected = expected
+        self.actual = actual
+
+    @override
+    def __str__(self) -> str:
+        return (
+            f"metadata expectation scope mismatch for {self.field}: "
+            f"expected {self.expected!r}, received {self.actual!r}"
+        )
+
+
+def require_matching_scope_value[T](field: str, expected: T, actual: T) -> None:
+    """Raise when one scientific scope value differs from another."""
+    if expected != actual:
+        raise MetadataExpectationScopeMismatchError(
+            field=field,
+            expected=str(expected),
+            actual=str(actual),
+        )
+
+
+@unique
+class MetadataPartitionViolation(StrEnum):
+    """Structural partition defects that preclude a complete comparison."""
+
+    COVERAGE = "coverage"
+    DUPLICATE_OBSERVATION = "duplicate_observation"
+    DATASET = "dataset"
+    ALLOCATION = "allocation"
+    GROUPING = "grouping"
+    IDENTITY = "identity"
+    RECEIPT_COUNTS = "receipt_counts"
+    TASK = "task"
+    PROTOCOL = "protocol"
+
+
+@final
+class InvalidMetadataPartitionError(Exception):
+    """Raised when split rows cannot be compared to prepared rows soundly."""
+
+    __slots__ = ("violation",)
+
+    violation: MetadataPartitionViolation
+
+    def __init__(self, violation: MetadataPartitionViolation) -> None:
+        super().__init__(violation)
+        self.violation = violation
+
+    @override
+    def __str__(self) -> str:
+        return f"invalid metadata partition receipt: {self.violation.value}"

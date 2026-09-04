@@ -1,0 +1,286 @@
+{
+  "canonical_artifact": {
+    "artifact_id": "sha256:680a5efc2012f80d4f749497b4fc4b729b04443d9d56497aa94cb8cc39bf56b3",
+    "byte_size": 19214086,
+    "materialization_identity": "639935a8f0cd8ec1c8073461a10ff67366316fbe3093c95c53dd928e04f55240",
+    "parent_artifacts": [
+      "sha256:0fbf73145f2b50f956b9946aa2fa17e5fce0e40ddfc5ba922a1d503d65ced3c3"
+    ],
+    "sha256": "680a5efc2012f80d4f749497b4fc4b729b04443d9d56497aa94cb8cc39bf56b3",
+    "transform_protocol": "tms-aorta-csr-v1"
+  },
+  "readiness": {
+    "dataset_support": "unresolved",
+    "partition_interpretation": "observed_only_not_publication_match",
+    "publication_partition_values": "not_reported"
+  },
+  "rights": {
+    "file_level_rights_matrix": "unresolved",
+    "license_scope": "figshare_article_record",
+    "redistribution_authorization": "not_claimed",
+    "reported_license": "MIT"
+  },
+  "schema_version": "tms-aorta-real-metadata-v1",
+  "source": {
+    "article_doi": "10.6084/m9.figshare.12654728.v1",
+    "article_id": "12654728",
+    "artifact_id": "sha256:0fbf73145f2b50f956b9946aa2fa17e5fce0e40ddfc5ba922a1d503d65ced3c3",
+    "byte_size": 44547302,
+    "file_id": "23872460",
+    "filename": "tabula-muris-senis-facs-processed-official-annotations-Aorta.h5ad",
+    "official_md5": "4b1c150cf856a7406b3293ebdacd72c6",
+    "provider": "figshare",
+    "sha256": "0fbf73145f2b50f956b9946aa2fa17e5fce0e40ddfc5ba922a1d503d65ced3c3",
+    "url": "https://ndownloader.figshare.com/files/23872460"
+  },
+  "split": {
+    "covered_observation_count": 906,
+    "cross_partition_groups": [],
+    "partitions": {
+      "test": {
+        "comparison_statuses": {
+          "assay_values": "not_reported",
+          "donor_ids": "not_reported",
+          "feature_count": "not_reported",
+          "group_ids": "not_reported",
+          "label_counts": "not_reported",
+          "label_values": "not_reported",
+          "observation_count": "not_reported",
+          "observations_per_group": "not_reported",
+          "study_ids": "not_reported",
+          "tissue_values": "not_reported"
+        },
+        "held_out_groups": [
+          "24_59_M"
+        ],
+        "observed": {
+          "assay_values": [],
+          "donor_ids": [
+            "24_59_M"
+          ],
+          "feature_count": 22966,
+          "group_ids": [
+            "24_59_M"
+          ],
+          "label_counts": {
+            "aortic endothelial cell": 13,
+            "epithelial cell": 2,
+            "fibroblast of cardiac tissue": 6,
+            "fibrocyte": 5,
+            "professional antigen presenting cell": 6
+          },
+          "label_values": [
+            "aortic endothelial cell",
+            "epithelial cell",
+            "fibroblast of cardiac tissue",
+            "fibrocyte",
+            "professional antigen presenting cell"
+          ],
+          "observation_count": 32,
+          "observations_per_group": {
+            "24_59_M": 32
+          },
+          "study_ids": [
+            "GSE149590"
+          ],
+          "tissue_values": [
+            "Aorta"
+          ]
+        }
+      },
+      "train": {
+        "comparison_statuses": {
+          "assay_values": "not_reported",
+          "donor_ids": "not_reported",
+          "feature_count": "not_reported",
+          "group_ids": "not_reported",
+          "label_counts": "not_reported",
+          "label_values": "not_reported",
+          "observation_count": "not_reported",
+          "observations_per_group": "not_reported",
+          "study_ids": "not_reported",
+          "tissue_values": "not_reported"
+        },
+        "held_out_groups": [],
+        "observed": {
+          "assay_values": [],
+          "donor_ids": [
+            "18_45_M",
+            "18_46_F",
+            "18_47_F",
+            "18_53_M",
+            "24_58_M",
+            "24_61_M",
+            "3_11_M",
+            "3_38_F",
+            "3_39_F",
+            "3_8_M",
+            "3_9_M"
+          ],
+          "feature_count": 22966,
+          "group_ids": [
+            "18_45_M",
+            "18_46_F",
+            "18_47_F",
+            "18_53_M",
+            "24_58_M",
+            "24_61_M",
+            "3_11_M",
+            "3_38_F",
+            "3_39_F",
+            "3_8_M",
+            "3_9_M"
+          ],
+          "label_counts": {
+            "aortic endothelial cell": 300,
+            "epithelial cell": 16,
+            "fibroblast of cardiac tissue": 207,
+            "fibrocyte": 32,
+            "macrophage": 26,
+            "professional antigen presenting cell": 111
+          },
+          "label_values": [
+            "aortic endothelial cell",
+            "epithelial cell",
+            "fibroblast of cardiac tissue",
+            "fibrocyte",
+            "macrophage",
+            "professional antigen presenting cell"
+          ],
+          "observation_count": 692,
+          "observations_per_group": {
+            "18_45_M": 128,
+            "18_46_F": 85,
+            "18_47_F": 74,
+            "18_53_M": 29,
+            "24_58_M": 25,
+            "24_61_M": 82,
+            "3_11_M": 52,
+            "3_38_F": 19,
+            "3_39_F": 68,
+            "3_8_M": 79,
+            "3_9_M": 51
+          },
+          "study_ids": [
+            "GSE149590"
+          ],
+          "tissue_values": [
+            "Aorta"
+          ]
+        }
+      },
+      "validation": {
+        "comparison_statuses": {
+          "assay_values": "not_reported",
+          "donor_ids": "not_reported",
+          "feature_count": "not_reported",
+          "group_ids": "not_reported",
+          "label_counts": "not_reported",
+          "label_values": "not_reported",
+          "observation_count": "not_reported",
+          "observations_per_group": "not_reported",
+          "study_ids": "not_reported",
+          "tissue_values": "not_reported"
+        },
+        "held_out_groups": [],
+        "observed": {
+          "assay_values": [],
+          "donor_ids": [
+            "24_60_M",
+            "3_10_M"
+          ],
+          "feature_count": 22966,
+          "group_ids": [
+            "24_60_M",
+            "3_10_M"
+          ],
+          "label_counts": {
+            "aortic endothelial cell": 154,
+            "fibroblast of cardiac tissue": 2,
+            "fibrocyte": 7,
+            "macrophage": 6,
+            "professional antigen presenting cell": 13
+          },
+          "label_values": [
+            "aortic endothelial cell",
+            "fibroblast of cardiac tissue",
+            "fibrocyte",
+            "macrophage",
+            "professional antigen presenting cell"
+          ],
+          "observation_count": 182,
+          "observations_per_group": {
+            "24_60_M": 85,
+            "3_10_M": 97
+          },
+          "study_ids": [
+            "GSE149590"
+          ],
+          "tissue_values": [
+            "Aorta"
+          ]
+        }
+      }
+    },
+    "realized_group_counts": {
+      "test": 1,
+      "train": 11,
+      "validation": 2
+    }
+  },
+  "verification": {
+    "assignment_identity": "dbc1f707f03a35465bbf9ad0c8b84a6e3a00e8c50a05c9a0e734dd0804990165",
+    "dataset": {
+      "name": "tms-aorta",
+      "version": "figshare-project-64982"
+    },
+    "date": "2026-09-04",
+    "implementation_commit": "67cb61dfafb739fa85504b6bf27eee52eb617d0f",
+    "protocol": "animal-held-out-v1",
+    "seed": 17,
+    "task": "cell-type-annotation-v1"
+  },
+  "whole_dataset": {
+    "assay_values": [],
+    "comparison_statuses": {
+      "assay_values": "not_reported",
+      "feature_count": "match",
+      "label_counts": "match",
+      "observation_count": "match",
+      "tissue_values": "match"
+    },
+    "donor_ids": [
+      "18_45_M",
+      "18_46_F",
+      "18_47_F",
+      "18_53_M",
+      "24_58_M",
+      "24_59_M",
+      "24_60_M",
+      "24_61_M",
+      "3_10_M",
+      "3_11_M",
+      "3_38_F",
+      "3_39_F",
+      "3_8_M",
+      "3_9_M"
+    ],
+    "feature_count": 22966,
+    "label_counts": {
+      "aortic endothelial cell": 467,
+      "epithelial cell": 18,
+      "fibroblast of cardiac tissue": 215,
+      "fibrocyte": 44,
+      "macrophage": 32,
+      "professional antigen presenting cell": 130
+    },
+    "nonzero_count": 2000087,
+    "observation_count": 906,
+    "study_ids": [
+      "GSE149590"
+    ],
+    "tissue_values": [
+      "Aorta"
+    ]
+  }
+}

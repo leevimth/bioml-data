@@ -5,12 +5,11 @@ from ipaddress import ip_address
 from typing import Final
 from urllib.parse import urlsplit
 
-from bioml_data._split_capability_models import (
-    SplitEvidenceCitation,
-    SplitProtocolEvidence,
-)
+from bioml_data._split_capability_models import SplitProtocolEvidence
 
 _MAX_HOSTNAME_LABEL_LENGTH: Final = 63
+_MINIMUM_PUBLIC_HOSTNAME_LABELS: Final = 2
+_HEX_PREFIX_LENGTH: Final = 2
 _INVALID_PERCENT_ESCAPE: Final = re.compile(r"%(?![0-9A-Fa-f]{2})")
 
 
@@ -19,7 +18,10 @@ def valid_split_evidence(evidence: SplitProtocolEvidence) -> bool:
     return (
         _canonical_text(evidence.fit_scope)
         and _canonical_text(evidence.leakage_caveat)
-        and all(_valid_citation(citation) for citation in evidence.citations)
+        and all(
+            valid_https_citation(citation.title, citation.uri)
+            for citation in evidence.citations
+        )
     )
 
 
@@ -27,15 +29,16 @@ def _canonical_text(value: str) -> bool:
     return bool(value) and value == value.strip()
 
 
-def _valid_citation(citation: SplitEvidenceCitation) -> bool:
-    if not _canonical_text(citation.title) or not _canonical_text(citation.uri):
+def valid_https_citation(title: str, uri: str) -> bool:
+    """Return whether an uncredentialed public HTTPS citation is safe to publish."""
+    if not _canonical_text(title) or not _canonical_text(uri):
         return False
-    if any(character.isspace() for character in citation.uri):
+    if any(character.isspace() for character in uri):
         return False
-    if _INVALID_PERCENT_ESCAPE.search(citation.uri) is not None:
+    if _INVALID_PERCENT_ESCAPE.search(uri) is not None:
         return False
     try:
-        parsed = urlsplit(citation.uri)
+        parsed = urlsplit(uri)
         hostname = parsed.hostname
         _ = parsed.port
     except ValueError:
@@ -57,8 +60,13 @@ def _valid_hostname(hostname: str) -> bool:
         address = ip_address(hostname)
     except ValueError:
         labels = hostname.removesuffix(".").split(".")
-        return bool(labels) and all(_valid_hostname_label(label) for label in labels)
-    return not address.is_loopback and not address.is_private
+        return (
+            len(labels) >= _MINIMUM_PUBLIC_HOSTNAME_LABELS
+            and hostname.lower() not in {"localhost", "local"}
+            and not _numeric_ipv4_alias(labels)
+            and all(_valid_hostname_label(label) for label in labels)
+        )
+    return address.is_global and not address.is_multicast and not address.is_reserved
 
 
 def _valid_hostname_label(label: str) -> bool:
@@ -68,4 +76,23 @@ def _valid_hostname_label(label: str) -> bool:
         and label[0].isalnum()
         and label[-1].isalnum()
         and all(character.isalnum() or character == "-" for character in label)
+    )
+
+
+def _numeric_ipv4_alias(labels: list[str]) -> bool:
+    return all(_numeric_ipv4_label(label) for label in labels)
+
+
+def _numeric_ipv4_label(label: str) -> bool:
+    return (
+        label.isdecimal()
+        or (
+            label.startswith("0x")
+            and len(label) > _HEX_PREFIX_LENGTH
+            and all(
+                character in "0123456789abcdef"
+                for character in label[_HEX_PREFIX_LENGTH:]
+            )
+        )
+        or (label.startswith("0") and len(label) > 1 and label[1:].isdecimal())
     )
