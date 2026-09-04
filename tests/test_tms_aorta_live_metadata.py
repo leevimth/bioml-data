@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import warnings
 from collections import Counter
 from pathlib import Path
 from typing import TYPE_CHECKING, Final, assert_never
@@ -49,11 +50,15 @@ def _observed(comparison: MetadataComparison) -> JsonValue:
             | bio.MetadataMetric.TISSUE_VALUES
         ):
             return _json_strings(comparison.observed.values)
-        case (
-            bio.MetadataMetric.LABEL_COUNTS | bio.MetadataMetric.OBSERVATIONS_PER_GROUP
-        ):
-            return {item.value: item.count for item in comparison.observed.distribution}
-    assert_never(metric)
+        case unreachable:
+            if (
+                unreachable is bio.MetadataMetric.LABEL_COUNTS
+                or unreachable is bio.MetadataMetric.OBSERVATIONS_PER_GROUP
+            ):
+                return {
+                    item.value: item.count for item in comparison.observed.distribution
+                }
+            assert_never(unreachable)
 
 
 def _observations(
@@ -91,11 +96,17 @@ def test_official_tms_aorta_matches_checked_metadata_evidence() -> None:
 
     # When: the public download, prepare, load, split, and concordance path is run.
     download = bio.download_dataset("tms-aorta", data_dir=cache)
-    prepared = bio.prepare_dataset(
-        "tms-aorta",
-        artifact=download.artifact,
-        data_dir=cache,
-    )
+    with warnings.catch_warnings(record=True) as captured_warnings:
+        warnings.simplefilter("always")
+        prepared = bio.prepare_dataset(
+            "tms-aorta",
+            artifact=download.artifact,
+            data_dir=cache,
+        )
+    for warning in captured_warnings:
+        assert warning.category.__module__ == "anndata._warnings"
+        assert warning.category.__name__ == "OldFormatWarning"
+        assert str(warning.message)
     dataset = bio.load_dataset("tms-aorta", artifact=prepared.lineage)
     assignment = bio.SplitAssigner(
         dataset=dataset.snapshot,

@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 from enum import StrEnum, unique
-from typing import Literal, NewType, override
+from typing import Literal, NewType, final, override
 
 from bioml_data._domain import DatasetSnapshotIdentity, ProtocolId, TaskId
 from bioml_data._split_capability_models import SplitArtifactScope
@@ -119,24 +119,38 @@ class MetadataCount:
             )
 
 
-@dataclass(slots=True)
+@final
 class InvalidMetadataExpectationError(Exception):
     """Raised when an evidence declaration has no sound comparison meaning."""
 
+    __slots__ = ("detail",)
+
     detail: str
+
+    def __init__(self, detail: str) -> None:
+        super().__init__(detail)
+        self.detail = detail
 
     @override
     def __str__(self) -> str:
         return f"invalid metadata expectation: {self.detail}"
 
 
-@dataclass(slots=True)
+@final
 class MetadataExpectationScopeMismatchError(Exception):
     """Raised when evidence does not name the exact prepared-data scope."""
+
+    __slots__ = ("actual", "expected", "field")
 
     field: str
     expected: str
     actual: str
+
+    def __init__(self, field: str, expected: str, actual: str) -> None:
+        super().__init__(field, expected, actual)
+        self.field = field
+        self.expected = expected
+        self.actual = actual
 
     @override
     def __str__(self) -> str:
@@ -171,11 +185,17 @@ class MetadataPartitionViolation(StrEnum):
     PROTOCOL = "protocol"
 
 
-@dataclass(slots=True)
+@final
 class InvalidMetadataPartitionError(Exception):
     """Raised when split rows cannot be compared to prepared rows soundly."""
 
+    __slots__ = ("violation",)
+
     violation: MetadataPartitionViolation
+
+    def __init__(self, violation: MetadataPartitionViolation) -> None:
+        super().__init__(violation)
+        self.violation = violation
 
     @override
     def __str__(self) -> str:

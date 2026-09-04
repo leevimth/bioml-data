@@ -14,6 +14,8 @@ from bioml_data._metadata_concordance_models import (
 from bioml_data._metadata_normalization import (
     canonical_distribution,
     canonical_values,
+    valid_numeric_approximation,
+    valid_numeric_range,
     validate_metadata_values,
 )
 from bioml_data._split import SplitPartition
@@ -180,24 +182,34 @@ def _validate_shape(expectation: PublicationMetadataExpectation) -> None:
         MetadataMetric.LABEL_COUNTS,
         MetadataMetric.OBSERVATIONS_PER_GROUP,
     }
-    if expectation.kind is MetadataExpectationKind.EXACT:
-        valid = _valid_exact(expectation, scalar, distribution)
-    elif expectation.kind is MetadataExpectationKind.SET:
-        valid = (
-            not scalar
-            and not distribution
-            and bool(expectation.values)
-            and _empty_numeric_fields(expectation)
-            and not expectation.expected_distribution
-        )
-    elif expectation.kind is MetadataExpectationKind.NOT_REPORTED:
-        valid = _empty_expectation(expectation)
-    elif expectation.kind is MetadataExpectationKind.RANGE:
-        valid = _valid_range(expectation, scalar)
-    elif expectation.kind is MetadataExpectationKind.APPROXIMATE:
-        valid = _valid_approximation(expectation, scalar)
-    else:
-        assert_never(expectation.kind)
+    match expectation.kind:
+        case MetadataExpectationKind.EXACT:
+            valid = _valid_exact(expectation, scalar, distribution)
+        case MetadataExpectationKind.SET:
+            valid = (
+                not scalar
+                and not distribution
+                and bool(expectation.values)
+                and _empty_numeric_fields(expectation)
+                and not expectation.expected_distribution
+            )
+        case MetadataExpectationKind.NOT_REPORTED:
+            valid = _empty_expectation(expectation)
+        case MetadataExpectationKind.RANGE:
+            valid = valid_numeric_range(expectation, scalar)
+        case unreachable:
+            if unreachable is MetadataExpectationKind.APPROXIMATE:
+                _raise_invalid(
+                    expectation,
+                    valid_numeric_approximation(expectation, scalar),
+                )
+                return
+            assert_never(unreachable)
+    _raise_invalid(expectation, valid)
+
+
+def _raise_invalid(expectation: PublicationMetadataExpectation, valid: bool) -> None:
+    """Raise when an expectation has fields incompatible with its kind."""
     if not valid:
         raise InvalidMetadataExpectationError(
             detail=(
@@ -245,31 +257,3 @@ def _valid_exact(
         and not expectation.values
     )
     return scalar_claim or distribution_claim
-
-
-def _valid_range(expectation: PublicationMetadataExpectation, scalar: bool) -> bool:
-    return (
-        scalar
-        and expectation.lower_bound is not None
-        and expectation.upper_bound is not None
-        and expectation.expected_count is None
-        and expectation.tolerance is None
-        and not expectation.values
-        and not expectation.expected_distribution
-        and expectation.lower_bound <= expectation.upper_bound
-    )
-
-
-def _valid_approximation(
-    expectation: PublicationMetadataExpectation,
-    scalar: bool,
-) -> bool:
-    return (
-        scalar
-        and expectation.expected_count is not None
-        and expectation.tolerance is not None
-        and expectation.lower_bound is None
-        and expectation.upper_bound is None
-        and not expectation.values
-        and not expectation.expected_distribution
-    )

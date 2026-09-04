@@ -53,6 +53,12 @@ nonzero-count, metadata-string, and serialized-output sizes. H5AD parsing uses a
 private copy whose bytes are reverified during a no-follow read, preventing the
 final parser open from following a swapped cache path.
 
+The official H5AD uses legacy AnnData encodings. The opt-in integration test
+captures the resulting `anndata._warnings.OldFormatWarning` only around this
+H5AD preparation boundary and rejects any other warning category there. This
+acknowledges source serialization age; it is not a metadata match, readiness
+result, or a suppression applied to package users.
+
 ## Split protocol
 
 `animal-held-out-v1` is explicit and has no default selection.

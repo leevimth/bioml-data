@@ -183,24 +183,29 @@ def test_compare_rejects_expectations_for_a_different_fold() -> None:
 def _expectation_for_numeric_field(
     field: _NumericField,
 ) -> bio.PublicationMetadataExpectation:
-    if field is _NumericField.EXPECTED_COUNT:
-        return bio.PublicationMetadataExpectation.count(
-            scope=metadata_scope(),
-            metric=bio.MetadataMetric.OBSERVATION_COUNT,
-            expected=6,
-        )
-    if field is _NumericField.TOLERANCE:
-        return bio.PublicationMetadataExpectation.approximate(
-            scope=metadata_scope(),
-            metric=bio.MetadataMetric.OBSERVATION_COUNT,
-            expected=6,
-            tolerance=1,
-        )
-    if field is _NumericField.LOWER_BOUND or field is _NumericField.UPPER_BOUND:
-        return bio.PublicationMetadataExpectation.within_range(
-            scope=metadata_scope(),
-            metric=bio.MetadataMetric.OBSERVATION_COUNT,
-            lower_bound=5,
-            upper_bound=7,
-        )
-    assert_never(field)
+    match field:
+        case _NumericField.EXPECTED_COUNT:
+            return bio.PublicationMetadataExpectation.count(
+                scope=metadata_scope(),
+                metric=bio.MetadataMetric.OBSERVATION_COUNT,
+                expected=6,
+            )
+        case _NumericField.TOLERANCE:
+            return bio.PublicationMetadataExpectation.approximate(
+                scope=metadata_scope(),
+                metric=bio.MetadataMetric.OBSERVATION_COUNT,
+                expected=6,
+                tolerance=1,
+            )
+        case unreachable:
+            if (
+                unreachable is _NumericField.LOWER_BOUND
+                or unreachable is _NumericField.UPPER_BOUND
+            ):
+                return bio.PublicationMetadataExpectation.within_range(
+                    scope=metadata_scope(),
+                    metric=bio.MetadataMetric.OBSERVATION_COUNT,
+                    lower_bound=5,
+                    upper_bound=7,
+                )
+            assert_never(unreachable)

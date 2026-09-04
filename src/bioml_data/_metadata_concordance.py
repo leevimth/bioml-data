@@ -213,22 +213,27 @@ def _comparison(
     expectation: PublicationMetadataExpectation,
     observed: MetadataObservedValue,
 ) -> MetadataComparison:
-    if expectation.kind is MetadataExpectationKind.NOT_REPORTED:
-        status = MetadataConcordance.NOT_REPORTED
-    elif expectation.kind is MetadataExpectationKind.EXACT:
-        status = _exact_status(expectation, observed)
-    elif expectation.kind is MetadataExpectationKind.SET:
-        status = (
-            MetadataConcordance.MATCH
-            if expectation.values == observed.values
-            else MetadataConcordance.MISMATCH
-        )
-    elif expectation.kind is MetadataExpectationKind.RANGE:
-        status = _range_status(expectation, observed)
-    elif expectation.kind is MetadataExpectationKind.APPROXIMATE:
-        status = _approximate_status(expectation, observed)
-    else:
-        assert_never(expectation.kind)
+    match expectation.kind:
+        case MetadataExpectationKind.NOT_REPORTED:
+            status = MetadataConcordance.NOT_REPORTED
+        case MetadataExpectationKind.EXACT:
+            status = _exact_status(expectation, observed)
+        case MetadataExpectationKind.SET:
+            status = (
+                MetadataConcordance.MATCH
+                if expectation.values == observed.values
+                else MetadataConcordance.MISMATCH
+            )
+        case MetadataExpectationKind.RANGE:
+            status = _range_status(expectation, observed)
+        case unreachable:
+            if unreachable is MetadataExpectationKind.APPROXIMATE:
+                return MetadataComparison(
+                    expectation=expectation,
+                    observed=observed,
+                    status=_approximate_status(expectation, observed),
+                )
+            assert_never(unreachable)
     return MetadataComparison(expectation=expectation, observed=observed, status=status)
 
 

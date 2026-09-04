@@ -1,9 +1,33 @@
 """Deterministic normalization for unordered metadata expectation values."""
 
+from typing import Protocol
+
 from bioml_data._metadata_concordance_models import (
     InvalidMetadataExpectationError,
     MetadataCount,
 )
+
+
+class NumericMetadataExpectation(Protocol):
+    """Numeric fields required to validate range and approximation evidence."""
+
+    @property
+    def expected_count(self) -> int | None: ...
+
+    @property
+    def lower_bound(self) -> int | None: ...
+
+    @property
+    def upper_bound(self) -> int | None: ...
+
+    @property
+    def tolerance(self) -> int | None: ...
+
+    @property
+    def values(self) -> tuple[str, ...]: ...
+
+    @property
+    def expected_distribution(self) -> tuple[MetadataCount, ...]: ...
 
 
 def canonical_values(values: tuple[str, ...]) -> tuple[str, ...]:
@@ -41,3 +65,36 @@ def validate_metadata_values(
         raise InvalidMetadataExpectationError(
             detail="metadata set values must be non-empty"
         )
+
+
+def valid_numeric_range(
+    expectation: NumericMetadataExpectation,
+    scalar: bool,
+) -> bool:
+    """Validate a bounded scalar expectation without importing its model."""
+    return (
+        scalar
+        and expectation.lower_bound is not None
+        and expectation.upper_bound is not None
+        and expectation.expected_count is None
+        and expectation.tolerance is None
+        and not expectation.values
+        and not expectation.expected_distribution
+        and expectation.lower_bound <= expectation.upper_bound
+    )
+
+
+def valid_numeric_approximation(
+    expectation: NumericMetadataExpectation,
+    scalar: bool,
+) -> bool:
+    """Validate an approximate scalar expectation without importing its model."""
+    return (
+        scalar
+        and expectation.expected_count is not None
+        and expectation.tolerance is not None
+        and expectation.lower_bound is None
+        and expectation.upper_bound is None
+        and not expectation.values
+        and not expectation.expected_distribution
+    )
