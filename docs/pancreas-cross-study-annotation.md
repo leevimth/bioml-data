@@ -43,10 +43,23 @@ package records these values in
 | Xin | 1,449 | 33,889 | 4 |
 
 These are whole-cohort observations, not post-harmonization fold statistics.
-The paper does not report train/test sample counts, harmonized feature
-dimensions, or per-label counts for any fold. Those fields therefore remain
-`NOT_REPORTED` in metadata concordance; they must not be reconstructed from
-the cohort totals. No validation partition is part of the paper's protocol.
+The four-label benchmark subset is smaller and is reported separately in
+Supplementary Table S2:
+
+| Held-out cohort | alpha | beta | delta | gamma | subset cells |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Baron Human | 2,326 | 2,525 | 601 | 255 | 5,707 |
+| Muraro | 812 | 448 | 193 | 101 | 1,554 |
+| Segerstolpe | 872 | 263 | 110 | 195 | 1,440 |
+| Xin | 855 | 466 | 46 | 82 | 1,449 |
+
+For each fold, the held-out test sample total and four-label counts are
+directly reported by S2. The current expectation model has no evidence-origin
+field, so train values—even though they can be arithmetically summed from the
+three reported component rows—remain `NOT_REPORTED` rather than being
+overstated as direct paper claims. Fold feature dimensions and validation
+metadata are also `NOT_REPORTED`; no validation partition is part of the
+paper's protocol.
 
 Donor-held-out evaluation, where adequate donor metadata can be verified, would
 be a separate package-defined protocol with a different target of
@@ -71,6 +84,7 @@ upstream terms.
 ## Sources
 
 - [Abdelaal, Michielsen *et al.* (2019)](https://link.springer.com/article/10.1186/s13059-019-1795-z)
+- [Primary supplementary table source](https://repository.tudelft.nl/file/File_830444e0-e6b6-49ed-9c72-bf5e1c2bfcb4?preview=1)
 - [Paper supplementary table](https://academic.oup.com/view-large/531233769)
 - [Benchmark dataset v2 on Zenodo](https://zenodo.org/records/3357167)
 - [Earlier benchmark dataset record](https://zenodo.org/records/2877646)
