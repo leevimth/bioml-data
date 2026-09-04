@@ -3,16 +3,15 @@
 from dataclasses import replace
 
 from bioml_data._metadata_receipt_validation import validate_receipt_integrity
+from bioml_data._preparation_contracts import ExpressionInput, PreparationFitScope
 from bioml_data._preparation_execution_concordance import concordance_attachment
-from bioml_data._preparation_execution_models import (
-    ExpressionInput,
-    PreparationExecutionReceiptIdentity,
-    PreparationFitScope,
-)
+from bioml_data._preparation_execution_models import PreparationExecutionReceiptIdentity
 from bioml_data._preparation_execution_receipt import (
     PreparationExecutionReceipt,
     PreparationExecutionRequest,
+    ReceiptRoot,
     preparation_execution_receipt_identity,
+    validate_preparation_execution_receipt_structure,
 )
 from bioml_data._preparation_execution_request_validation import (
     validate_execution_request_roots,
@@ -64,10 +63,11 @@ def record_preparation_execution(
 
 
 def validate_preparation_execution_receipt(
-    receipt: PreparationExecutionReceipt,
+    receipt: ReceiptRoot,
 ) -> None:
-    expected = preparation_execution_receipt_identity(receipt)
-    if receipt.receipt_identity != expected:
+    validated = validate_preparation_execution_receipt_structure(receipt)
+    expected = preparation_execution_receipt_identity(validated)
+    if validated.receipt_identity != expected:
         field = "receipt_identity"
         raise mismatch(field, "matching receipt identity", "mismatch")
 

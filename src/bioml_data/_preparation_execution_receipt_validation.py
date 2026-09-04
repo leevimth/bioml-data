@@ -6,15 +6,14 @@ from typing import TYPE_CHECKING, NoReturn, Protocol
 
 from bioml_data._dataset_preparation_models import DatasetPreparationOutcome
 from bioml_data._domain import DatasetSnapshotIdentity
+from bioml_data._preparation_contracts import ExpressionInput, PreparationFitScope
 from bioml_data._preparation_execution_errors import (
     PreparationExecutionReceiptMismatchError,
 )
 from bioml_data._preparation_execution_models import (
-    ExpressionInput,
     MetadataConcordanceAttachment,
     MetadataConcordanceAttachmentStatus,
     PreparationExecutionReceiptIdentity,
-    PreparationFitScope,
     PreparationSemanticParameters,
     validate_semantic_parameters,
 )
@@ -113,7 +112,7 @@ def raise_mismatch(field: str, expected: str, actual: str) -> NoReturn:
 
 
 def _require_semantic_parameters(value: PreparationSemanticParameters | str) -> None:
-    if not isinstance(value, PreparationSemanticParameters):
+    if type(value) is not PreparationSemanticParameters:
         raise_mismatch(
             "semantic_parameters", "PreparationSemanticParameters", type(value).__name__
         )
@@ -121,7 +120,7 @@ def _require_semantic_parameters(value: PreparationSemanticParameters | str) -> 
 
 
 def _require_runtime(value: PreparationExecutionRuntime | str) -> None:
-    if not isinstance(value, PreparationExecutionRuntime):
+    if type(value) is not PreparationExecutionRuntime:
         raise_mismatch("runtime", "PreparationExecutionRuntime", type(value).__name__)
     validate_runtime_metadata(value)
 
@@ -155,7 +154,7 @@ def _require_fit_scopes(receipt: ExecutionReceiptLike) -> None:
 def _require_attachment(value: MetadataConcordanceAttachment | str | None) -> None:
     if value is None:
         return
-    if not isinstance(value, MetadataConcordanceAttachment):
+    if type(value) is not MetadataConcordanceAttachment:
         raise_mismatch(
             "metadata_concordance",
             "MetadataConcordanceAttachment or none",

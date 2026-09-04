@@ -1,5 +1,6 @@
 """Public API for deterministic preparation-execution receipts."""
 
+from bioml_data._preparation_contracts import ExpressionInput, PreparationFitScope
 from bioml_data._preparation_execution import (
     record_preparation_execution,
     validate_preparation_execution_receipt,
@@ -8,11 +9,9 @@ from bioml_data._preparation_execution_errors import (
     PreparationExecutionReceiptMismatchError,
 )
 from bioml_data._preparation_execution_models import (
-    ExpressionInput,
     MetadataConcordanceAttachment,
     MetadataConcordanceAttachmentStatus,
     PreparationExecutionReceiptIdentity,
-    PreparationFitScope,
     PreparationSemanticParameters,
 )
 from bioml_data._preparation_execution_receipt import (

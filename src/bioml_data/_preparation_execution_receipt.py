@@ -11,11 +11,10 @@ from bioml_data._dataset_preparation_models import (
 )
 from bioml_data._domain import DatasetSnapshotIdentity, ProtocolId, TaskId
 from bioml_data._metadata_concordance import MetadataConcordanceReport
+from bioml_data._preparation_contracts import ExpressionInput, PreparationFitScope
 from bioml_data._preparation_execution_models import (
-    ExpressionInput,
     MetadataConcordanceAttachment,
     PreparationExecutionReceiptIdentity,
-    PreparationFitScope,
     PreparationSemanticParameters,
 )
 from bioml_data._preparation_execution_receipt_validation import (
@@ -83,20 +82,30 @@ class PreparationExecutionReceipt:
         return _canonical_json_unchecked(self, include_receipt_identity=True)
 
 
+type ReceiptRoot = PreparationExecutionReceipt | str | list[str] | dict[str, str] | None
+
+
 def preparation_execution_receipt_identity(
-    receipt: PreparationExecutionReceipt,
+    receipt: ReceiptRoot,
 ) -> PreparationExecutionReceiptIdentity:
     """Hash every validated scientific field except its derived receipt identity."""
-    validate_preparation_execution_receipt_structure(receipt)
-    encoded = _canonical_json_unchecked(receipt, include_receipt_identity=False)
+    validated = validate_preparation_execution_receipt_structure(receipt)
+    encoded = _canonical_json_unchecked(validated, include_receipt_identity=False)
     return PreparationExecutionReceiptIdentity(sha256(encoded.encode()).hexdigest())
 
 
 def validate_preparation_execution_receipt_structure(
-    receipt: PreparationExecutionReceipt,
-) -> None:
+    receipt: ReceiptRoot,
+) -> PreparationExecutionReceipt:
     """Reject hostile rehashed nested values before identity or JSON rendering."""
+    if type(receipt) is not PreparationExecutionReceipt:
+        raise_mismatch(
+            "preparation_execution_receipt",
+            "exact PreparationExecutionReceipt",
+            type(receipt).__name__,
+        )
     validate_receipt_structure(receipt)
+    return receipt
 
 
 def _canonical_json_unchecked(

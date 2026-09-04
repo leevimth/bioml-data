@@ -21,21 +21,6 @@ MAX_ALIGNMENT_FEATURE_IDS: Final = 50_000
 
 
 @unique
-class ExpressionInput(StrEnum):
-    """Matrix selected by the canonical dataset transform."""
-
-    RAW_X = "raw.X"
-
-
-@unique
-class PreparationFitScope(StrEnum):
-    """Scope from which a preparation stage may learn statistics."""
-
-    NONE = "none"
-    TRAIN_ONLY = "train_only"
-
-
-@unique
 class MetadataConcordanceAttachmentStatus(StrEnum):
     """Collapsed status of a full optional concordance report."""
 

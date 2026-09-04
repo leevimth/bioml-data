@@ -9,6 +9,7 @@ from typing import ClassVar, NewType
 from pydantic import BaseModel, ConfigDict
 
 from bioml_data._artifacts import ArtifactId
+from bioml_data._preparation_contracts import ExpressionInput
 from bioml_data._preparation_errors import (
     FittedProtocolSemanticMismatchError,
     FittedSplitMismatchError,
@@ -20,7 +21,6 @@ from bioml_data._preparation_errors import (
     SplitAssignmentRequiredError,
     UnknownAlignmentFeatureError,
 )
-from bioml_data._preparation_execution_models import ExpressionInput
 from bioml_data._single_cell import (
     CanonicalSingleCellDataset,
     FeatureId,
