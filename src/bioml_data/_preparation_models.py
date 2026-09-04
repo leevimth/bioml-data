@@ -3,6 +3,7 @@
 import json
 from dataclasses import dataclass
 from hashlib import sha256
+from math import isfinite
 from typing import ClassVar, NewType, override
 
 from pydantic import BaseModel, ConfigDict
@@ -46,6 +47,11 @@ class NormalizationParameters:
     """Fixed per-cell library-size normalization target."""
 
     target_sum: float
+
+    def __post_init__(self) -> None:
+        """Reject non-finite normalization semantics at the domain boundary."""
+        if type(self.target_sum) not in (int, float) or not isfinite(self.target_sum):
+            raise InvalidNormalizationTargetError(target_sum=self.target_sum)
 
 
 @dataclass(frozen=True, slots=True)
@@ -191,6 +197,17 @@ class InsufficientPreparationDataError(Exception):
     @override
     def __str__(self) -> str:
         return f"preparation has no usable data after {self.phase}"
+
+
+@dataclass(frozen=True, slots=True)
+class InvalidNormalizationTargetError(Exception):
+    """Raised when library-size normalization cannot be represented safely."""
+
+    target_sum: float
+
+    @override
+    def __str__(self) -> str:
+        return f"normalization target must be finite; received {self.target_sum!r}"
 
 
 @dataclass(frozen=True, slots=True)

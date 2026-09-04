@@ -5,6 +5,7 @@ from hashlib import sha256
 from typing import assert_never
 
 from bioml_data._metadata_receipt_validation import validate_receipt_integrity
+from bioml_data._preparation import prepare_benchmark
 from bioml_data._preparation_execution_concordance import concordance_attachment
 from bioml_data._preparation_execution_errors import (
     PreparationExecutionReceiptMismatchError,
@@ -20,7 +21,13 @@ from bioml_data._preparation_execution_receipt import (
     PreparationExecutionRequest,
     preparation_execution_receipt_identity,
 )
+from bioml_data._preparation_identities import (
+    PreparedOutputIdentityInput,
+    prepared_benchmark_receipt_identity,
+    prepared_output_artifact_identity,
+)
 from bioml_data._preparation_models import (
+    PreparationRequest,
     PreparedBenchmarkReceipt,
     preparation_protocol_semantic_identity,
 )
@@ -139,31 +146,61 @@ def _validate_context(request: PreparationExecutionRequest) -> None:
         prepared.fitted_state.protocol_semantic_identity,
     )
     _require_prepared_identities(prepared)
+    _require_canonical_prepared_replay(request)
 
 
 def _require_prepared_identities(prepared: PreparedBenchmarkReceipt) -> None:
-    output_payload = (
-        f"{prepared.input_artifact_identity}\0"
-        f"{prepared.fitted_state.independent_artifact_identity}\0"
-        f"{prepared.fitted_state.state_identity}\0"
-        f"{prepared.protocol_semantic_identity}\0"
-        f"{prepared.split_assignment_identity}\0{prepared.seed}"
+    observation_ids = tuple(item.observation_id for item in prepared.observations)
+    if not observation_ids:
+        field = "prepared_observations"
+        raise _mismatch(field, "at least one observation", "empty")
+    if len(observation_ids) != len(set(observation_ids)):
+        field = "prepared_observations"
+        raise _mismatch(field, "unique observation ids", "duplicate")
+    expected_output = prepared_output_artifact_identity(
+        PreparedOutputIdentityInput(
+            input_artifact_identity=prepared.input_artifact_identity,
+            independent_artifact_identity=prepared.fitted_state.independent_artifact_identity,
+            fitted_state=prepared.fitted_state,
+            protocol_semantic_identity=prepared.protocol_semantic_identity,
+            split_assignment_identity=prepared.split_assignment_identity,
+            seed=prepared.seed,
+            observations=prepared.observations,
+        )
     )
-    expected_output = sha256(output_payload.encode()).hexdigest()
     _require(
         "prepared_output_artifact_identity",
         expected_output,
         prepared.output_artifact_identity,
     )
-    receipt_payload = (
-        f"{prepared.output_artifact_identity}\0{prepared.protocol_id}\0"
-        f"{prepared.protocol_version}\0{prepared.protocol_semantic_identity}\0"
-        f"{prepared.seed}"
+    _require(
+        "prepared_benchmark_receipt_identity",
+        prepared_benchmark_receipt_identity(prepared),
+        prepared.receipt_identity,
+    )
+
+
+def _require_canonical_prepared_replay(request: PreparationExecutionRequest) -> None:
+    expected = prepare_benchmark(
+        PreparationRequest(
+            dataset=request.dataset,
+            protocol=request.protocol,
+            split=request.assignment,
+            seed=request.assignment.seed,
+        )
+    )
+    actual = request.prepared
+    _require("fitted_preparation_state", expected.fitted_state, actual.fitted_state)
+    _require("prepared_observations", expected.observations, actual.observations)
+    _require(
+        "prepared_output_artifact_identity",
+        expected.output_artifact_identity,
+        actual.output_artifact_identity,
     )
     _require(
         "prepared_benchmark_receipt_identity",
-        sha256(receipt_payload.encode()).hexdigest(),
-        prepared.receipt_identity,
+        expected.receipt_identity,
+        actual.receipt_identity,
     )
 
 

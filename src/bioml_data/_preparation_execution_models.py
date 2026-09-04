@@ -9,6 +9,7 @@ from typing import Final, NewType
 from bioml_data._preparation_execution_errors import (
     PreparationExecutionReceiptMismatchError,
 )
+from bioml_data._preparation_execution_tokens import validate_safe_identifier
 
 PreparationExecutionReceiptIdentity = NewType(
     "PreparationExecutionReceiptIdentity", str
@@ -93,6 +94,11 @@ def validate_semantic_parameters(parameters: PreparationSemanticParameters) -> N
             field="alignment_feature_ids",
             expected="unique feature identifiers in preparation order",
             actual=str(len(feature_ids)),
+        )
+    for feature_id in feature_ids:
+        _ = validate_safe_identifier(
+            field="alignment_feature_id",
+            value=feature_id,
         )
     expected_identity = sha256("\0".join(feature_ids).encode()).hexdigest()
     if parameters.alignment_feature_identity != expected_identity:

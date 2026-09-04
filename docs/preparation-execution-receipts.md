@@ -25,7 +25,10 @@ The receipt joins the following layers; none replaces the others.
 The execution receipt validates that its supplied artifacts, split receipt,
 preparation protocol, prepared-output identity, and optional concordance report
 refer to the same dataset/task/protocol context. Its identity hashes every field
-that it renders. It includes the transform's declared `expression_input`
+that it renders. At factory time it deterministically replays preparation from
+the supplied canonical in-memory dataset, protocol, and assignment; the supplied
+`PreparedBenchmarkReceipt` must exactly match that replay, including fitted
+state and output rows. It includes the transform's declared `expression_input`
 (`raw.X` or `X`). It records deterministic canonical materialization as
 `none` fit scope and the split-aware prepared output as `train_only` fit scope.
 Before consuming a split receipt, it replays the named allocation against the
@@ -37,12 +40,14 @@ record, not a replacement data matrix.
 
 ## Deliberate trust boundary
 
-This is a record of already-produced receipts. It does not reopen files,
-re-execute a transform, fit a model, or establish that arbitrary transform code
-computed the canonical bytes. The artifact and materialization boundaries retain
-that responsibility. `validate_preparation_execution_receipt()` detects changes
-to the rendered execution record by recomputing its identity; it cannot prove
-that a caller supplied authentic in-memory objects.
+The factory does not reopen raw files or establish that arbitrary transform code
+computed canonical bytes. The artifact and materialization boundaries retain
+that responsibility. It does replay the package's deterministic preparation
+against the supplied canonical in-memory dataset, which prevents an arbitrary
+prepared/fitted receipt from being joined into a new execution record.
+`validate_preparation_execution_receipt()` is deliberately narrower: it checks
+the serialized record's structural fields and outer identity, but cannot replay
+without a canonical dataset object or prove upstream artifact authenticity.
 
 No standalone CLI command currently emits this receipt. The existing command
 line canary may be invoked with an already-canonical artifact, while this record
@@ -53,14 +58,16 @@ materialization, splitting, and preparation receipts are all available.
 
 Runtime data is deliberately bounded to the toolkit version and named
 single-cell dependencies (`anndata`, `numpy`, and `scipy`). The receipt never
-records absolute paths, cache roots, environment variables, host/user identity,
-timestamps, arbitrary command lines, secrets, or a full dependency freeze.
-Components are parsed through that allowlist; toolkit and dependency versions
-must be compact, path-free version strings of at most 64 characters. Semantic
-numeric parameters must be finite before either receipt identity or JSON is
-rendered. The same checks are replayed at every public identity, validation,
-and JSON boundary, so frozen-object mutation followed by a forged hash cannot
-introduce unsafe runtime metadata.
+automatically collects local paths, cache roots, environment variables,
+host/user identity, timestamps, command lines, secrets, or a full dependency
+freeze. Runtime values and serialized identifiers are explicitly parsed through
+bounded allowlists/grammars; paths, URIs, control characters, environment-like,
+and command-like forms are rejected. This is syntax validation, not a claim to
+detect secrets embedded in arbitrary scientific labels. Semantic numeric
+parameters must be finite before either receipt identity or JSON is rendered.
+The same checks are replayed at every public identity, validation, and JSON
+boundary, so frozen-object mutation followed by a forged hash cannot introduce
+unsafe runtime metadata.
 
 Preparation-protocol semantic identity is a fail-closed, canonical JSON hash
 with an explicit `bioml-data/preparation-protocol-semantics` domain and `v1`

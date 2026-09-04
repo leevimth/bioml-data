@@ -1,11 +1,10 @@
 """Full public-boundary validation and rendering for execution receipts."""
 
 import json
-import re
 from dataclasses import asdict, dataclass
 from enum import StrEnum
 from hashlib import sha256
-from typing import Final, NoReturn
+from typing import NoReturn
 
 from bioml_data._artifacts import ArtifactId, ArtifactReceipt
 from bioml_data._dataset_preparation_models import (
@@ -30,6 +29,10 @@ from bioml_data._preparation_execution_runtime import (
     PreparationExecutionRuntime,
     validate_runtime_metadata,
 )
+from bioml_data._preparation_execution_tokens import (
+    validate_safe_identifier,
+    validate_sha256,
+)
 from bioml_data._preparation_models import (
     PreparationProtocol,
     PreparationReceiptIdentity,
@@ -39,8 +42,6 @@ from bioml_data._preparation_models import (
 )
 from bioml_data._single_cell import CanonicalSingleCellDataset
 from bioml_data._split import AssignmentIdentity, SplitAssignmentReceipt
-
-_SHA256: Final = re.compile(r"^[0-9a-f]{64}$")
 
 
 @dataclass(frozen=True, slots=True)
@@ -86,7 +87,9 @@ class PreparationExecutionReceipt:
 
     def to_json(self) -> str:
         """Return only fully validated canonical JSON."""
-        validate_preparation_execution_receipt_structure(self)
+        expected = preparation_execution_receipt_identity(self)
+        if self.receipt_identity != expected:
+            _raise("receipt_identity", str(expected), str(self.receipt_identity))
         return _canonical_json_unchecked(self, include_receipt_identity=True)
 
 
@@ -178,18 +181,29 @@ def _require_attachment(value: MetadataConcordanceAttachment | str | None) -> No
     _require_enum(
         "metadata_concordance_status", value.status, MetadataConcordanceAttachmentStatus
     )
-    if _SHA256.fullmatch(value.report_identity) is None:
-        _raise(
-            "metadata_concordance_identity",
-            "64 lowercase hexadecimal characters",
-            value.report_identity,
-        )
+    _ = validate_sha256(
+        field="metadata_concordance_identity",
+        value=value.report_identity,
+        prefixed=False,
+    )
 
 
 def _require_execution_scalars(receipt: PreparationExecutionReceipt) -> None:
+    if type(receipt.dataset) is not DatasetSnapshotIdentity:
+        _raise(
+            "dataset",
+            "DatasetSnapshotIdentity",
+            type(receipt.dataset).__name__,
+        )
     if type(receipt.seed) is not int or receipt.seed < 0:
         _raise("seed", "non-negative integer", repr(receipt.seed))
     parent_ids = receipt.materialization_parent_artifact_identities
+    if type(parent_ids) is not tuple:
+        _raise(
+            "materialization_parent_artifact_identities",
+            "tuple of artifact identities",
+            type(parent_ids).__name__,
+        )
     if not parent_ids:
         _raise(
             "materialization_parent_artifact_identities", "at least one parent", "empty"
@@ -201,16 +215,41 @@ def _require_execution_scalars(receipt: PreparationExecutionReceipt) -> None:
             "duplicate",
         )
     for field, value in (
+        ("dataset_name", receipt.dataset.name),
+        ("dataset_version", receipt.dataset.version),
+        ("task", receipt.task),
         ("preparation_protocol_id", receipt.preparation_protocol_id),
         ("preparation_protocol_version", receipt.preparation_protocol_version),
+        ("split_protocol", receipt.split_protocol),
     ):
-        if type(value) is not str or not value.strip():
-            _raise(field, "non-empty string", repr(value))
-    if _SHA256.fullmatch(receipt.preparation_protocol_semantic_identity) is None:
-        _raise(
+        _ = validate_safe_identifier(field=field, value=value)
+    for field, value, prefixed in (
+        ("input_artifact_identity", receipt.input_artifact_identity, True),
+        ("canonical_artifact_identity", receipt.canonical_artifact_identity, True),
+        (
             "preparation_protocol_semantic_identity",
-            "64 lowercase hexadecimal characters",
             receipt.preparation_protocol_semantic_identity,
+            False,
+        ),
+        ("split_assignment_identity", receipt.split_assignment_identity, False),
+        (
+            "prepared_benchmark_receipt_identity",
+            receipt.prepared_benchmark_receipt_identity,
+            False,
+        ),
+        (
+            "prepared_output_artifact_identity",
+            receipt.prepared_output_artifact_identity,
+            False,
+        ),
+        ("fitted_state_identity", receipt.fitted_state_identity, False),
+    ):
+        _ = validate_sha256(field=field, value=value, prefixed=prefixed)
+    for parent_identity in parent_ids:
+        _ = validate_sha256(
+            field="materialization_parent_artifact_identity",
+            value=parent_identity,
+            prefixed=True,
         )
 
 

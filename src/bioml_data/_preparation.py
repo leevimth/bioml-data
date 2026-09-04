@@ -1,15 +1,20 @@
 """Split-aware single-cell preparation lifecycle."""
 
-from hashlib import sha256
+from dataclasses import replace
 
 import bioml_data._preparation_models as _models
+from bioml_data._preparation_identities import (
+    FittedStateIdentityInput,
+    PreparedOutputIdentityInput,
+    fitted_state_identity,
+    prepared_benchmark_receipt_identity,
+    prepared_output_artifact_identity,
+)
 from bioml_data._preparation_models import (
     FittedProtocolSemanticMismatchError,
     FittedStateMismatchError,
     InsufficientPreparationDataError,
     PreparationReceiptIdentity,
-    PreparationStateIdentity,
-    PreparedArtifactIdentity,
     PreparedBenchmarkReceipt,
     PreparedObservation,
     TrainIndependentPreparation,
@@ -113,32 +118,27 @@ def fit_train_preprocessing(
             if assignment.partition is SplitPartition.TRAIN
         )
     )
+    observations_by_id = {
+        observation.observation_id: observation for observation in prepared.observations
+    }
     training_rows = tuple(
-        observation
-        for observation in prepared.observations
-        if observation.observation_id in training_ids
+        observations_by_id[item] for item in training_ids if item in observations_by_id
     )
     if not training_rows:
         raise InsufficientPreparationDataError(phase="training_partition")
 
     selected = select_features(prepared, training_rows)
-    training_values = "\0".join(
-        (
-            f"{row.observation_id}:"
-            + "|".join(f"{value.feature_id}={value.value!r}" for value in row.values)
-        )
-        for row in training_rows
-    )
-    state_input = (
-        f"{prepared.protocol.protocol_id}\0"
-        f"{prepared.protocol.version}\0"
-        f"{preparation_protocol_semantic_identity(prepared.protocol)}\0"
-        f"{prepared.seed}\0"
-        f"{'|'.join(training_ids)}\0{training_values}\0{'|'.join(selected)}"
-    )
     return FittedPreparationState(
-        state_identity=PreparationStateIdentity(
-            sha256(state_input.encode()).hexdigest()
+        state_identity=fitted_state_identity(
+            FittedStateIdentityInput(
+                independent_artifact_identity=prepared.output_artifact_identity,
+                protocol=prepared.protocol,
+                seed=prepared.seed,
+                split_assignment_identity=split.assignment_identity,
+                training_observation_ids=training_ids,
+                training_observations=training_rows,
+                selected_feature_ids=selected,
+            )
         ),
         independent_artifact_identity=prepared.output_artifact_identity,
         protocol_id=prepared.protocol.protocol_id,
@@ -178,6 +178,12 @@ def apply_fitted_preprocessing(
             expected=fitted.protocol_semantic_identity,
             actual=protocol_semantic_identity,
         )
+    expected_fitted = fit_train_preprocessing(prepared, split=split)
+    if fitted != expected_fitted:
+        raise FittedStateMismatchError(
+            expected=expected_fitted.independent_artifact_identity,
+            actual=fitted.independent_artifact_identity,
+        )
     selected = frozenset(fitted.selected_feature_ids)
     observations = tuple(
         PreparedObservation(
@@ -188,23 +194,19 @@ def apply_fitted_preprocessing(
         )
         for observation in prepared.observations
     )
-    output_input = (
-        f"{prepared.input_artifact_identity}\0{prepared.output_artifact_identity}\0"
-        f"{fitted.state_identity}\0{protocol_semantic_identity}\0"
-        f"{split.assignment_identity}\0{prepared.seed}"
+    output_identity = prepared_output_artifact_identity(
+        PreparedOutputIdentityInput(
+            input_artifact_identity=prepared.input_artifact_identity,
+            independent_artifact_identity=prepared.output_artifact_identity,
+            fitted_state=fitted,
+            protocol_semantic_identity=protocol_semantic_identity,
+            split_assignment_identity=split.assignment_identity,
+            seed=prepared.seed,
+            observations=observations,
+        )
     )
-    output_identity = PreparedArtifactIdentity(
-        sha256(output_input.encode()).hexdigest()
-    )
-    receipt_input = (
-        f"{output_identity}\0{prepared.protocol.protocol_id}\0"
-        f"{prepared.protocol.version}\0"
-        f"{protocol_semantic_identity}\0{prepared.seed}"
-    )
-    return PreparedBenchmarkReceipt(
-        receipt_identity=PreparationReceiptIdentity(
-            sha256(receipt_input.encode()).hexdigest()
-        ),
+    receipt = PreparedBenchmarkReceipt(
+        receipt_identity=PreparationReceiptIdentity(""),
         input_artifact_identity=prepared.input_artifact_identity,
         output_artifact_identity=output_identity,
         protocol_id=prepared.protocol.protocol_id,
@@ -214,6 +216,10 @@ def apply_fitted_preprocessing(
         split_assignment_identity=split.assignment_identity,
         fitted_state=fitted,
         observations=observations,
+    )
+    return replace(
+        receipt,
+        receipt_identity=prepared_benchmark_receipt_identity(receipt),
     )
 
 
