@@ -1,6 +1,7 @@
 """Deterministic metadata comparisons for prepared single-cell partitions."""
 
 from dataclasses import dataclass
+from typing import assert_never
 
 from bioml_data._metadata_concordance_models import (
     MetadataConcordance,
@@ -11,6 +12,7 @@ from bioml_data._metadata_concordance_models import (
     metadata_scientific_scope,
     require_matching_scope_value,
 )
+from bioml_data._metadata_expectation_selection import require_scoped_expectations
 from bioml_data._metadata_expectations import PublicationMetadataExpectation
 from bioml_data._metadata_observed import (
     AssignedGroup,
@@ -71,7 +73,7 @@ def compare_metadata_concordance(
     _validate_scope(dataset, assignment, scope)
     assignments = assignment_by_id(dataset, assignment)
     datasets = partitioned_rows(dataset, assignments)
-    dataset_expectations = _expectations_for(
+    dataset_expectations = require_scoped_expectations(
         expectations,
         partition=None,
         fold=fold,
@@ -82,7 +84,7 @@ def compare_metadata_concordance(
             partition,
             datasets[partition],
             assignments,
-            _expectations_for(expectations, partition=partition, fold=fold),
+            require_scoped_expectations(expectations, partition=partition, fold=fold),
         )
         for partition in SplitPartition
         if datasets[partition]
@@ -162,19 +164,6 @@ def _validate_scope(
     )
 
 
-def _expectations_for(
-    expectations: tuple[PublicationMetadataExpectation, ...],
-    *,
-    partition: SplitPartition | None,
-    fold: MetadataFoldId | None,
-) -> tuple[PublicationMetadataExpectation, ...]:
-    return tuple(
-        expectation
-        for expectation in expectations
-        if expectation.partition is partition and expectation.fold == fold
-    )
-
-
 def _partition_report(
     dataset: CanonicalSingleCellDataset,
     partition: SplitPartition,
@@ -224,21 +213,22 @@ def _comparison(
     expectation: PublicationMetadataExpectation,
     observed: MetadataObservedValue,
 ) -> MetadataComparison:
-    match expectation.kind:
-        case MetadataExpectationKind.NOT_REPORTED:
-            status = MetadataConcordance.NOT_REPORTED
-        case MetadataExpectationKind.EXACT:
-            status = _exact_status(expectation, observed)
-        case MetadataExpectationKind.SET:
-            status = (
-                MetadataConcordance.MATCH
-                if expectation.values == observed.values
-                else MetadataConcordance.MISMATCH
-            )
-        case MetadataExpectationKind.RANGE:
-            status = _range_status(expectation, observed)
-        case MetadataExpectationKind.APPROXIMATE:
-            status = _approximate_status(expectation, observed)
+    if expectation.kind is MetadataExpectationKind.NOT_REPORTED:
+        status = MetadataConcordance.NOT_REPORTED
+    elif expectation.kind is MetadataExpectationKind.EXACT:
+        status = _exact_status(expectation, observed)
+    elif expectation.kind is MetadataExpectationKind.SET:
+        status = (
+            MetadataConcordance.MATCH
+            if expectation.values == observed.values
+            else MetadataConcordance.MISMATCH
+        )
+    elif expectation.kind is MetadataExpectationKind.RANGE:
+        status = _range_status(expectation, observed)
+    elif expectation.kind is MetadataExpectationKind.APPROXIMATE:
+        status = _approximate_status(expectation, observed)
+    else:
+        assert_never(expectation.kind)
     return MetadataComparison(expectation=expectation, observed=observed, status=status)
 
 

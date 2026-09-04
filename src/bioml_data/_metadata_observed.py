@@ -3,6 +3,7 @@
 from collections import Counter
 from collections.abc import Iterable
 from dataclasses import dataclass
+from typing import assert_never
 
 from bioml_data._metadata_concordance_models import (
     DistributionMetadataMetric,
@@ -160,20 +161,26 @@ def observed_value(
 ) -> MetadataObservedValue:
     """Project one supported metadata metric for a whole dataset or one partition."""
     observations = tuple(dataset.observations[position] for position in rows)
-    match metric:
-        case MetadataMetric.OBSERVATION_COUNT | MetadataMetric.FEATURE_COUNT:
-            return _observed_count(dataset, observations, metric)
-        case (
-            MetadataMetric.STUDY_IDS
-            | MetadataMetric.DONOR_IDS
-            | MetadataMetric.GROUP_IDS
-            | MetadataMetric.LABEL_VALUES
-            | MetadataMetric.ASSAY_VALUES
-            | MetadataMetric.TISSUE_VALUES
-        ):
-            return _observed_values(observations, assignments, metric)
-        case MetadataMetric.LABEL_COUNTS | MetadataMetric.OBSERVATIONS_PER_GROUP:
-            return _observed_distribution(observations, assignments, metric)
+    if (
+        metric is MetadataMetric.OBSERVATION_COUNT
+        or metric is MetadataMetric.FEATURE_COUNT
+    ):
+        return _observed_count(dataset, observations, metric)
+    if (
+        metric is MetadataMetric.STUDY_IDS
+        or metric is MetadataMetric.DONOR_IDS
+        or metric is MetadataMetric.GROUP_IDS
+        or metric is MetadataMetric.LABEL_VALUES
+        or metric is MetadataMetric.ASSAY_VALUES
+        or metric is MetadataMetric.TISSUE_VALUES
+    ):
+        return _observed_values(observations, assignments, metric)
+    if (
+        metric is MetadataMetric.LABEL_COUNTS
+        or metric is MetadataMetric.OBSERVATIONS_PER_GROUP
+    ):
+        return _observed_distribution(observations, assignments, metric)
+    assert_never(metric)
 
 
 def _observed_count(
@@ -181,11 +188,11 @@ def _observed_count(
     observations: tuple[CanonicalObservation, ...],
     metric: ScalarMetadataMetric,
 ) -> MetadataObservedValue:
-    match metric:
-        case MetadataMetric.OBSERVATION_COUNT:
-            return MetadataObservedValue(count=len(observations))
-        case MetadataMetric.FEATURE_COUNT:
-            return MetadataObservedValue(count=len(dataset.features))
+    if metric is MetadataMetric.OBSERVATION_COUNT:
+        return MetadataObservedValue(count=len(observations))
+    if metric is MetadataMetric.FEATURE_COUNT:
+        return MetadataObservedValue(count=len(dataset.features))
+    assert_never(metric)
 
 
 def _observed_values(
@@ -193,19 +200,20 @@ def _observed_values(
     assignments: dict[str, AssignedGroup],
     metric: ValueMetadataMetric,
 ) -> MetadataObservedValue:
-    match metric:
-        case MetadataMetric.STUDY_IDS:
-            values = (item.study_id for item in observations)
-        case MetadataMetric.DONOR_IDS:
-            values = (item.donor_id for item in observations)
-        case MetadataMetric.GROUP_IDS:
-            values = (assignments[str(item.cell_id)].group for item in observations)
-        case MetadataMetric.LABEL_VALUES:
-            values = (item.cell_type for item in observations)
-        case MetadataMetric.ASSAY_VALUES:
-            values = (item.assay for item in observations if item.assay is not None)
-        case MetadataMetric.TISSUE_VALUES:
-            values = (item.tissue for item in observations)
+    if metric is MetadataMetric.STUDY_IDS:
+        values = (item.study_id for item in observations)
+    elif metric is MetadataMetric.DONOR_IDS:
+        values = (item.donor_id for item in observations)
+    elif metric is MetadataMetric.GROUP_IDS:
+        values = (assignments[str(item.cell_id)].group for item in observations)
+    elif metric is MetadataMetric.LABEL_VALUES:
+        values = (item.cell_type for item in observations)
+    elif metric is MetadataMetric.ASSAY_VALUES:
+        values = (item.assay for item in observations if item.assay is not None)
+    elif metric is MetadataMetric.TISSUE_VALUES:
+        values = (item.tissue for item in observations)
+    else:
+        assert_never(metric)
     return MetadataObservedValue(values=tuple(sorted(set(values))))
 
 
@@ -214,11 +222,12 @@ def _observed_distribution(
     assignments: dict[str, AssignedGroup],
     metric: DistributionMetadataMetric,
 ) -> MetadataObservedValue:
-    match metric:
-        case MetadataMetric.LABEL_COUNTS:
-            values = (item.cell_type for item in observations)
-        case MetadataMetric.OBSERVATIONS_PER_GROUP:
-            values = (assignments[str(item.cell_id)].group for item in observations)
+    if metric is MetadataMetric.LABEL_COUNTS:
+        values = (item.cell_type for item in observations)
+    elif metric is MetadataMetric.OBSERVATIONS_PER_GROUP:
+        values = (assignments[str(item.cell_id)].group for item in observations)
+    else:
+        assert_never(metric)
     return MetadataObservedValue(distribution=_counts(values))
 
 

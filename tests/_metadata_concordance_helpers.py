@@ -4,6 +4,7 @@ from dataclasses import replace
 
 import bioml_data as bio
 from bioml_data._artifacts import ArtifactDerivation, TransformProtocolId
+from bioml_data._split import SplitPartition
 from bioml_data.datasets.tms_aorta._identity import (
     TMS_AORTA_ARTIFACT_SCOPE,
     TMS_AORTA_SOURCE_ARTIFACT,
@@ -39,4 +40,18 @@ def metadata_dataset() -> bio.CanonicalSingleCellDataset:
                 )
             }
         ),
+    )
+
+
+def explicit_partition_evidence(
+    scope: bio.MetadataExpectationScope,
+) -> tuple[bio.PublicationMetadataExpectation, ...]:
+    """Provide intentionally unknown evidence for every realized fixture partition."""
+    return tuple(
+        bio.PublicationMetadataExpectation.not_reported(
+            scope=scope,
+            partition=partition,
+            metric=bio.MetadataMetric.OBSERVATION_COUNT,
+        )
+        for partition in SplitPartition
     )

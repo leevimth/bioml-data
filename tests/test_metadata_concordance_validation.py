@@ -1,11 +1,22 @@
 """Adversarial metadata expectation and evidence validation scenarios."""
 
+from enum import StrEnum, unique
+from typing import assert_never
+
 import pytest
 
 import bioml_data as bio
 
 from ._metadata_concordance_helpers import metadata_dataset, metadata_scope
 from ._single_cell_fixtures import make_split
+
+
+@unique
+class _NumericField(StrEnum):
+    EXPECTED_COUNT = "expected_count"
+    TOLERANCE = "tolerance"
+    LOWER_BOUND = "lower_bound"
+    UPPER_BOUND = "upper_bound"
 
 
 @pytest.mark.parametrize(
@@ -105,23 +116,23 @@ def test_metadata_expectation_canonicalizes_unordered_values() -> None:
 @pytest.mark.parametrize(
     ("field", "value"),
     [
-        ("expected_count", 6.0),
-        ("expected_count", True),
-        ("tolerance", 1.0),
-        ("tolerance", True),
-        ("lower_bound", 0.0),
-        ("lower_bound", True),
-        ("upper_bound", 7.0),
-        ("upper_bound", True),
+        (_NumericField.EXPECTED_COUNT, 6.0),
+        (_NumericField.EXPECTED_COUNT, True),
+        (_NumericField.TOLERANCE, 1.0),
+        (_NumericField.TOLERANCE, True),
+        (_NumericField.LOWER_BOUND, 0.0),
+        (_NumericField.LOWER_BOUND, True),
+        (_NumericField.UPPER_BOUND, 7.0),
+        (_NumericField.UPPER_BOUND, True),
     ],
 )
 def test_metadata_expectation_rejects_non_exact_runtime_integer(
-    field: str,
+    field: _NumericField,
     value: float | bool,
 ) -> None:
     # Given: a valid expectation changed by an untyped runtime boundary.
     expectation = _expectation_for_numeric_field(field)
-    object.__setattr__(expectation, field, value)
+    object.__setattr__(expectation, field.value, value)
 
     # When: construction validation is applied to the runtime value.
     with pytest.raises(bio.InvalidMetadataExpectationError):
@@ -169,27 +180,27 @@ def test_compare_rejects_expectations_for_a_different_fold() -> None:
     assert captured.value.field == "fold"
 
 
-def _expectation_for_numeric_field(field: str) -> bio.PublicationMetadataExpectation:
-    match field:
-        case "expected_count":
-            return bio.PublicationMetadataExpectation.count(
-                scope=metadata_scope(),
-                metric=bio.MetadataMetric.OBSERVATION_COUNT,
-                expected=6,
-            )
-        case "tolerance":
-            return bio.PublicationMetadataExpectation.approximate(
-                scope=metadata_scope(),
-                metric=bio.MetadataMetric.OBSERVATION_COUNT,
-                expected=6,
-                tolerance=1,
-            )
-        case "lower_bound" | "upper_bound":
-            return bio.PublicationMetadataExpectation.within_range(
-                scope=metadata_scope(),
-                metric=bio.MetadataMetric.OBSERVATION_COUNT,
-                lower_bound=5,
-                upper_bound=7,
-            )
-        case _:  # pragma: no cover - parameter fixture is the closed boundary.
-            pytest.fail("unsupported numeric field")
+def _expectation_for_numeric_field(
+    field: _NumericField,
+) -> bio.PublicationMetadataExpectation:
+    if field is _NumericField.EXPECTED_COUNT:
+        return bio.PublicationMetadataExpectation.count(
+            scope=metadata_scope(),
+            metric=bio.MetadataMetric.OBSERVATION_COUNT,
+            expected=6,
+        )
+    if field is _NumericField.TOLERANCE:
+        return bio.PublicationMetadataExpectation.approximate(
+            scope=metadata_scope(),
+            metric=bio.MetadataMetric.OBSERVATION_COUNT,
+            expected=6,
+            tolerance=1,
+        )
+    if field is _NumericField.LOWER_BOUND or field is _NumericField.UPPER_BOUND:
+        return bio.PublicationMetadataExpectation.within_range(
+            scope=metadata_scope(),
+            metric=bio.MetadataMetric.OBSERVATION_COUNT,
+            lower_bound=5,
+            upper_bound=7,
+        )
+    assert_never(field)

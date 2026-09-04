@@ -15,7 +15,11 @@ from bioml_data.datasets.tms_aorta._metadata_expectations import (
     TMS_AORTA_ARTIFACT_AUDIT_EXPECTATIONS,
 )
 
-from ._metadata_concordance_helpers import metadata_dataset, metadata_scope
+from ._metadata_concordance_helpers import (
+    explicit_partition_evidence,
+    metadata_dataset,
+    metadata_scope,
+)
 from ._single_cell_fixtures import make_split
 
 
@@ -51,6 +55,50 @@ def test_tms_aorta_artifact_expectations_cover_each_realized_partition() -> None
         item.comparisons[0].status is bio.MetadataConcordance.NOT_REPORTED
         for item in report.partition_reports
     )
+
+
+def test_tms_aorta_partition_expectations_cover_every_observed_metric() -> None:
+    # Given: the complete built-in metadata audit and a realized grouped split.
+    dataset = metadata_dataset()
+    assignment = make_split(dataset)
+
+    # When: each partition's explicit publication evidence is compared.
+    report = bio.compare_metadata_concordance(
+        dataset,
+        assignment,
+        expectations=TMS_AORTA_ARTIFACT_AUDIT_EXPECTATIONS,
+    )
+
+    # Then: every observable metric is an explicit unknown, never omitted evidence.
+    assert all(
+        {comparison.expectation.metric for comparison in item.comparisons}
+        == set(bio.MetadataMetric)
+        and all(
+            comparison.status is bio.MetadataConcordance.NOT_REPORTED
+            for comparison in item.comparisons
+        )
+        for item in report.partition_reports
+    )
+
+
+def test_compare_rejects_dataset_only_evidence_for_realized_partitions() -> None:
+    # Given: exact whole-dataset evidence without train/validation/test evidence.
+    dataset = metadata_dataset()
+    assignment = make_split(dataset)
+    expectation = bio.PublicationMetadataExpectation.count(
+        scope=metadata_scope(),
+        metric=bio.MetadataMetric.OBSERVATION_COUNT,
+        expected=6,
+    )
+
+    # When: concordance materializes every realized partition.
+    with pytest.raises(bio.MetadataExpectationScopeMismatchError) as captured:
+        _ = bio.compare_metadata_concordance(
+            dataset, assignment, expectations=(expectation,)
+        )
+
+    # Then: each realized partition must have explicit evidence, even NOT_REPORTED.
+    assert captured.value.field == "partition_expectations"
 
 
 def test_compare_reports_whole_dataset_and_each_realized_partition() -> None:
@@ -91,6 +139,7 @@ def test_compare_reports_whole_dataset_and_each_realized_partition() -> None:
             partition=SplitPartition.VALIDATION,
             metric=bio.MetadataMetric.LABEL_COUNTS,
         ),
+        *explicit_partition_evidence(scope),
     )
 
     # When: the prepared data and realized split are compared with the evidence.
@@ -173,14 +222,26 @@ def test_compare_marks_not_reported_metadata_as_unknown_not_a_match() -> None:
         partition=SplitPartition.TEST,
         metric=bio.MetadataMetric.ASSAY_VALUES,
     )
+    expectations = (
+        bio.PublicationMetadataExpectation.not_reported(
+            scope=metadata_scope(),
+            metric=bio.MetadataMetric.OBSERVATION_COUNT,
+        ),
+        *explicit_partition_evidence(metadata_scope()),
+        expectation,
+    )
 
     # When: the unknown evidence is rendered in a concordance report.
     report = bio.compare_metadata_concordance(
-        dataset, assignment, expectations=(expectation,)
+        dataset, assignment, expectations=expectations
     )
 
     # Then: it remains explicit unknown evidence and never counts as a pass.
-    comparison = report.partition_reports[-1].comparisons[0]
+    comparison = next(
+        item
+        for item in report.partition_reports[-1].comparisons
+        if item.expectation.metric is bio.MetadataMetric.ASSAY_VALUES
+    )
     assert comparison.status is bio.MetadataConcordance.NOT_REPORTED
     assert comparison.observed.values == ("FACS",)
 
@@ -202,6 +263,7 @@ def test_compare_supports_range_and_approximate_count_evidence() -> None:
             expected=4,
             tolerance=1,
         ),
+        *explicit_partition_evidence(metadata_scope()),
     )
 
     # When: complete prepared data are compared against both precision types.

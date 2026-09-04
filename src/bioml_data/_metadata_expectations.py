@@ -1,6 +1,7 @@
 """Construction and validation of publication metadata expectations."""
 
 from dataclasses import dataclass
+from typing import assert_never
 
 from bioml_data._metadata_concordance_models import (
     InvalidMetadataExpectationError,
@@ -179,23 +180,24 @@ def _validate_shape(expectation: PublicationMetadataExpectation) -> None:
         MetadataMetric.LABEL_COUNTS,
         MetadataMetric.OBSERVATIONS_PER_GROUP,
     }
-    match expectation.kind:
-        case MetadataExpectationKind.EXACT:
-            valid = _valid_exact(expectation, scalar, distribution)
-        case MetadataExpectationKind.SET:
-            valid = (
-                not scalar
-                and not distribution
-                and bool(expectation.values)
-                and _empty_numeric_fields(expectation)
-                and not expectation.expected_distribution
-            )
-        case MetadataExpectationKind.NOT_REPORTED:
-            valid = _empty_expectation(expectation)
-        case MetadataExpectationKind.RANGE:
-            valid = _valid_range(expectation, scalar)
-        case MetadataExpectationKind.APPROXIMATE:
-            valid = _valid_approximation(expectation, scalar)
+    if expectation.kind is MetadataExpectationKind.EXACT:
+        valid = _valid_exact(expectation, scalar, distribution)
+    elif expectation.kind is MetadataExpectationKind.SET:
+        valid = (
+            not scalar
+            and not distribution
+            and bool(expectation.values)
+            and _empty_numeric_fields(expectation)
+            and not expectation.expected_distribution
+        )
+    elif expectation.kind is MetadataExpectationKind.NOT_REPORTED:
+        valid = _empty_expectation(expectation)
+    elif expectation.kind is MetadataExpectationKind.RANGE:
+        valid = _valid_range(expectation, scalar)
+    elif expectation.kind is MetadataExpectationKind.APPROXIMATE:
+        valid = _valid_approximation(expectation, scalar)
+    else:
+        assert_never(expectation.kind)
     if not valid:
         raise InvalidMetadataExpectationError(
             detail=(

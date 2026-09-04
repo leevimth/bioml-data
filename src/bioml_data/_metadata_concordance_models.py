@@ -119,7 +119,7 @@ class MetadataCount:
             )
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(slots=True)
 class InvalidMetadataExpectationError(Exception):
     """Raised when an evidence declaration has no sound comparison meaning."""
 
@@ -130,7 +130,7 @@ class InvalidMetadataExpectationError(Exception):
         return f"invalid metadata expectation: {self.detail}"
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(slots=True)
 class MetadataExpectationScopeMismatchError(Exception):
     """Raised when evidence does not name the exact prepared-data scope."""
 
@@ -171,7 +171,7 @@ class MetadataPartitionViolation(StrEnum):
     PROTOCOL = "protocol"
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(slots=True)
 class InvalidMetadataPartitionError(Exception):
     """Raised when split rows cannot be compared to prepared rows soundly."""
 

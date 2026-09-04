@@ -28,6 +28,7 @@ TMS_AORTA_ARTIFACT_AUDIT_SCOPE: Final = MetadataExpectationScope(
     protocol=TMS_ANIMAL_HELD_OUT_PROTOCOL,
     citation=TMS_AORTA_ARTIFACT_AUDIT_CITATION,
 )
+_PARTITION_AUDIT_METRICS: Final[tuple[MetadataMetric, ...]] = tuple(MetadataMetric)
 TMS_AORTA_ARTIFACT_AUDIT_EXPECTATIONS: Final = (
     PublicationMetadataExpectation.count(
         scope=TMS_AORTA_ARTIFACT_AUDIT_SCOPE,
@@ -60,19 +61,13 @@ TMS_AORTA_ARTIFACT_AUDIT_EXPECTATIONS: Final = (
         scope=TMS_AORTA_ARTIFACT_AUDIT_SCOPE,
         metric=MetadataMetric.ASSAY_VALUES,
     ),
-    PublicationMetadataExpectation.not_reported(
-        scope=TMS_AORTA_ARTIFACT_AUDIT_SCOPE,
-        partition=SplitPartition.TRAIN,
-        metric=MetadataMetric.LABEL_COUNTS,
-    ),
-    PublicationMetadataExpectation.not_reported(
-        scope=TMS_AORTA_ARTIFACT_AUDIT_SCOPE,
-        partition=SplitPartition.VALIDATION,
-        metric=MetadataMetric.LABEL_COUNTS,
-    ),
-    PublicationMetadataExpectation.not_reported(
-        scope=TMS_AORTA_ARTIFACT_AUDIT_SCOPE,
-        partition=SplitPartition.TEST,
-        metric=MetadataMetric.LABEL_COUNTS,
+    *tuple(
+        PublicationMetadataExpectation.not_reported(
+            scope=TMS_AORTA_ARTIFACT_AUDIT_SCOPE,
+            partition=partition,
+            metric=metric,
+        )
+        for partition in SplitPartition
+        for metric in _PARTITION_AUDIT_METRICS
     ),
 )

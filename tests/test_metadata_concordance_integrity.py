@@ -13,7 +13,11 @@ from bioml_data._split import (
     assignment_receipt_identity,
 )
 
-from ._metadata_concordance_helpers import metadata_dataset, metadata_scope
+from ._metadata_concordance_helpers import (
+    explicit_partition_evidence,
+    metadata_dataset,
+    metadata_scope,
+)
 from ._single_cell_fixtures import make_split
 
 
@@ -40,6 +44,7 @@ def test_compare_accepts_multiple_citations_for_one_scientific_scope() -> None:
             metric=bio.MetadataMetric.FEATURE_COUNT,
             expected=3,
         ),
+        *explicit_partition_evidence(source_scope),
     )
 
     # When: both evidence statements are compared.
@@ -122,10 +127,18 @@ def test_compare_reports_each_group_once_when_multiple_cells_share_a_mouse() -> 
         partition=SplitPartition.TRAIN,
         metric=bio.MetadataMetric.GROUP_IDS,
     )
+    expectations = (
+        bio.PublicationMetadataExpectation.not_reported(
+            scope=metadata_scope(),
+            metric=bio.MetadataMetric.OBSERVATION_COUNT,
+        ),
+        *explicit_partition_evidence(metadata_scope()),
+        expectation,
+    )
 
     # When: a partition report is materialized from the grouped receipt.
     report = bio.compare_metadata_concordance(
-        dataset, assignment, expectations=(expectation,)
+        dataset, assignment, expectations=expectations
     )
 
     # Then: group identifiers are distinct, sorted biological groups.
