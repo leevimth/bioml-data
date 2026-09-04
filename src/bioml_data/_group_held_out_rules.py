@@ -67,3 +67,20 @@ def group_held_out_partition_counts(group_count: int) -> GroupHeldOutPartitionCo
     return GroupHeldOutPartitionCounts(
         train=counts[0], validation=counts[1], test=counts[2]
     )
+
+
+def group_held_out_partition_assignments(
+    group_ids: tuple[str, ...],
+    *,
+    seed: int,
+) -> tuple[tuple[str, str], ...]:
+    """Replay the registered seeded allocation from the receipt's group IDs."""
+    ordered = ordered_group_ids(group_ids, seed=seed)
+    counts = group_held_out_partition_counts(len(ordered))
+    train_end = counts.train
+    validation_end = train_end + counts.validation
+    return (
+        *((group, "train") for group in ordered[:train_end]),
+        *((group, "validation") for group in ordered[train_end:validation_end]),
+        *((group, "test") for group in ordered[validation_end:]),
+    )

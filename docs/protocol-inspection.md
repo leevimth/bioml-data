@@ -47,12 +47,26 @@ literature reference, a universal recommendation, or a model-performance
 baseline.
 
 To render results that have already been produced, attach them explicitly. This
-does not run the pipeline; it validates the receipt identity and contract before
-showing actual held-out group IDs, partition observation/group counts, and any
-cross-partition groups. When both are supplied, their assignment identities must
-be exactly equal. A supplied concordance report contributes its canonical hash
-of the complete scoped report and exact `MATCH`, `MISMATCH`, and `NOT_REPORTED`
-counts.
+does not run the pipeline. Attachments are always caller-supplied. For a split
+receipt, inspection replays the registered deterministic allocation from the
+receipt's group IDs and seed, and checks unique observation IDs, declared
+fractions, group/observation counts, one-group-one-partition, and partition
+counts. It does not reopen the canonical prepared dataset, so it does not prove
+the receipt's rows, grouping metadata, or lineage are authentic. The rendered
+assignment is therefore receipt-reported and structurally validated, not a
+trusted-producer assertion. Its JSON and human output make this boundary
+machine-readable with `caller_supplied=true` and
+`validation_scope=protocol-contract-and-internal-consistency-only`.
+
+Every concordance attachment must include its matching assignment receipt.
+Inspection checks its assignment identity and structural partition metadata
+(coverage, group IDs, held-out IDs, and cross-partition groups). Its
+`MATCH`, `MISMATCH`, and `NOT_REPORTED` outcomes, observed values, and
+publication evidence remain `caller-supplied-unverified`: inspection does not
+recompute them without the canonical prepared dataset and registered
+expectations. BIO-29's execution/generation path is the scientific verification
+boundary. Concordance output likewise states `caller_supplied=true` and
+`validation_scope=structural-receipt-binding-only; outcomes-not-recomputed`.
 
 ```python
 report = bio.inspect_protocol(
@@ -67,5 +81,5 @@ report = bio.inspect_protocol(
 ```
 
 No plan-time report invents a held-out animal, fold, validation partition, or
-metadata-concordance outcome. Those fields remain absent until a verified
-realized receipt is supplied.
+metadata-concordance outcome. Those fields remain absent until a caller supplies
+an attachment that passes this bounded structural validation.

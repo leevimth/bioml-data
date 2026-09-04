@@ -1,11 +1,13 @@
 """Deterministic, plan-time inspection of registered dataset protocols."""
 
-from bioml_data._domain import DatasetSnapshotIdentity, TaskDefinition
+from bioml_data._domain import TaskDefinition
 from bioml_data._metadata_concordance import MetadataConcordanceReport
 from bioml_data._metadata_concordance_models import MetadataConcordance
 from bioml_data._metadata_concordance_reporting import metadata_concordance_identity
+from bioml_data._protocol_inspection_concordance import validate_concordance_attachment
 from bioml_data._protocol_inspection_models import (
     ConcordanceInspection,
+    ConcordanceVerification,
     ProtocolCitationInspection,
     ProtocolEvidenceInspection,
     ProtocolInspection,
@@ -15,10 +17,13 @@ from bioml_data._protocol_inspection_models import (
     RealizedAssignmentInspection,
 )
 from bioml_data._protocol_inspection_rules import inspect_split_rule
+from bioml_data._protocol_inspection_validation import (
+    InspectionAttachmentContract,
+    validate_assignment_attachment,
+)
 from bioml_data._split import (
     SplitAssignmentReceipt,
     SplitPartition,
-    assignment_receipt_identity,
 )
 from bioml_data._split_capability import SplitCapabilityQuery, query_split_capability
 from bioml_data.datasets._registry import DATASET_REGISTRY
@@ -44,17 +49,20 @@ def inspect_protocol(
             protocol=str(plan.protocol),
         )
     ).require_supported()
-    _require_same_contract(
-        plan.dataset, str(plan.task), str(plan.protocol), inputs.assignment
-    )
-    _require_concordance_contract(
-        plan.dataset,
-        str(plan.task),
-        str(plan.protocol),
-        inputs.assignment,
-        inputs.concordance,
-    )
     rule = inspect_split_rule(capability.strategy)
+    attachment_contract = InspectionAttachmentContract(
+        dataset=plan.dataset,
+        task=str(plan.task),
+        protocol=str(plan.protocol),
+        capability=capability,
+    )
+    validate_assignment_attachment(attachment_contract, inputs.assignment)
+    if inputs.concordance is not None:
+        validate_concordance_attachment(
+            attachment_contract,
+            inputs.assignment,
+            inputs.concordance,
+        )
     return ProtocolInspection(
         dataset_name=str(plan.dataset.name),
         dataset_version=str(plan.dataset.version),
@@ -122,78 +130,6 @@ def _task_definition(
     )
 
 
-def _require_same_contract(
-    dataset: DatasetSnapshotIdentity,
-    task: str,
-    protocol: str,
-    assignment: SplitAssignmentReceipt | None,
-) -> None:
-    if assignment is None:
-        return
-    actual = assignment_receipt_identity(assignment)
-    if assignment.assignment_identity != actual:
-        raise ProtocolInspectionReceiptMismatchError(
-            field="assignment_identity",
-            expected=str(actual),
-            actual=str(assignment.assignment_identity),
-        )
-    for field, expected, received in (
-        ("assignment_dataset", str(dataset), str(assignment.dataset)),
-        ("assignment_task", task, str(assignment.task)),
-        ("assignment_protocol", protocol, str(assignment.protocol)),
-    ):
-        if expected != received:
-            raise ProtocolInspectionReceiptMismatchError(
-                field=field, expected=expected, actual=received
-            )
-
-
-def _require_concordance_contract(
-    dataset: DatasetSnapshotIdentity,
-    task: str,
-    protocol: str,
-    assignment: SplitAssignmentReceipt | None,
-    concordance: MetadataConcordanceReport | None,
-) -> None:
-    if concordance is None:
-        return
-    for field, expected, received in (
-        ("concordance_dataset", str(dataset), str(concordance.scope.dataset)),
-        ("concordance_task", task, str(concordance.scope.task)),
-        ("concordance_protocol", protocol, str(concordance.scope.protocol)),
-    ):
-        if expected != received:
-            raise ProtocolInspectionReceiptMismatchError(
-                field=field, expected=expected, actual=received
-            )
-    if not concordance.partition_reports:
-        _require_plan_only_concordance(concordance)
-        return
-    if assignment is None:
-        raise ProtocolInspectionReceiptMismatchError(
-            field="concordance_assignment",
-            expected="supplied assignment receipt",
-            actual="absent",
-        )
-    if concordance.assignment_identity != assignment.assignment_identity:
-        raise ProtocolInspectionReceiptMismatchError(
-            field="concordance_assignment_identity",
-            expected=str(assignment.assignment_identity),
-            actual=str(concordance.assignment_identity),
-        )
-
-
-def _require_plan_only_concordance(concordance: MetadataConcordanceReport) -> None:
-    """Keep dataset-only concordance explicitly independent of a split receipt."""
-    if concordance.assignment_identity is None:
-        return
-    raise ProtocolInspectionReceiptMismatchError(
-        field="plan_only_concordance_assignment_identity",
-        expected="absent",
-        actual=str(concordance.assignment_identity),
-    )
-
-
 def _realized_assignment(
     assignment: SplitAssignmentReceipt | None,
 ) -> RealizedAssignmentInspection | None:
@@ -209,6 +145,8 @@ def _realized_assignment(
     for item in assignment.assignments:
         partitions_by_group.setdefault(str(item.group), set()).add(item.partition)
     return RealizedAssignmentInspection(
+        caller_supplied=True,
+        validation_scope="protocol-contract-and-internal-consistency-only",
         identity=str(assignment.assignment_identity),
         seed=assignment.seed,
         observation_count=assignment.observation_count,
@@ -253,6 +191,9 @@ def _concordance_summary(
     )
     statuses = tuple(item.status for item in comparisons)
     return ConcordanceInspection(
+        caller_supplied=True,
+        validation_scope="structural-receipt-binding-only; outcomes-not-recomputed",
+        verification=ConcordanceVerification.CALLER_SUPPLIED_UNVERIFIED,
         identity=metadata_concordance_identity(concordance),
         match_count=statuses.count(MetadataConcordance.MATCH),
         mismatch_count=statuses.count(MetadataConcordance.MISMATCH),

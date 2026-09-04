@@ -125,6 +125,7 @@ from bioml_data._preparation_models import (
 from bioml_data._protocol_inspection import inspect_protocol
 from bioml_data._protocol_inspection_models import (
     ConcordanceInspection,
+    ConcordanceVerification,
     ProtocolCitationInspection,
     ProtocolEvidenceInspection,
     ProtocolInspection,
@@ -199,7 +200,8 @@ __all__ = [
     "ArtifactManifest", "ArtifactReceipt", "ArtifactReceiptFailure",
     "ArtifactReceiptLoadError", "ArtifactRequest", "ArtifactTransportError",
     "BenchmarkRunReceipt", "CanonicalSingleCellDataset", "CatalogKeyError",
-    "ChecksumMismatchError", "ConcordanceInspection", "DatasetDefinition",
+    "ChecksumMismatchError", "ConcordanceInspection", "ConcordanceVerification",
+    "DatasetDefinition",
     "DatasetDownloadOutcome",
     "DatasetDownloadPin", "DatasetDownloadProvenanceUnavailableError",
     "DatasetDownloadReceipt", "DatasetDownloadUnavailableError", "DatasetLifecycle",

@@ -275,8 +275,8 @@ def test_inspect_protocol_rejects_partition_concordance_without_assignment() -> 
     assert captured.value.field == "concordance_assignment"
 
 
-def test_inspect_protocol_accepts_explicit_dataset_only_concordance() -> None:
-    """Plan-only comparisons stay allowed only when they carry no split identity."""
+def test_inspect_protocol_rejects_dataset_only_concordance_without_assignment() -> None:
+    """Inspection only accepts concordance produced for a named receipt."""
     # Given: a dataset-level report deliberately stripped of partition evidence.
     dataset = metadata_dataset()
     assignment = make_split(dataset)
@@ -298,13 +298,14 @@ def test_inspect_protocol_accepts_explicit_dataset_only_concordance() -> None:
         partition_reports=(),
     )
 
-    # When: the independent dataset-level evidence is attached without a receipt.
-    report = bio.inspect_protocol(
-        "tms-aorta",
-        task="cell-type-annotation-v1",
-        protocol="animal-held-out-v1",
-        request=bio.ProtocolInspectionRequest(concordance=plan_only),
-    )
+    # When: the modified report is attached without its receipt.
+    with pytest.raises(bio.ProtocolInspectionReceiptMismatchError) as captured:
+        _ = bio.inspect_protocol(
+            "tms-aorta",
+            task="cell-type-annotation-v1",
+            protocol="animal-held-out-v1",
+            request=bio.ProtocolInspectionRequest(concordance=plan_only),
+        )
 
-    # Then: it is accepted as explicitly plan-only evidence.
-    assert report.concordance is not None
+    # Then: hand-crafted dataset-only report objects cannot imitate a producer result.
+    assert captured.value.field == "concordance_assignment"

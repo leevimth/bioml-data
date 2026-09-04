@@ -25,6 +25,13 @@ class ProtocolReadiness(StrEnum):
     UNRESOLVED = "unresolved"
 
 
+@unique
+class ConcordanceVerification(StrEnum):
+    """Trust boundary for a concordance attachment shown by inspection."""
+
+    CALLER_SUPPLIED_UNVERIFIED = "caller-supplied-unverified"
+
+
 @dataclass(frozen=True, slots=True)
 class ProtocolInspectionReceiptMismatchError(Exception):
     """Raised when a supplied result was not produced by the inspected protocol."""
@@ -63,6 +70,8 @@ class ProtocolEvidenceInspection:
 class RealizedAssignmentInspection:
     """Receipt-derived assignment details, absent until a receipt is supplied."""
 
+    caller_supplied: bool
+    validation_scope: str
     identity: str
     seed: int
     observation_count: int
@@ -79,8 +88,11 @@ class RealizedAssignmentInspection:
 
 @dataclass(frozen=True, slots=True)
 class ConcordanceInspection:
-    """Identity and exact outcome counts for a supplied concordance report."""
+    """Caller-supplied concordance identity and outcome counts."""
 
+    caller_supplied: bool
+    validation_scope: str
+    verification: ConcordanceVerification
     identity: str
     match_count: int
     mismatch_count: int
@@ -198,11 +210,16 @@ def _receipt_lines(report: ProtocolInspection) -> tuple[str, ...]:
 def _assignment_lines(
     assignment: RealizedAssignmentInspection | None,
 ) -> tuple[str, ...]:
-    """Render a verified assignment summary or state that it was not supplied."""
+    """Render a replay-validated assignment summary or state its absence."""
     if assignment is None:
         return ("realized assignment: absent",)
     return (
-        f"realized assignment: {assignment.identity}; seed={assignment.seed}",
+        (
+            "realized assignment "
+            f"(caller_supplied={str(assignment.caller_supplied).lower()}; "
+            f"validation_scope={assignment.validation_scope}): "
+            f"{assignment.identity}; seed={assignment.seed}"
+        ),
         (
             "realized observations: "
             f"train={assignment.train_observation_count}; "
@@ -227,12 +244,15 @@ def _assignment_lines(
 def _concordance_lines(
     concordance: ConcordanceInspection | None,
 ) -> tuple[str, ...]:
-    """Render a supplied concordance identity and exact outcome counts."""
+    """Render caller-supplied concordance identity and outcome counts."""
     if concordance is None:
         return ("concordance: absent",)
     return (
         (
-            f"concordance: {concordance.identity}; "
+            "concordance "
+            f"(caller_supplied={str(concordance.caller_supplied).lower()}; "
+            f"validation_scope={concordance.validation_scope}; "
+            f"{concordance.verification.value}): {concordance.identity}; "
             f"match={concordance.match_count}; "
             f"mismatch={concordance.mismatch_count}; "
             f"not_reported={concordance.not_reported_count}"
