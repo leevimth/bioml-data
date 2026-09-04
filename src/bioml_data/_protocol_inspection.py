@@ -166,15 +166,32 @@ def _require_concordance_contract(
             raise ProtocolInspectionReceiptMismatchError(
                 field=field, expected=expected, actual=received
             )
-    if (
-        assignment is not None
-        and concordance.assignment_identity != assignment.assignment_identity
-    ):
+    if not concordance.partition_reports:
+        _require_plan_only_concordance(concordance)
+        return
+    if assignment is None:
+        raise ProtocolInspectionReceiptMismatchError(
+            field="concordance_assignment",
+            expected="supplied assignment receipt",
+            actual="absent",
+        )
+    if concordance.assignment_identity != assignment.assignment_identity:
         raise ProtocolInspectionReceiptMismatchError(
             field="concordance_assignment_identity",
             expected=str(assignment.assignment_identity),
             actual=str(concordance.assignment_identity),
         )
+
+
+def _require_plan_only_concordance(concordance: MetadataConcordanceReport) -> None:
+    """Keep dataset-only concordance explicitly independent of a split receipt."""
+    if concordance.assignment_identity is None:
+        return
+    raise ProtocolInspectionReceiptMismatchError(
+        field="plan_only_concordance_assignment_identity",
+        expected="absent",
+        actual=str(concordance.assignment_identity),
+    )
 
 
 def _realized_assignment(

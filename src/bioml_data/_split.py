@@ -2,9 +2,12 @@
 
 from dataclasses import dataclass, replace
 from enum import StrEnum, unique
-from hashlib import sha256
 from typing import NewType, override
 
+from bioml_data._assignment_receipt_identity import (
+    AssignmentReceiptIdentityFields,
+    canonical_assignment_receipt_identity,
+)
 from bioml_data._domain import (
     DatasetSnapshotIdentity,
     ProtocolId,
@@ -233,16 +236,33 @@ def _assign(
 def assignment_receipt_identity(
     receipt: SplitAssignmentReceipt,
 ) -> AssignmentIdentity:
-    """Recompute the deterministic identity covering receipt headers and rows."""
-    header = (
-        f"{receipt.dataset.name}\0{receipt.dataset.version}\0{receipt.task}\0"
-        f"{receipt.protocol}\0{receipt.seed}"
+    return AssignmentIdentity(
+        canonical_assignment_receipt_identity(
+            AssignmentReceiptIdentityFields(
+                dataset_name=str(receipt.dataset.name),
+                dataset_version=str(receipt.dataset.version),
+                task=str(receipt.task),
+                protocol=str(receipt.protocol),
+                seed=receipt.seed,
+                assignments=tuple(
+                    (str(item.observation_id), str(item.group), str(item.partition))
+                    for item in receipt.assignments
+                ),
+                requested_group_fractions=(
+                    receipt.requested_group_fractions.train,
+                    receipt.requested_group_fractions.validation,
+                    receipt.requested_group_fractions.test,
+                ),
+                realized_group_counts=(
+                    receipt.realized_group_counts.train,
+                    receipt.realized_group_counts.validation,
+                    receipt.realized_group_counts.test,
+                ),
+                observation_count=receipt.observation_count,
+                group_count=receipt.group_count,
+            )
+        )
     )
-    rows = "".join(
-        f"\0{item.observation_id}\0{item.group}\0{item.partition}"
-        for item in receipt.assignments
-    )
-    return AssignmentIdentity(sha256(f"{header}{rows}".encode()).hexdigest())
 
 
 def _group_for(

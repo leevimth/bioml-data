@@ -1,6 +1,7 @@
 """Researcher-facing protocol inspection scenarios."""
 
 import json
+from dataclasses import replace
 
 import pytest
 
@@ -202,3 +203,108 @@ def test_inspect_protocol_rejects_concordance_for_a_different_assignment() -> No
 
     # Then: inspection names the broken identity join rather than summarizing it.
     assert captured.value.field == "concordance_assignment_identity"
+
+
+def test_inspect_protocol_rejects_every_identity_uncommitted_receipt_field() -> None:
+    """Rendered receipt facts cannot change while retaining the original identity."""
+    # Given: one valid assignment and four independently tampered facts.
+    original = make_split(metadata_dataset())
+    forged_receipts = (
+        replace(original, observation_count=original.observation_count + 1),
+        replace(original, group_count=original.group_count + 1),
+        replace(
+            original,
+            requested_group_fractions=replace(
+                original.requested_group_fractions,
+                train=0.7,
+                validation=0.2,
+            ),
+        ),
+        replace(
+            original,
+            realized_group_counts=replace(
+                original.realized_group_counts,
+                train=original.realized_group_counts.train + 1,
+                validation=original.realized_group_counts.validation - 1,
+            ),
+        ),
+    )
+
+    # When: each stale identity is supplied as realized inspection evidence.
+    for forged in forged_receipts:
+        with pytest.raises(bio.ProtocolInspectionReceiptMismatchError) as captured:
+            _ = bio.inspect_protocol(
+                "tms-aorta",
+                task="cell-type-annotation-v1",
+                protocol="animal-held-out-v1",
+                request=bio.ProtocolInspectionRequest(assignment=forged),
+            )
+
+        # Then: identity validation rejects every rendered semantic mutation.
+        assert captured.value.field == "assignment_identity"
+
+
+def test_inspect_protocol_rejects_partition_concordance_without_assignment() -> None:
+    """Realized partition comparisons require their matching split receipt."""
+    # Given: a valid concordance report with materialized partitions.
+    dataset = metadata_dataset()
+    assignment = make_split(dataset)
+    concordance = bio.compare_metadata_concordance(
+        dataset,
+        assignment,
+        expectations=(
+            bio.PublicationMetadataExpectation.not_reported(
+                scope=metadata_scope(),
+                partition=None,
+                metric=bio.MetadataMetric.OBSERVATION_COUNT,
+            ),
+            *explicit_partition_evidence(metadata_scope()),
+        ),
+    )
+
+    # When: a consumer omits the receipt that the partitions summarize.
+    with pytest.raises(bio.ProtocolInspectionReceiptMismatchError) as captured:
+        _ = bio.inspect_protocol(
+            "tms-aorta",
+            task="cell-type-annotation-v1",
+            protocol="animal-held-out-v1",
+            request=bio.ProtocolInspectionRequest(concordance=concordance),
+        )
+
+    # Then: the report cannot be interpreted as a plan-only result.
+    assert captured.value.field == "concordance_assignment"
+
+
+def test_inspect_protocol_accepts_explicit_dataset_only_concordance() -> None:
+    """Plan-only comparisons stay allowed only when they carry no split identity."""
+    # Given: a dataset-level report deliberately stripped of partition evidence.
+    dataset = metadata_dataset()
+    assignment = make_split(dataset)
+    complete = bio.compare_metadata_concordance(
+        dataset,
+        assignment,
+        expectations=(
+            bio.PublicationMetadataExpectation.not_reported(
+                scope=metadata_scope(),
+                partition=None,
+                metric=bio.MetadataMetric.OBSERVATION_COUNT,
+            ),
+            *explicit_partition_evidence(metadata_scope()),
+        ),
+    )
+    plan_only = replace(
+        complete,
+        assignment_identity=None,
+        partition_reports=(),
+    )
+
+    # When: the independent dataset-level evidence is attached without a receipt.
+    report = bio.inspect_protocol(
+        "tms-aorta",
+        task="cell-type-annotation-v1",
+        protocol="animal-held-out-v1",
+        request=bio.ProtocolInspectionRequest(concordance=plan_only),
+    )
+
+    # Then: it is accepted as explicitly plan-only evidence.
+    assert report.concordance is not None
