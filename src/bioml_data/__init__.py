@@ -130,6 +130,7 @@ from bioml_data._protocol_inspection_models import (
     ProtocolInspection,
     ProtocolInspectionReceiptMismatchError,
     ProtocolInspectionRequest,
+    ProtocolReadiness,
     RealizedAssignmentInspection,
 )
 from bioml_data._provider_adapters import (
@@ -222,6 +223,7 @@ __all__ = [
     "PreparationRequest", "PreparedBenchmarkReceipt", "PreparedDatasetCacheError",
     "ProtocolCitationInspection", "ProtocolEvidenceInspection", "ProtocolInspection",
     "ProtocolInspectionReceiptMismatchError", "ProtocolInspectionRequest",
+    "ProtocolReadiness",
     "ProviderAcquisitionReceipt", "ProviderAcquisitionTarget", "ProviderAdapter",
     "ProviderArtifactExpectation", "ProviderArtifactIdentityMismatchError",
     "ProviderArtifactProvenanceMismatchError", "ProviderDescriptor", "ProviderId",

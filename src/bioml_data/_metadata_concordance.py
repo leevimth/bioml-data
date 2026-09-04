@@ -24,7 +24,7 @@ from bioml_data._metadata_observed import (
     partitioned_rows,
 )
 from bioml_data._single_cell import CanonicalSingleCellDataset
-from bioml_data._split import SplitAssignmentReceipt, SplitPartition
+from bioml_data._split import AssignmentIdentity, SplitAssignmentReceipt, SplitPartition
 
 
 @dataclass(frozen=True, slots=True)
@@ -53,6 +53,7 @@ class MetadataConcordanceReport:
     """Whole-dataset and partition-level metadata evidence for one split receipt."""
 
     scope: MetadataExpectationScope
+    assignment_identity: AssignmentIdentity | None
     fold: MetadataFoldId | None
     dataset_comparisons: tuple[MetadataComparison, ...]
     partition_reports: tuple[MetadataPartitionReport, ...]
@@ -91,6 +92,7 @@ def compare_metadata_concordance(
     )
     return MetadataConcordanceReport(
         scope=scope,
+        assignment_identity=assignment.assignment_identity,
         fold=fold,
         dataset_comparisons=_compare(dataset, assignments, dataset_expectations),
         partition_reports=reports,

@@ -1,10 +1,9 @@
 """Deterministic, plan-time inspection of registered dataset protocols."""
 
-from hashlib import sha256
-
 from bioml_data._domain import DatasetSnapshotIdentity, TaskDefinition
 from bioml_data._metadata_concordance import MetadataConcordanceReport
 from bioml_data._metadata_concordance_models import MetadataConcordance
+from bioml_data._metadata_concordance_reporting import metadata_concordance_identity
 from bioml_data._protocol_inspection_models import (
     ConcordanceInspection,
     ProtocolCitationInspection,
@@ -12,6 +11,7 @@ from bioml_data._protocol_inspection_models import (
     ProtocolInspection,
     ProtocolInspectionReceiptMismatchError,
     ProtocolInspectionRequest,
+    ProtocolReadiness,
     RealizedAssignmentInspection,
 )
 from bioml_data._protocol_inspection_rules import inspect_split_rule
@@ -51,6 +51,7 @@ def inspect_protocol(
         plan.dataset,
         str(plan.task),
         str(plan.protocol),
+        inputs.assignment,
         inputs.concordance,
     )
     rule = inspect_split_rule(capability.strategy)
@@ -59,6 +60,11 @@ def inspect_protocol(
         dataset_version=str(plan.dataset.version),
         source_uri=str(definition.source.uri),
         lifecycle=definition.lifecycle.value,
+        readiness=ProtocolReadiness.UNRESOLVED,
+        readiness_note=(
+            "BIO-31 support-readiness evaluation has not yet evaluated this "
+            "registration"
+        ),
         task_id=str(task_definition.id),
         prediction_unit=task_definition.prediction_unit,
         target=task_definition.target,
@@ -146,6 +152,7 @@ def _require_concordance_contract(
     dataset: DatasetSnapshotIdentity,
     task: str,
     protocol: str,
+    assignment: SplitAssignmentReceipt | None,
     concordance: MetadataConcordanceReport | None,
 ) -> None:
     if concordance is None:
@@ -159,6 +166,15 @@ def _require_concordance_contract(
             raise ProtocolInspectionReceiptMismatchError(
                 field=field, expected=expected, actual=received
             )
+    if (
+        assignment is not None
+        and concordance.assignment_identity != assignment.assignment_identity
+    ):
+        raise ProtocolInspectionReceiptMismatchError(
+            field="concordance_assignment_identity",
+            expected=str(assignment.assignment_identity),
+            actual=str(concordance.assignment_identity),
+        )
 
 
 def _realized_assignment(
@@ -219,17 +235,8 @@ def _concordance_summary(
         ),
     )
     statuses = tuple(item.status for item in comparisons)
-    payload = "\0".join(
-        (
-            str(concordance.scope.dataset),
-            str(concordance.scope.task),
-            str(concordance.scope.protocol),
-            str(concordance.fold),
-            *(status.value for status in statuses),
-        )
-    )
     return ConcordanceInspection(
-        identity=sha256(payload.encode()).hexdigest(),
+        identity=metadata_concordance_identity(concordance),
         match_count=statuses.count(MetadataConcordance.MATCH),
         mismatch_count=statuses.count(MetadataConcordance.MISMATCH),
         not_reported_count=statuses.count(MetadataConcordance.NOT_REPORTED),

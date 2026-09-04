@@ -2,6 +2,8 @@
 
 import json
 
+import pytest
+
 import bioml_data as bio
 
 from ._metadata_concordance_helpers import (
@@ -108,3 +110,95 @@ def test_inspect_protocol_summarizes_explicitly_supplied_concordance() -> None:
     assert report.concordance.not_reported_count == 4
     assert report.concordance.mismatch_count == 0
     assert report.concordance.identity
+    rendered = report.to_text()
+    assert report.realized_assignment is not None
+    assert report.realized_assignment.identity in rendered
+    assert report.concordance.identity in rendered
+
+
+def test_inspect_protocol_text_includes_every_declared_contract_category() -> None:
+    """Default human inspection is complete enough to plan a study unaided."""
+    # Given: a plan-time inspection with no realized data execution.
+    report = bio.inspect_protocol(
+        "tms-aorta",
+        task="cell-type-annotation-v1",
+        protocol="animal-held-out-v1",
+    )
+
+    # When: the researcher reads the human default output.
+    rendered = report.to_text()
+    serialized = report.to_json()
+
+    # Then: every material plan-time contract value is visible.
+    for value in (
+        report.dataset_name,
+        report.dataset_version,
+        report.source_uri,
+        report.source_artifact,
+        report.transform_protocol,
+        report.task_id,
+        report.protocol_id,
+        report.evidence_basis[0],
+        report.evidence[0].citations[0].title,
+        report.evidence[0].citations[0].uri,
+        report.strategy,
+        report.grouping_column,
+        report.leakage_unit,
+        report.held_out_axis,
+        report.evaluation_target,
+        report.assignment_rule,
+        report.deterministic_tie_break,
+        report.seed_policy,
+        report.allocation_policy,
+        report.validation_policy,
+        report.required_metadata[0],
+        report.group_overlap_invariant,
+        report.preprocessing_fit_scope[0],
+        report.lifecycle,
+        report.readiness,
+        report.limitations[0],
+    ):
+        assert value in rendered
+        assert value in serialized
+    assert "80%/10%/10%" in rendered
+    assert "realized assignment: absent" in rendered
+    assert "concordance: absent" in rendered
+
+
+def test_inspect_protocol_rejects_concordance_for_a_different_assignment() -> None:
+    """A concordance result cannot be paired with a different split receipt."""
+    # Given: two valid but differently seeded assignments over the same dataset.
+    dataset = metadata_dataset()
+    first = make_split(dataset)
+    second = bio.SplitAssigner(
+        dataset=dataset.snapshot,
+        task=first.task,
+        observations=dataset.split_observations,
+    ).split(protocol="animal-held-out-v1", seed=18)
+    concordance = bio.compare_metadata_concordance(
+        dataset,
+        second,
+        expectations=(
+            bio.PublicationMetadataExpectation.not_reported(
+                scope=metadata_scope(),
+                partition=None,
+                metric=bio.MetadataMetric.OBSERVATION_COUNT,
+            ),
+            *explicit_partition_evidence(metadata_scope()),
+        ),
+    )
+
+    # When: a caller pairs the seed-17 receipt with seed-18 concordance evidence.
+    with pytest.raises(bio.ProtocolInspectionReceiptMismatchError) as captured:
+        _ = bio.inspect_protocol(
+            "tms-aorta",
+            task="cell-type-annotation-v1",
+            protocol="animal-held-out-v1",
+            request=bio.ProtocolInspectionRequest(
+                assignment=first,
+                concordance=concordance,
+            ),
+        )
+
+    # Then: inspection names the broken identity join rather than summarizing it.
+    assert captured.value.field == "concordance_assignment_identity"

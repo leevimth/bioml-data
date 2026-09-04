@@ -1,9 +1,10 @@
 """Source-of-truth renderings for executable split rules."""
 
 from dataclasses import dataclass
+from typing import assert_never
 
 from bioml_data._domain import SplitStrategy
-from bioml_data._split import GROUP_HELD_OUT_ALLOCATION_RULE
+from bioml_data._group_held_out_rules import GROUP_HELD_OUT_ALLOCATION_RULE
 
 
 @dataclass(frozen=True, slots=True)
@@ -42,21 +43,6 @@ def inspect_split_rule(strategy: SplitStrategy | None) -> SplitRuleInspection:
                 ),
                 validation_policy="present",
             )
-        case SplitStrategy.LEAVE_ONE_STUDY_OUT:
-            return SplitRuleInspection(
-                strategy=strategy.value,
-                assignment_rule=(
-                    "each fold assigns one complete study to test and all other "
-                    "studies to train"
-                ),
-                deterministic_tie_break="ascending study_id defines fold order",
-                requested_group_fractions=None,
-                allocation_policy=(
-                    "one fold per held-out study; no validation partition is "
-                    "synthesized"
-                ),
-                validation_policy="absent unless the referenced protocol declares one",
-            )
         case None:
             return SplitRuleInspection(
                 strategy="unspecified",
@@ -66,3 +52,22 @@ def inspect_split_rule(strategy: SplitStrategy | None) -> SplitRuleInspection:
                 allocation_policy="not executable",
                 validation_policy="unspecified",
             )
+        case unreachable:
+            if unreachable is SplitStrategy.LEAVE_ONE_STUDY_OUT:
+                return SplitRuleInspection(
+                    strategy=unreachable.value,
+                    assignment_rule=(
+                        "each fold assigns one complete study to test and all "
+                        "other studies to train"
+                    ),
+                    deterministic_tie_break="ascending study_id defines fold order",
+                    requested_group_fractions=None,
+                    allocation_policy=(
+                        "one fold per held-out study; no validation partition is "
+                        "synthesized"
+                    ),
+                    validation_policy=(
+                        "absent unless the referenced protocol declares one"
+                    ),
+                )
+            assert_never(unreachable)

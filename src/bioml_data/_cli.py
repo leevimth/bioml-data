@@ -9,14 +9,26 @@ from bioml_data._artifact_receipts import (
     ArtifactReceiptLoadError,
     load_artifact_receipt,
 )
+from bioml_data._dataset_definition import (
+    UnknownTaskError,
+    UnsupportedSplitProtocolError,
+)
 from bioml_data._dataset_preparation import (
     UnexpectedDatasetSourceError,
     prepare_dataset,
 )
 from bioml_data._dataset_preparation_models import PreparedDatasetCacheError
+from bioml_data._domain import (
+    CatalogKeyError,
+    UnknownDatasetError,
+    UnknownDatasetVersionError,
+)
 from bioml_data._pipeline import run_tms_aorta_canary
 from bioml_data._protocol_inspection import inspect_protocol
-from bioml_data._protocol_inspection_models import ProtocolInspectionRequest
+from bioml_data._protocol_inspection_models import (
+    ProtocolInspectionReceiptMismatchError,
+    ProtocolInspectionRequest,
+)
 from bioml_data._split import MissingSplitProtocolError
 from bioml_data.datasets.tms_aorta._h5ad_transform import InvalidRawTmsArtifactError
 
@@ -88,12 +100,23 @@ def inspect(
     as_json: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
     """Describe one declared dataset protocol without executing it."""
-    report = inspect_protocol(
-        dataset,
-        task=task,
-        protocol=protocol,
-        request=ProtocolInspectionRequest(version=version),
-    )
+    try:
+        report = inspect_protocol(
+            dataset,
+            task=task,
+            protocol=protocol,
+            request=ProtocolInspectionRequest(version=version),
+        )
+    except (
+        CatalogKeyError,
+        ProtocolInspectionReceiptMismatchError,
+        UnknownDatasetError,
+        UnknownDatasetVersionError,
+        UnknownTaskError,
+        UnsupportedSplitProtocolError,
+    ) as error:
+        typer.echo(str(error), err=True)
+        raise typer.Exit(code=2) from error
     typer.echo(report.to_json() if as_json else report.to_text())
 
 

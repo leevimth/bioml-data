@@ -29,7 +29,10 @@ bioml-data inspect tms-aorta \
 The report always states the exact dataset snapshot, upstream source URI, task,
 artifact scope, protocol, evidence basis and citations, split strategy,
 grouping column, leakage unit, held-out axis, deployment target, lifecycle, and
-canary usage. It also describes the executable allocation rule rather than a
+canary usage. It separately states readiness: the current TMS value is
+`unresolved`, because BIO-31 owns the support-readiness evaluation and the
+package must not infer support from lifecycle or a successful canary. It also
+describes the executable allocation rule rather than a
 separate prose copy: for `animal-held-out-v1`, group IDs are ordered by the
 SHA-256 digest of `seed + NUL + group_id`, with group ID as the deterministic
 digest-collision tie-break. The requested group allocation is 80%/10%/10%
@@ -46,8 +49,10 @@ baseline.
 To render results that have already been produced, attach them explicitly. This
 does not run the pipeline; it validates the receipt identity and contract before
 showing actual held-out group IDs, partition observation/group counts, and any
-cross-partition groups. A supplied concordance report contributes only its
-derived report identity and `MATCH`, `MISMATCH`, and `NOT_REPORTED` counts.
+cross-partition groups. When both are supplied, their assignment identities must
+be exactly equal. A supplied concordance report contributes its canonical hash
+of the complete scoped report and exact `MATCH`, `MISMATCH`, and `NOT_REPORTED`
+counts.
 
 ```python
 report = bio.inspect_protocol(

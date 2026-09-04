@@ -3,12 +3,17 @@
 from dataclasses import dataclass, replace
 from enum import StrEnum, unique
 from hashlib import sha256
-from typing import Final, NewType, override
+from typing import NewType, override
 
 from bioml_data._domain import (
     DatasetSnapshotIdentity,
     ProtocolId,
     TaskId,
+)
+from bioml_data._group_held_out_rules import (
+    GROUP_HELD_OUT_ALLOCATION_RULE,
+    group_held_out_partition_counts,
+    ordered_group_ids,
 )
 from bioml_data._split_capability import (
     SplitCapability,
@@ -20,32 +25,6 @@ AssignmentIdentity = NewType("AssignmentIdentity", str)
 GroupId = NewType("GroupId", str)
 MetadataColumn = NewType("MetadataColumn", str)
 ObservationId = NewType("ObservationId", str)
-
-_GROUP_WEIGHT_TOTAL: Final = 10
-_MINIMUM_GROUP_COUNT: Final = 3
-_TRAIN_WEIGHT: Final = 8
-_VALIDATION_WEIGHT: Final = 1
-_TEST_WEIGHT: Final = 1
-
-
-@dataclass(frozen=True, slots=True)
-class GroupHeldOutAllocationRule:
-    """Executable allocation rule shared by assignment and inspection."""
-
-    train_weight: int
-    validation_weight: int
-    test_weight: int
-    total_weight: int
-    minimum_group_count: int
-
-
-GROUP_HELD_OUT_ALLOCATION_RULE: Final = GroupHeldOutAllocationRule(
-    train_weight=_TRAIN_WEIGHT,
-    validation_weight=_VALIDATION_WEIGHT,
-    test_weight=_TEST_WEIGHT,
-    total_weight=_GROUP_WEIGHT_TOTAL,
-    minimum_group_count=_MINIMUM_GROUP_COUNT,
-)
 
 
 @unique
@@ -195,12 +174,7 @@ def _assign(
         (observation, _group_for(observation, capability=capability))
         for observation in assigner.observations
     )
-    groups = tuple(
-        sorted(
-            {group for _, group in grouped},
-            key=lambda group: (sha256(f"{seed}\0{group}".encode()).digest(), group),
-        )
-    )
+    groups = ordered_group_ids(tuple(str(group) for _, group in grouped), seed=seed)
     counts = _realized_counts(len(groups))
     train_end = counts.train
     validation_end = train_end + counts.validation
@@ -296,26 +270,9 @@ def _realized_counts(group_count: int) -> PartitionGroupCounts:
             group_count=group_count,
             required_group_count=rule.minimum_group_count,
         )
-    counts = [
-        max(1, group_count * rule.train_weight // rule.total_weight),
-        max(1, group_count * rule.validation_weight // rule.total_weight),
-        max(1, group_count * rule.test_weight // rule.total_weight),
-    ]
-    counts[0] -= max(0, sum(counts) - group_count)
-    remaining = group_count - sum(counts)
-    remainders = (
-        group_count * rule.train_weight % rule.total_weight,
-        group_count * rule.validation_weight % rule.total_weight,
-        group_count * rule.test_weight % rule.total_weight,
-    )
-    allocation_order = sorted(
-        range(len(counts)),
-        key=lambda index: (-remainders[index], index),
-    )
-    for index in allocation_order[:remaining]:
-        counts[index] += 1
+    counts = group_held_out_partition_counts(group_count)
     return PartitionGroupCounts(
-        train=counts[0],
-        validation=counts[1],
-        test=counts[2],
+        train=counts.train,
+        validation=counts.validation,
+        test=counts.test,
     )
