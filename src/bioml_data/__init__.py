@@ -122,6 +122,25 @@ from bioml_data._preparation_models import (
     PreparationRequest,
     PreparedBenchmarkReceipt,
 )
+from bioml_data._preparation_execution import (
+    record_preparation_execution,
+    validate_preparation_execution_receipt,
+)
+from bioml_data._preparation_execution_models import (
+    DependencyVersion,
+    ExpressionInput,
+    MetadataConcordanceAttachment,
+    MetadataConcordanceAttachmentStatus,
+    PreparationExecutionReceipt,
+    PreparationExecutionReceiptIdentity,
+    PreparationExecutionReceiptMismatchError,
+    PreparationExecutionRequest,
+    PreparationExecutionRuntime,
+    PreparationFitScope,
+    PreparationSemanticParameters,
+    RuntimeComponent,
+    preparation_execution_receipt_identity,
+)
 from bioml_data._protocol_inspection import inspect_protocol
 from bioml_data._protocol_inspection_models import (
     ConcordanceInspection,
@@ -208,7 +227,8 @@ __all__ = [
     "DatasetMaterializationProvenanceMismatchError", "DatasetPreparationOutcome",
     "DatasetPreparationReceipt", "DatasetPreparationUnavailableError",
     "DatasetSnapshotIdentity", "DatasetVersionRequiredError", "EvaluationReceipt",
-    "EvaluationRequest", "FittedPreparationState", "HttpArtifactDownload",
+    "DependencyVersion", "EvaluationRequest", "ExpressionInput",
+    "FittedPreparationState", "HttpArtifactDownload",
     "HttpClientConfiguration", "IncompleteDownloadError", "InsecureArtifactUrlError",
     "InvalidMetadataExpectationError", "InvalidMetadataPartitionError",
     "InvalidRawTmsArtifactError", "InvalidSplitCanaryUsageError",
@@ -219,9 +239,14 @@ __all__ = [
     "MetadataExpectationScope", "MetadataExpectationScopeMismatchError",
     "MetadataFoldId", "MetadataMetric", "MetadataObservedValue",
     "MetadataPartitionReport", "MetadataPartitionViolation",
+    "MetadataConcordanceAttachment", "MetadataConcordanceAttachmentStatus",
     "MissingSplitProtocolError",
     "OversizedDownloadError", "PredictionRecord", "PreparationProtocol",
-    "PreparationRequest", "PreparedBenchmarkReceipt", "PreparedDatasetCacheError",
+    "PreparationExecutionReceipt", "PreparationExecutionReceiptIdentity",
+    "PreparationExecutionReceiptMismatchError", "PreparationExecutionRuntime",
+    "PreparationExecutionRequest", "PreparationFitScope", "PreparationRequest",
+    "PreparationSemanticParameters",
+    "PreparedBenchmarkReceipt", "PreparedDatasetCacheError",
     "ProtocolCitationInspection", "ProtocolEvidenceInspection", "ProtocolInspection",
     "ProtocolInspectionReceiptMismatchError", "ProtocolInspectionRequest",
     "ProtocolReadiness",
@@ -232,6 +257,7 @@ __all__ = [
     "ProviderReceiptIntegrityMismatchError", "ProviderReceiptMismatchError",
     "ProviderTargetMismatchError", "PublicationMetadataExpectation",
     "RawTmsViolation", "RealizedAssignmentInspection", "ResolvedProviderArtifact",
+    "RuntimeComponent",
     "ScientificArtifactIdentity", "Sha256Provenance", "SourceReference",
     "SplitArtifactScope", "SplitAssigner", "SplitAssignmentReceipt", "SplitCapability",
     "SplitCapabilityAvailability", "SplitCapabilityQuery", "SplitCapabilityResult",
@@ -250,7 +276,10 @@ __all__ = [
     "fit_train_preprocessing", "get_dataset_download_pin", "inspect_protocol",
     "load_anndata",
     "load_artifact_receipt", "load_dataset", "prepare_benchmark", "prepare_dataset",
-    "prepare_train_independent", "query_split_capability", "run_tms_aorta_canary",
+    "prepare_train_independent", "preparation_execution_receipt_identity",
+    "query_split_capability", "record_preparation_execution",
+    "run_tms_aorta_canary",
     "tms_aorta_canary_protocol",
+    "validate_preparation_execution_receipt",
 ]
 # fmt: on
