@@ -4,7 +4,8 @@ import json
 from dataclasses import asdict, dataclass
 from enum import StrEnum, unique
 from hashlib import sha256
-from typing import NewType, final, override
+from math import isfinite
+from typing import Final, NewType
 
 from bioml_data._artifacts import ArtifactId, ArtifactReceipt
 from bioml_data._dataset_preparation_models import (
@@ -13,6 +14,10 @@ from bioml_data._dataset_preparation_models import (
 )
 from bioml_data._domain import DatasetSnapshotIdentity, ProtocolId, TaskId
 from bioml_data._metadata_concordance import MetadataConcordanceReport
+from bioml_data._preparation_execution_errors import (
+    PreparationExecutionReceiptMismatchError,
+)
+from bioml_data._preparation_execution_runtime import PreparationExecutionRuntime
 from bioml_data._preparation_models import (
     PreparationProtocol,
     PreparationReceiptIdentity,
@@ -26,6 +31,7 @@ from bioml_data._split import AssignmentIdentity, SplitAssignmentReceipt
 PreparationExecutionReceiptIdentity = NewType(
     "PreparationExecutionReceiptIdentity", str
 )
+MAX_ALIGNMENT_FEATURE_IDS: Final = 50_000
 
 
 @unique
@@ -45,15 +51,6 @@ class PreparationFitScope(StrEnum):
 
 
 @unique
-class RuntimeComponent(StrEnum):
-    """Bounded runtime components relevant to single-cell preparation."""
-
-    ANNDATA = "anndata"
-    NUMPY = "numpy"
-    SCIPY = "scipy"
-
-
-@unique
 class MetadataConcordanceAttachmentStatus(StrEnum):
     """Collapsed status of a full optional concordance report."""
 
@@ -61,80 +58,6 @@ class MetadataConcordanceAttachmentStatus(StrEnum):
     MISMATCH = "mismatch"
     NOT_REPORTED = "not_reported"
     MIXED = "mixed"
-
-
-@final
-class PreparationExecutionReceiptMismatchError(Exception):
-    """Raised when execution layers cannot be joined into one receipt."""
-
-    __slots__ = ("actual", "expected", "field")
-
-    field: str
-    expected: str
-    actual: str
-
-    def __init__(self, field: str, expected: str, actual: str) -> None:
-        super().__init__(field, expected, actual)
-        self.field = field
-        self.expected = expected
-        self.actual = actual
-
-    @override
-    def __str__(self) -> str:
-        return (
-            f"preparation execution receipt mismatch for {self.field}: "
-            f"expected {self.expected!r}, received {self.actual!r}"
-        )
-
-
-@dataclass(frozen=True, slots=True)
-class DependencyVersion:
-    """One bounded, named runtime dependency version."""
-
-    component: RuntimeComponent
-    version: str
-
-    def __post_init__(self) -> None:
-        """Reject empty or whitespace-normalized runtime versions."""
-        if not self.version or self.version != self.version.strip():
-            raise PreparationExecutionReceiptMismatchError(
-                field="dependency_version",
-                expected="non-empty normalized version",
-                actual=self.version,
-            )
-
-
-@dataclass(frozen=True, slots=True)
-class PreparationExecutionRuntime:
-    """Toolkit plus a bounded, canonically ordered dependency version set."""
-
-    toolkit_version: str
-    dependencies: tuple[DependencyVersion, ...]
-
-    def __post_init__(self) -> None:
-        """Keep runtime metadata small, normalized, unique, and deterministic."""
-        components = tuple(item.component for item in self.dependencies)
-        if (
-            not self.toolkit_version
-            or self.toolkit_version != self.toolkit_version.strip()
-        ):
-            raise PreparationExecutionReceiptMismatchError(
-                field="toolkit_version",
-                expected="non-empty normalized version",
-                actual=self.toolkit_version,
-            )
-        if components != tuple(sorted(components, key=str)):
-            raise PreparationExecutionReceiptMismatchError(
-                field="runtime_dependencies",
-                expected="sorted by component",
-                actual=str(components),
-            )
-        if len(components) != len(set(components)):
-            raise PreparationExecutionReceiptMismatchError(
-                field="runtime_dependencies",
-                expected="unique components",
-                actual=str(components),
-            )
 
 
 @dataclass(frozen=True, slots=True)
@@ -157,9 +80,15 @@ class PreparationSemanticParameters:
 
     minimum_cell_count: int
     minimum_feature_cells: int
+    alignment_feature_ids: tuple[str, ...]
+    alignment_feature_count: int
     alignment_feature_identity: str
     normalization_target_sum: float
     max_features: int | None
+
+    def __post_init__(self) -> None:
+        """Keep rendered preparation semantics finite, bounded, and canonical."""
+        _validate_semantic_parameters(self)
 
 
 @dataclass(frozen=True, slots=True)
@@ -198,14 +127,62 @@ class PreparationExecutionReceipt:
 
     def to_json(self) -> str:
         """Return canonical JSON without filesystem or host-local fields."""
-        return json.dumps(asdict(self), sort_keys=True, separators=(",", ":"))
+        _validate_semantic_parameters(self.semantic_parameters)
+        return json.dumps(
+            asdict(self),
+            sort_keys=True,
+            separators=(",", ":"),
+            allow_nan=False,
+        )
 
 
 def preparation_execution_receipt_identity(
     receipt: PreparationExecutionReceipt,
 ) -> PreparationExecutionReceiptIdentity:
     """Hash every rendered scientific field except its derived receipt identity."""
+    _validate_semantic_parameters(receipt.semantic_parameters)
     payload = asdict(receipt)
     del payload["receipt_identity"]
-    encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+    encoded = json.dumps(
+        payload,
+        sort_keys=True,
+        separators=(",", ":"),
+        allow_nan=False,
+    )
     return PreparationExecutionReceiptIdentity(sha256(encoded.encode()).hexdigest())
+
+
+def _validate_semantic_parameters(parameters: PreparationSemanticParameters) -> None:
+    """Reject values that cannot be safely and reproducibly rendered to JSON."""
+    if not isfinite(parameters.normalization_target_sum):
+        raise PreparationExecutionReceiptMismatchError(
+            field="normalization_target_sum",
+            expected="finite float",
+            actual=repr(parameters.normalization_target_sum),
+        )
+    feature_ids = parameters.alignment_feature_ids
+    if len(feature_ids) > MAX_ALIGNMENT_FEATURE_IDS:
+        raise PreparationExecutionReceiptMismatchError(
+            field="alignment_feature_ids",
+            expected=f"at most {MAX_ALIGNMENT_FEATURE_IDS} feature identifiers",
+            actual=str(len(feature_ids)),
+        )
+    if parameters.alignment_feature_count != len(feature_ids):
+        raise PreparationExecutionReceiptMismatchError(
+            field="alignment_feature_count",
+            expected=str(len(feature_ids)),
+            actual=str(parameters.alignment_feature_count),
+        )
+    if feature_ids != tuple(sorted(set(feature_ids))):
+        raise PreparationExecutionReceiptMismatchError(
+            field="alignment_feature_ids",
+            expected="sorted unique feature identifiers",
+            actual=str(len(feature_ids)),
+        )
+    expected_identity = sha256("\0".join(feature_ids).encode()).hexdigest()
+    if parameters.alignment_feature_identity != expected_identity:
+        raise PreparationExecutionReceiptMismatchError(
+            field="alignment_feature_identity",
+            expected=expected_identity,
+            actual=parameters.alignment_feature_identity,
+        )

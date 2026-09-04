@@ -8,22 +8,24 @@ calls with the same inputs emit the same canonical JSON and receipt identity.
 ```python
 import bioml_data as bio
 
-execution = bio.record_preparation_execution(bio.PreparationExecutionRequest(
-    dataset=dataset,
-    input_artifact=download.artifact,
-    materialization=prepared_artifact,
-    prepared=prepared_rows,
-    assignment=split_receipt,
-    protocol=preparation_protocol,
-    runtime=bio.PreparationExecutionRuntime(
-        toolkit_version=bio.__version__,
-        dependencies=(
-            bio.DependencyVersion(bio.RuntimeComponent.ANNDATA, "0.12.0"),
-            bio.DependencyVersion(bio.RuntimeComponent.NUMPY, "2.0.0"),
+execution = bio.record_preparation_execution(
+    bio.PreparationExecutionRequest(
+        dataset=dataset,
+        input_artifact=download.artifact,
+        materialization=prepared_artifact,
+        prepared=prepared_rows,
+        assignment=split_receipt,
+        protocol=preparation_protocol,
+        runtime=bio.PreparationExecutionRuntime(
+            toolkit_version=bio.__version__,
+            dependencies=(
+                bio.DependencyVersion(bio.RuntimeComponent.ANNDATA, "0.12.0"),
+                bio.DependencyVersion(bio.RuntimeComponent.NUMPY, "2.0.0"),
+            ),
         ),
-    ),
-    concordance=metadata_report,
-))
+        concordance=metadata_report,
+    )
+)
 
 bio.validate_preparation_execution_receipt(execution)
 print(execution.to_json())
@@ -44,6 +46,11 @@ refer to the same dataset/task/protocol context. Its identity hashes every field
 that it renders. It includes the transform's declared `expression_input`
 (`raw.X` or `X`). It records deterministic canonical materialization as
 `none` fit scope and the split-aware prepared output as `train_only` fit scope.
+Before consuming a split receipt, it replays the named allocation against the
+canonical split observations; a stale identity or a rehashed invented allocation
+is rejected. Alignment semantics are directly inspectable as a sorted immutable
+feature-ID tuple, its count, and its SHA-256 identity. The tuple is bounded at
+50,000 IDs so this is a reproducibility record, not a replacement data matrix.
 
 ## Deliberate trust boundary
 
@@ -65,3 +72,7 @@ Runtime data is deliberately bounded to the toolkit version and named
 single-cell dependencies (`anndata`, `numpy`, and `scipy`). The receipt never
 records absolute paths, cache roots, environment variables, host/user identity,
 timestamps, arbitrary command lines, secrets, or a full dependency freeze.
+Components are parsed through that allowlist; toolkit and dependency versions
+must be compact, path-free version strings of at most 64 characters. Semantic
+numeric parameters must be finite before either receipt identity or JSON is
+rendered.

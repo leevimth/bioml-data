@@ -1,11 +1,15 @@
 """Optional metadata-concordance bindings for execution receipts."""
 
+from typing import assert_never
+
 from bioml_data._metadata_concordance_models import MetadataConcordance
 from bioml_data._metadata_concordance_reporting import metadata_concordance_identity
+from bioml_data._preparation_execution_errors import (
+    PreparationExecutionReceiptMismatchError,
+)
 from bioml_data._preparation_execution_models import (
     MetadataConcordanceAttachment,
     MetadataConcordanceAttachmentStatus,
-    PreparationExecutionReceiptMismatchError,
     PreparationExecutionRequest,
 )
 
@@ -70,8 +74,11 @@ def _concordance_status(
                 return MetadataConcordanceAttachmentStatus.MISMATCH
             case MetadataConcordance.MATCH:
                 has_match = True
-            case MetadataConcordance.NOT_REPORTED:
-                has_not_reported = True
+            case unreachable:
+                if unreachable is MetadataConcordance.NOT_REPORTED:
+                    has_not_reported = True
+                    continue
+                assert_never(unreachable)
     if has_match and has_not_reported:
         return MetadataConcordanceAttachmentStatus.MIXED
     if has_match:

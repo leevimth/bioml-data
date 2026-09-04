@@ -2,13 +2,17 @@
 
 from dataclasses import replace
 from hashlib import sha256
+from typing import assert_never
 
+from bioml_data._metadata_receipt_validation import validate_receipt_integrity
 from bioml_data._preparation_execution_concordance import concordance_attachment
+from bioml_data._preparation_execution_errors import (
+    PreparationExecutionReceiptMismatchError,
+)
 from bioml_data._preparation_execution_models import (
     ExpressionInput,
     PreparationExecutionReceipt,
     PreparationExecutionReceiptIdentity,
-    PreparationExecutionReceiptMismatchError,
     PreparationExecutionRequest,
     PreparationFitScope,
     PreparationSemanticParameters,
@@ -21,6 +25,7 @@ def record_preparation_execution(
     request: PreparationExecutionRequest,
 ) -> PreparationExecutionReceipt:
     """Join exact materialization, split, preparation, and evidence receipts."""
+    validate_receipt_integrity(request.dataset, request.assignment)
     _validate_context(request)
     receipt = PreparationExecutionReceipt(
         receipt_identity=PreparationExecutionReceiptIdentity(""),
@@ -148,11 +153,14 @@ def _semantic_parameters(
     request: PreparationExecutionRequest,
 ) -> PreparationSemanticParameters:
     protocol = request.protocol
-    feature_payload = "\0".join(str(item) for item in protocol.alignment.feature_ids)
+    feature_ids = tuple(sorted(str(item) for item in protocol.alignment.feature_ids))
+    feature_payload = "\0".join(feature_ids)
     selection = protocol.feature_selection
     return PreparationSemanticParameters(
         minimum_cell_count=protocol.qc.minimum_cell_count,
         minimum_feature_cells=protocol.qc.minimum_feature_cells,
+        alignment_feature_ids=feature_ids,
+        alignment_feature_count=len(feature_ids),
         alignment_feature_identity=sha256(feature_payload.encode()).hexdigest(),
         normalization_target_sum=protocol.normalization.target_sum,
         max_features=None if selection is None else selection.max_features,
@@ -173,15 +181,23 @@ def _expression_input(request: PreparationExecutionRequest) -> ExpressionInput:
         field = "expression_input"
         expected = "one declared expression_input"
         raise _mismatch(field, expected, str(values))
-    match values[0]:
-        case ExpressionInput.RAW_X.value:
+    match _parse_expression_input(values[0]):
+        case ExpressionInput.RAW_X:
             return ExpressionInput.RAW_X
-        case ExpressionInput.X.value:
-            return ExpressionInput.X
         case unreachable:
-            field = "expression_input"
-            expected = "raw.X or X"
-            raise _mismatch(field, expected, unreachable)
+            if unreachable is ExpressionInput.X:
+                return ExpressionInput.X
+            assert_never(unreachable)
+
+
+def _parse_expression_input(value: str) -> ExpressionInput:
+    """Parse the external manifest value before matching the closed enum."""
+    try:
+        return ExpressionInput(value)
+    except ValueError:
+        field = "expression_input"
+        expected = "raw.X or X"
+        raise _mismatch(field, expected, value) from None
 
 
 def _require[T](field: str, expected: T, actual: T) -> None:

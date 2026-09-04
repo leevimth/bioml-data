@@ -36,6 +36,11 @@ def test_record_preparation_execution_commits_to_the_complete_scientific_context
     )
     assert first.canonical_materialization_fit_scope is bio.PreparationFitScope.NONE
     assert first.prepared_fit_scope is bio.PreparationFitScope.TRAIN_ONLY
+    assert first.semantic_parameters.alignment_feature_ids == (
+        "gene-1",
+        "gene-2",
+        "gene-3",
+    )
     assert first.metadata_concordance is not None
     assert (
         first.metadata_concordance.status
@@ -145,3 +150,69 @@ def test_record_preparation_execution_rejects_concordance_from_another_artifact(
 
     # Then: the source artifact mismatch is explicit and receipt construction stops.
     assert captured.value.field == "concordance_source_artifacts"
+
+
+@pytest.mark.parametrize(
+    ("component", "version", "field"),
+    [
+        ("DATABASE_URL", "1.0.0", "dependency_component"),
+        (bio.RuntimeComponent.ANNDATA, "/Users/alice/work", "dependency_version"),
+        (bio.RuntimeComponent.ANNDATA, "../secret", "dependency_version"),
+        (
+            bio.RuntimeComponent.ANNDATA,
+            "postgres://alice:secret@host/db",
+            "dependency_version",
+        ),
+        (bio.RuntimeComponent.ANNDATA, "$API_KEY", "dependency_version"),
+        (bio.RuntimeComponent.ANNDATA, "1.0.0;rm", "dependency_version"),
+        (bio.RuntimeComponent.ANNDATA, "1" * 65, "dependency_version"),
+    ],
+)
+def test_runtime_rejects_untrusted_component_or_version(
+    component: bio.RuntimeComponent | str,
+    version: str,
+    field: str,
+) -> None:
+    """Runtime receipt values cannot carry paths, secrets, or command text."""
+    # Given: one untrusted runtime component or version boundary value.
+
+    # When: a public dependency version is parsed.
+    with pytest.raises(bio.PreparationExecutionReceiptMismatchError) as captured:
+        _ = bio.DependencyVersion(component=component, version=version)
+
+    # Then: it fails before a receipt can serialize it.
+    assert captured.value.field == field
+
+
+@pytest.mark.parametrize("version", ["0.0.0", "1.2.3.dev4+gabcdef", "1!2.0rc1"])
+def test_runtime_accepts_bounded_package_version_forms(version: str) -> None:
+    """Ordinary PEP 440 and semver-like package versions remain usable."""
+    # Given: one safe bounded package-version representation.
+
+    # When: it is used for both toolkit and a named dependency.
+    runtime = bio.PreparationExecutionRuntime(
+        toolkit_version=version,
+        dependencies=(
+            bio.DependencyVersion(
+                component=bio.RuntimeComponent.ANNDATA, version=version
+            ),
+        ),
+    )
+
+    # Then: canonical runtime metadata retains the accepted version verbatim.
+    assert runtime.toolkit_version == version
+
+
+def test_runtime_rejects_untrusted_toolkit_version() -> None:
+    """Toolkit metadata cannot serialize a path, shell text, or a secret."""
+    # Given: a host-local value that is not a compact package version.
+
+    # When: it is used as the toolkit version.
+    with pytest.raises(bio.PreparationExecutionReceiptMismatchError) as captured:
+        _ = bio.PreparationExecutionRuntime(
+            toolkit_version="/Users/alice/work; API_KEY=top-secret",
+            dependencies=(),
+        )
+
+    # Then: construction fails before this metadata can enter a receipt.
+    assert captured.value.field == "toolkit_version"
