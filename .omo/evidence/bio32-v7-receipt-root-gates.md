@@ -1,6 +1,6 @@
 # BIO-32 v7 receipt root boundary evidence
 
-Worktree: `/private/tmp/bioml-bio32`  
+Worktree: `/private/tmp/bioml-bio32`
 Branch: `codex/bio-32-preparation-execution-receipts`
 
 ## Security scenarios
@@ -24,3 +24,13 @@ Branch: `codex/bio-32-preparation-execution-receipts`
 | Diff hygiene | `git diff --check` | No whitespace errors. | exit 0 |
 
 The original focused root test was red before this change: a subclass passed and string/`None`/object roots raised raw `AttributeError`. The passing scenarios above are the captured green result after exact parsing was added.
+
+## v10 follow-up
+
+The hostile-object hardening expansion was intentionally reverted before
+commit. The MVP trust boundary is documented instead: public APIs consume
+package-created typed objects, and malformed serialized data requires a future
+explicit deserializer. The retained regression command
+`.venv/bin/python -m pytest tests/test_preparation_execution*.py tests/test_preparation*.py -q`
+completed with `122 passed in 0.44s`; repository Ruff and basedpyright completed
+without diagnostics, and `git diff --check` completed with exit 0.

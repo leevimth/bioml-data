@@ -47,6 +47,10 @@ record, not a replacement data matrix.
 
 ## Deliberate trust boundary
 
+Public APIs assume package-created typed receipt objects; hostile arbitrary
+in-memory objects and subclasses are outside the MVP threat model. Malformed
+serialized input requires an explicit future deserializer rather than these APIs.
+
 The factory does not reopen raw files or establish that arbitrary transform code
 computed canonical bytes. The artifact and materialization boundaries retain
 that responsibility. Registered-contract validation checks the declared,
