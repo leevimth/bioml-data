@@ -2,8 +2,13 @@
 
 from typing import assert_never
 
+from bioml_data._metadata_concordance import (
+    MetadataConcordanceReport,
+    compare_metadata_concordance,
+)
 from bioml_data._metadata_concordance_models import MetadataConcordance
 from bioml_data._metadata_concordance_reporting import metadata_concordance_identity
+from bioml_data._metadata_expectations import PublicationMetadataExpectation
 from bioml_data._preparation_execution_errors import (
     PreparationExecutionReceiptMismatchError,
 )
@@ -46,6 +51,7 @@ def concordance_attachment(
         request.assignment.assignment_identity,
         concordance.assignment_identity,
     )
+    _require_canonical_report(request, concordance)
     statuses = tuple(
         item.status
         for item in (
@@ -60,6 +66,37 @@ def concordance_attachment(
     return MetadataConcordanceAttachment(
         report_identity=metadata_concordance_identity(concordance),
         status=_concordance_status(statuses),
+    )
+
+
+def _require_canonical_report(
+    request: PreparationExecutionRequest,
+    report: MetadataConcordanceReport,
+) -> None:
+    """Replay caller-declared evidence before recording its aggregate status."""
+    expected = compare_metadata_concordance(
+        request.dataset,
+        request.assignment,
+        expectations=_declared_expectations(report),
+        fold=report.fold,
+    )
+    _require("concordance_report", expected, report)
+
+
+def _declared_expectations(
+    report: MetadataConcordanceReport,
+) -> tuple[PublicationMetadataExpectation, ...]:
+    """Recover the caller-declared evidence from its report without trusting status."""
+    return tuple(
+        item.expectation
+        for item in (
+            *report.dataset_comparisons,
+            *tuple(
+                comparison
+                for partition in report.partition_reports
+                for comparison in partition.comparisons
+            ),
+        )
     )
 
 

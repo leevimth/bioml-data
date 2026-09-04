@@ -18,6 +18,7 @@ from bioml_data._preparation_errors import (
     SplitAssignmentRequiredError,
     UnknownAlignmentFeatureError,
 )
+from bioml_data._preparation_execution_models import ExpressionInput
 from bioml_data._single_cell import (
     CanonicalSingleCellDataset,
     FeatureId,
@@ -116,7 +117,7 @@ def preparation_protocol_semantic_identity(
         "feature_selection_max_features": (
             None if selection is None else selection.max_features
         ),
-        "expression_input": "raw_x",
+        "expression_input": ExpressionInput.RAW_X.value,
         "canonical_materialization_fit_scope": "none",
         "prepared_fit_scope": "train_only",
     }

@@ -2,6 +2,7 @@
 
 from hashlib import sha256
 
+from bioml_data._artifacts import ArtifactReceipt
 from bioml_data._preparation import prepare_benchmark
 from bioml_data._preparation_execution_errors import (
     PreparationExecutionReceiptMismatchError,
@@ -30,9 +31,9 @@ def validate_execution_context(request: PreparationExecutionRequest) -> None:
     protocol = request.protocol
     require("dataset", dataset.snapshot, assignment.dataset)
     require(
-        "canonical_artifact",
-        dataset.artifact.artifact_id,
-        materialization.artifact.artifact_id,
+        "canonical_artifact_manifest",
+        dataset.artifact,
+        materialization.artifact.manifest,
     )
     parent_ids = tuple(item.artifact_id for item in materialization.parent_artifacts)
     if input_artifact.artifact_id not in parent_ids:
@@ -40,6 +41,7 @@ def validate_execution_context(request: PreparationExecutionRequest) -> None:
         raise mismatch(
             field, "a materialization parent", str(input_artifact.artifact_id)
         )
+    _require_input_parent_manifest(input_artifact, materialization.parent_artifacts)
     derivation = materialization.artifact.manifest.derivation
     if derivation is None:
         field = "canonical_derivation"
@@ -84,6 +86,20 @@ def validate_execution_context(request: PreparationExecutionRequest) -> None:
     )
     _require_prepared_identities(prepared)
     _require_canonical_prepared_replay(request)
+
+
+def _require_input_parent_manifest(
+    input_artifact: ArtifactReceipt,
+    parents: tuple[ArtifactReceipt, ...],
+) -> None:
+    """Bind the consumed input receipt's complete provenance to its parent slot."""
+    matches = tuple(
+        item for item in parents if item.artifact_id == input_artifact.artifact_id
+    )
+    if len(matches) != 1:
+        field = "input_artifact_parent"
+        raise mismatch(field, "one matching parent", str(len(matches)))
+    require("input_artifact_manifest", input_artifact.manifest, matches[0].manifest)
 
 
 def semantic_parameters(

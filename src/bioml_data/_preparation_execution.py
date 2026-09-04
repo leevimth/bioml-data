@@ -1,7 +1,6 @@
 """Build and verify execution receipts from already-produced scientific layers."""
 
 from dataclasses import replace
-from typing import assert_never
 
 from bioml_data._metadata_receipt_validation import validate_receipt_integrity
 from bioml_data._preparation_execution_concordance import concordance_attachment
@@ -83,13 +82,7 @@ def _expression_input(request: PreparationExecutionRequest) -> ExpressionInput:
         field = "expression_input"
         expected = "one declared expression_input"
         raise mismatch(field, expected, str(values))
-    match _parse_expression_input(values[0]):
-        case ExpressionInput.RAW_X:
-            return ExpressionInput.RAW_X
-        case unreachable:
-            if unreachable is ExpressionInput.X:
-                return ExpressionInput.X
-            assert_never(unreachable)
+    return _parse_expression_input(values[0])
 
 
 def _parse_expression_input(value: str) -> ExpressionInput:
@@ -98,5 +91,5 @@ def _parse_expression_input(value: str) -> ExpressionInput:
         return ExpressionInput(value)
     except ValueError:
         field = "expression_input"
-        expected = "raw.X or X"
+        expected = "raw.X"
         raise mismatch(field, expected, value) from None
