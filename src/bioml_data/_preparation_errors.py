@@ -1,7 +1,7 @@
 """Typed preparation lifecycle failures."""
 
 from dataclasses import dataclass
-from typing import override
+from typing import final, override
 
 
 @dataclass(frozen=True, slots=True)
@@ -37,15 +37,38 @@ class InvalidNormalizationTargetError(Exception):
         return f"normalization target must be finite; received {self.target_sum!r}"
 
 
-@dataclass(frozen=True, slots=True)
+@final
 class InvalidPreparedValueError(Exception):
     """Raised when sparse prepared values cannot be represented safely."""
 
+    __slots__ = ("value",)
+
     value: float
+
+    def __init__(self, value: float) -> None:
+        super().__init__(value)
+        self.value = value
 
     @override
     def __str__(self) -> str:
         return f"prepared value must be finite; received {self.value!r}"
+
+
+@final
+class InvalidPreparedStructureError(Exception):
+    """Raised when a prepared sparse row has an untyped nested container."""
+
+    __slots__ = ("field",)
+
+    field: str
+
+    def __init__(self, field: str) -> None:
+        super().__init__(field)
+        self.field = field
+
+    @override
+    def __str__(self) -> str:
+        return f"prepared sparse row has invalid {self.field} structure"
 
 
 @dataclass(frozen=True, slots=True)

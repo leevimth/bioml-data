@@ -52,9 +52,7 @@ class PreparationExecutionRuntime:
             "toolkit_version",
             _runtime_version(field="toolkit_version", value=self.toolkit_version),
         )
-        normalized_dependencies = tuple(
-            _validated_dependency(item) for item in self.dependencies
-        )
+        normalized_dependencies = _validated_dependencies(self.dependencies)
         object.__setattr__(self, "dependencies", normalized_dependencies)
         validate_runtime_metadata(self)
 
@@ -62,11 +60,7 @@ class PreparationExecutionRuntime:
 def validate_runtime_metadata(runtime: PreparationExecutionRuntime) -> None:
     """Revalidate public runtime fields after hostile frozen-object mutation."""
     _ = _runtime_version(field="toolkit_version", value=runtime.toolkit_version)
-    dependencies = tuple(
-        _validated_dependency(item)
-        for item in runtime.dependencies
-        if _require_dependency(item)
-    )
+    dependencies = _validated_dependencies(runtime.dependencies)
     components = tuple(item.component for item in dependencies)
     if components != tuple(sorted(components, key=str)):
         raise PreparationExecutionReceiptMismatchError(
@@ -84,6 +78,7 @@ def validate_runtime_metadata(runtime: PreparationExecutionRuntime) -> None:
 
 def _validated_dependency(dependency: DependencyVersion) -> DependencyVersion:
     """Parse every nested dependency while preserving its immutable payload."""
+    _require_dependency(dependency)
     component = _runtime_component(dependency.component)
     version = _runtime_version(field="dependency_version", value=dependency.version)
     if component is not dependency.component or version != dependency.version:
@@ -95,15 +90,27 @@ def _validated_dependency(dependency: DependencyVersion) -> DependencyVersion:
     return dependency
 
 
-def _require_dependency(value: DependencyVersion) -> bool:
-    """Narrow an untrusted nested value before reading dependency fields."""
+def _validated_dependencies(
+    dependencies: tuple[DependencyVersion, ...],
+) -> tuple[DependencyVersion, ...]:
+    """Parse the immutable dependency tuple before traversing its items."""
+    if type(dependencies) is not tuple:
+        raise PreparationExecutionReceiptMismatchError(
+            field="runtime_dependencies",
+            expected="tuple of DependencyVersion items",
+            actual=type(dependencies).__name__,
+        )
+    return tuple(_validated_dependency(item) for item in dependencies)
+
+
+def _require_dependency(value: DependencyVersion) -> None:
+    """Narrow an untrusted nested item before reading dependency fields."""
     if type(value) is not DependencyVersion:
         raise PreparationExecutionReceiptMismatchError(
             field="runtime_dependencies",
             expected="DependencyVersion items",
             actual=type(value).__name__,
         )
-    return True
 
 
 def _runtime_component(component: RuntimeComponent | str) -> RuntimeComponent:

@@ -15,6 +15,7 @@ from bioml_data._preparation_errors import (
     FittedStateMismatchError,
     InsufficientPreparationDataError,
     InvalidNormalizationTargetError,
+    InvalidPreparedStructureError,
     InvalidPreparedValueError,
     SplitAssignmentRequiredError,
     UnknownAlignmentFeatureError,
@@ -43,6 +44,7 @@ __all__ = (
     "FittedStateMismatchError",
     "InsufficientPreparationDataError",
     "InvalidNormalizationTargetError",
+    "InvalidPreparedStructureError",
     "InvalidPreparedValueError",
     "SplitAssignmentRequiredError",
     "UnknownAlignmentFeatureError",
@@ -214,8 +216,16 @@ class PreparedBenchmarkReceipt:
 def validate_prepared_observations(
     observations: tuple[PreparedObservation, ...],
 ) -> None:
-    """Reject hostile nested numeric values before deterministic identity work."""
+    """Parse nested sparse rows before deterministic identity work."""
+    if type(observations) is not tuple:
+        raise InvalidPreparedStructureError(field="observations")
     for observation in observations:
+        if type(observation) is not PreparedObservation:
+            raise InvalidPreparedStructureError(field="observations")
+        if type(observation.values) is not tuple:
+            raise InvalidPreparedStructureError(field="values")
         for value in observation.values:
+            if type(value) is not PreparedValue:
+                raise InvalidPreparedStructureError(field="values")
             if type(value.value) not in (int, float) or not isfinite(value.value):
                 raise InvalidPreparedValueError(value=value.value)
