@@ -149,6 +149,17 @@ def test_nonfinite_normalization_is_a_typed_domain_error() -> None:
         _ = NormalizationParameters(target_sum=float("nan"))
 
 
+def test_record_rejects_mutated_nonfinite_normalization_as_typed_error(
+    tmp_path: Path,
+) -> None:
+    """The protocol fingerprint boundary also protects hostile frozen mutation."""
+    context = execution_context(tmp_path)
+    object.__setattr__(context.protocol.normalization, "target_sum", float("inf"))
+
+    with pytest.raises(InvalidNormalizationTargetError):
+        _ = record(context)
+
+
 @pytest.mark.parametrize(
     ("field", "value"),
     [

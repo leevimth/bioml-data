@@ -78,6 +78,9 @@ def preparation_protocol_semantic_identity(
 ) -> PreparationProtocolSemanticIdentity:
     """Identify every ordered fixed and train-fitted protocol semantic input."""
     selection = protocol.feature_selection
+    target_sum = protocol.normalization.target_sum
+    if type(target_sum) not in (int, float) or not isfinite(target_sum):
+        raise InvalidNormalizationTargetError(target_sum=target_sum)
     payload = {
         "domain": "bioml-data/preparation-protocol-semantics",
         "schema": "v1",
@@ -90,7 +93,7 @@ def preparation_protocol_semantic_identity(
         "alignment_feature_ids": tuple(
             str(item) for item in protocol.alignment.feature_ids
         ),
-        "normalization_target_sum": protocol.normalization.target_sum,
+        "normalization_target_sum": target_sum,
         "feature_selection_max_features": (
             None if selection is None else selection.max_features
         ),
