@@ -9,7 +9,10 @@ import pytest
 from bioml_data import _preparation as preparation
 from bioml_data import _preparation_models as preparation_models
 from bioml_data._single_cell import FeatureId, SparseCountMatrix
-from bioml_data._split import AssignmentIdentity, SplitPartition
+from bioml_data._split import (
+    AssignmentIdentity,
+    SplitPartition,
+)
 from tests._single_cell_fixtures import make_dataset, make_split
 
 
@@ -153,34 +156,6 @@ def test_held_out_feature_support_does_not_change_fitted_state() -> None:
     # Then: held-out counts cannot affect train-fitted state or selected features.
     assert first.state_identity == second.state_identity
     assert first.selected_feature_ids == second.selected_feature_ids
-
-
-def test_fitted_state_rejects_a_different_split_receipt() -> None:
-    # Given: fitted state bound to one exact split receipt.
-    dataset = make_dataset()
-    split = make_split(dataset)
-    independent = preparation.prepare_train_independent(
-        dataset,
-        protocol=_protocol(),
-        seed=17,
-    )
-    fitted = preparation.fit_train_preprocessing(independent, split=split)
-    other_split = replace(
-        split,
-        assignment_identity=AssignmentIdentity("different-split"),
-    )
-
-    # When: the state is applied with a different split identity.
-    with pytest.raises(preparation.FittedSplitMismatchError) as captured:
-        _ = preparation.apply_fitted_preprocessing(
-            independent,
-            fitted=fitted,
-            split=other_split,
-        )
-
-    # Then: the typed failure identifies both split receipts.
-    assert captured.value.expected == split.assignment_identity
-    assert captured.value.actual == other_split.assignment_identity
 
 
 def test_prepared_identity_is_deterministic_for_same_inputs() -> None:

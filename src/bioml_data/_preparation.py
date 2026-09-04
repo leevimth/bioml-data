@@ -9,6 +9,7 @@ from bioml_data._preparation_identities import (
     fitted_state_identity,
     prepared_benchmark_receipt_identity,
     prepared_output_artifact_identity,
+    training_membership_identity,
 )
 from bioml_data._preparation_models import (
     FittedProtocolSemanticMismatchError,
@@ -34,7 +35,6 @@ from bioml_data._split import ObservationId, SplitAssignmentReceipt, SplitPartit
 
 FeatureSelectionParameters = _models.FeatureSelectionParameters
 FittedPreparationState = _models.FittedPreparationState
-FittedSplitMismatchError = _models.FittedSplitMismatchError
 GeneAlignmentParameters = _models.GeneAlignmentParameters
 NormalizationParameters = _models.NormalizationParameters
 PreparationProtocol = _models.PreparationProtocol
@@ -131,23 +131,25 @@ def fit_train_preprocessing(
     return FittedPreparationState(
         state_identity=fitted_state_identity(
             FittedStateIdentityInput(
-                independent_artifact_identity=prepared.output_artifact_identity,
                 protocol=prepared.protocol,
                 seed=prepared.seed,
-                split_assignment_identity=split.assignment_identity,
+                training_membership_identity=training_membership_identity(
+                    tuple(str(item) for item in training_ids)
+                ),
                 training_observation_ids=training_ids,
                 training_observations=training_rows,
                 selected_feature_ids=selected,
             )
         ),
-        independent_artifact_identity=prepared.output_artifact_identity,
         protocol_id=prepared.protocol.protocol_id,
         protocol_version=prepared.protocol.version,
         protocol_semantic_identity=preparation_protocol_semantic_identity(
             prepared.protocol
         ),
         seed=prepared.seed,
-        split_assignment_identity=split.assignment_identity,
+        training_membership_identity=training_membership_identity(
+            tuple(str(item) for item in training_ids)
+        ),
         training_observation_ids=training_ids,
         selected_feature_ids=selected,
     )
@@ -160,16 +162,6 @@ def apply_fitted_preprocessing(
     split: SplitAssignmentReceipt,
 ) -> PreparedBenchmarkReceipt:
     """Apply serialized train-fitted state to train, validation, and test rows."""
-    if fitted.independent_artifact_identity != prepared.output_artifact_identity:
-        raise FittedStateMismatchError(
-            expected=fitted.independent_artifact_identity,
-            actual=prepared.output_artifact_identity,
-        )
-    if fitted.split_assignment_identity != split.assignment_identity:
-        raise FittedSplitMismatchError(
-            expected=fitted.split_assignment_identity,
-            actual=split.assignment_identity,
-        )
     protocol_semantic_identity = preparation_protocol_semantic_identity(
         prepared.protocol
     )
@@ -181,8 +173,8 @@ def apply_fitted_preprocessing(
     expected_fitted = fit_train_preprocessing(prepared, split=split)
     if fitted != expected_fitted:
         raise FittedStateMismatchError(
-            expected=expected_fitted.independent_artifact_identity,
-            actual=fitted.independent_artifact_identity,
+            expected=str(expected_fitted.state_identity),
+            actual=str(fitted.state_identity),
         )
     selected = frozenset(fitted.selected_feature_ids)
     observations = tuple(
@@ -209,6 +201,7 @@ def apply_fitted_preprocessing(
         receipt_identity=PreparationReceiptIdentity(""),
         input_artifact_identity=prepared.input_artifact_identity,
         output_artifact_identity=output_identity,
+        independent_artifact_identity=prepared.output_artifact_identity,
         protocol_id=prepared.protocol.protocol_id,
         protocol_version=prepared.protocol.version,
         protocol_semantic_identity=protocol_semantic_identity,

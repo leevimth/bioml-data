@@ -12,9 +12,10 @@ from bioml_data._preparation_models import (
     PreparedArtifactIdentity,
     PreparedBenchmarkReceipt,
     PreparedObservation,
+    TrainingMembershipIdentity,
     preparation_protocol_semantic_identity,
+    validate_prepared_observations,
 )
-from bioml_data._split import AssignmentIdentity
 
 type JsonScalar = str | int | float
 type JsonValue = JsonScalar | dict[str, JsonValue] | tuple[JsonValue, ...]
@@ -25,10 +26,9 @@ type JsonObject = dict[str, JsonValue]
 class FittedStateIdentityInput:
     """All semantic fields used to identify one fitted preparation state."""
 
-    independent_artifact_identity: str
     protocol: PreparationProtocol
     seed: int
-    split_assignment_identity: AssignmentIdentity
+    training_membership_identity: TrainingMembershipIdentity
     training_observation_ids: tuple[str, ...]
     training_observations: tuple[PreparedObservation, ...]
     selected_feature_ids: tuple[str, ...]
@@ -60,6 +60,7 @@ def fitted_state_identity(
             identity_input.protocol
         ),
         "seed": identity_input.seed,
+        "training_membership_identity": identity_input.training_membership_identity,
         "training_observation_ids": identity_input.training_observation_ids,
         "training_observations": _observations_payload(
             identity_input.training_observations
@@ -69,10 +70,23 @@ def fitted_state_identity(
     return PreparationStateIdentity(_payload_identity(payload))
 
 
+def training_membership_identity(
+    training_observation_ids: tuple[str, ...],
+) -> TrainingMembershipIdentity:
+    """Identify the canonical sorted set of observations used for fitting."""
+    payload: JsonObject = {
+        "domain": "bioml-data/training-membership",
+        "schema": "v1",
+        "training_observation_ids": tuple(sorted(training_observation_ids)),
+    }
+    return TrainingMembershipIdentity(_payload_identity(payload))
+
+
 def prepared_output_artifact_identity(
     identity_input: PreparedOutputIdentityInput,
 ) -> PreparedArtifactIdentity:
     """Identify the output artifact from its exact transformed sparse rows."""
+    validate_prepared_observations(identity_input.observations)
     payload: JsonObject = {
         "domain": "bioml-data/prepared-output-artifact",
         "schema": "v1",
@@ -91,11 +105,13 @@ def prepared_benchmark_receipt_identity(
     receipt: PreparedBenchmarkReceipt,
 ) -> PreparationReceiptIdentity:
     """Identify every immutable prepared receipt field, including output rows."""
+    validate_prepared_observations(receipt.observations)
     payload: JsonObject = {
         "domain": "bioml-data/prepared-benchmark-receipt",
         "schema": "v1",
         "input_artifact_identity": receipt.input_artifact_identity,
         "output_artifact_identity": receipt.output_artifact_identity,
+        "independent_artifact_identity": receipt.independent_artifact_identity,
         "protocol_id": receipt.protocol_id,
         "protocol_version": receipt.protocol_version,
         "protocol_semantic_identity": receipt.protocol_semantic_identity,
@@ -110,12 +126,11 @@ def prepared_benchmark_receipt_identity(
 def _fitted_state_payload(state: FittedPreparationState) -> JsonObject:
     return {
         "state_identity": state.state_identity,
-        "independent_artifact_identity": state.independent_artifact_identity,
         "protocol_id": state.protocol_id,
         "protocol_version": state.protocol_version,
         "protocol_semantic_identity": state.protocol_semantic_identity,
         "seed": state.seed,
-        "split_assignment_identity": state.split_assignment_identity,
+        "training_membership_identity": state.training_membership_identity,
         "training_observation_ids": state.training_observation_ids,
         "selected_feature_ids": state.selected_feature_ids,
     }
@@ -124,6 +139,7 @@ def _fitted_state_payload(state: FittedPreparationState) -> JsonObject:
 def _observations_payload(
     observations: tuple[PreparedObservation, ...],
 ) -> tuple[JsonObject, ...]:
+    validate_prepared_observations(observations)
     return tuple(_observation_payload(item) for item in observations)
 
 

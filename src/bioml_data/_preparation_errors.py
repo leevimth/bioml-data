@@ -38,6 +38,17 @@ class InvalidNormalizationTargetError(Exception):
 
 
 @dataclass(frozen=True, slots=True)
+class InvalidPreparedValueError(Exception):
+    """Raised when sparse prepared values cannot be represented safely."""
+
+    value: float
+
+    @override
+    def __str__(self) -> str:
+        return f"prepared value must be finite; received {self.value!r}"
+
+
+@dataclass(frozen=True, slots=True)
 class UnknownAlignmentFeatureError(Exception):
     """Raised when a fixed alignment requests a feature absent from the input."""
 

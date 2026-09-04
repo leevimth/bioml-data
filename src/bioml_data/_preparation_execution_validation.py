@@ -3,6 +3,7 @@
 from hashlib import sha256
 
 from bioml_data._artifacts import ArtifactReceipt
+from bioml_data._domain import UnknownDatasetError, UnknownDatasetVersionError
 from bioml_data._preparation import prepare_benchmark
 from bioml_data._preparation_execution_errors import (
     PreparationExecutionReceiptMismatchError,
@@ -19,6 +20,7 @@ from bioml_data._preparation_models import (
     PreparedBenchmarkReceipt,
     preparation_protocol_semantic_identity,
 )
+from bioml_data.datasets._registry import DATASET_REGISTRY
 
 
 def validate_execution_context(request: PreparationExecutionRequest) -> None:
@@ -46,6 +48,7 @@ def validate_execution_context(request: PreparationExecutionRequest) -> None:
     if derivation is None:
         field = "canonical_derivation"
         raise mismatch(field, "declared transform provenance", "absent")
+    _require_registered_canonical_derivation(request)
     require("canonical_derivation_parents", parent_ids, derivation.parent_artifacts)
     require(
         "prepared_input_artifact",
@@ -64,11 +67,6 @@ def validate_execution_context(request: PreparationExecutionRequest) -> None:
         "prepared_protocol_semantic_identity",
         preparation_protocol_semantic_identity(protocol),
         prepared.protocol_semantic_identity,
-    )
-    require(
-        "fitted_split_assignment_identity",
-        assignment.assignment_identity,
-        prepared.fitted_state.split_assignment_identity,
     )
     require("fitted_seed", assignment.seed, prepared.fitted_state.seed)
     require(
@@ -100,6 +98,34 @@ def _require_input_parent_manifest(
         field = "input_artifact_parent"
         raise mismatch(field, "one matching parent", str(len(matches)))
     require("input_artifact_manifest", input_artifact.manifest, matches[0].manifest)
+
+
+def _require_registered_canonical_derivation(
+    request: PreparationExecutionRequest,
+) -> None:
+    """Require the registry's complete immutable transform contract offline."""
+    snapshot = request.dataset.snapshot
+    try:
+        registration = DATASET_REGISTRY.resolve(
+            str(snapshot.name),
+            version=str(snapshot.version),
+        )
+    except (UnknownDatasetError, UnknownDatasetVersionError):
+        field = "registered_canonical_derivation"
+        raise mismatch(field, "registered dataset", "absent") from None
+    expected = registration.canonical_derivation
+    if expected is None:
+        field = "registered_canonical_derivation"
+        raise mismatch(
+            field,
+            "complete registered derivation contract",
+            "absent",
+        )
+    require(
+        "registered_canonical_derivation",
+        expected,
+        request.materialization.artifact.manifest.derivation,
+    )
 
 
 def semantic_parameters(
@@ -148,7 +174,7 @@ def _require_prepared_identities(prepared: PreparedBenchmarkReceipt) -> None:
     expected_output = prepared_output_artifact_identity(
         PreparedOutputIdentityInput(
             input_artifact_identity=prepared.input_artifact_identity,
-            independent_artifact_identity=prepared.fitted_state.independent_artifact_identity,
+            independent_artifact_identity=prepared.independent_artifact_identity,
             fitted_state=prepared.fitted_state,
             protocol_semantic_identity=prepared.protocol_semantic_identity,
             split_assignment_identity=prepared.split_assignment_identity,

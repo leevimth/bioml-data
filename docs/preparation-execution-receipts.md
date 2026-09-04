@@ -30,6 +30,11 @@ the supplied canonical in-memory dataset, protocol, and assignment; the supplied
 `PreparedBenchmarkReceipt` must exactly match that replay, including fitted
 state and output rows. It also requires the materialization manifest to equal
 the canonical dataset's complete manifest, not merely its content ID. The
+factory resolves that snapshot through the built-in registry and requires the
+manifest derivation to exactly equal the registered transform contract: pinned
+parent identities, transform protocol, and ordered parameters. A dataset without
+such a complete registered contract is rejected rather than receiving an
+execution receipt. The
 current preparation pipeline accepts only the transform's declared
 `expression_input=raw.X`; it records deterministic canonical materialization as
 `none` fit scope and the split-aware prepared output as `train_only` fit scope.
@@ -44,7 +49,9 @@ record, not a replacement data matrix.
 
 The factory does not reopen raw files or establish that arbitrary transform code
 computed canonical bytes. The artifact and materialization boundaries retain
-that responsibility. It does replay the package's deterministic preparation
+that responsibility. Registered-contract validation checks the declared,
+content-addressed lineage consistency but is not proof that raw bytes were
+correctly transformed into canonical bytes. It does replay the package's deterministic preparation
 against the supplied canonical in-memory dataset, which prevents an arbitrary
 prepared/fitted receipt from being joined into a new execution record. When an
 optional concordance report is supplied, its comparisons and aggregate status
@@ -80,7 +87,10 @@ unsafe runtime metadata.
 Preparation-protocol semantic identity is a fail-closed, canonical JSON hash
 with an explicit `bioml-data/preparation-protocol-semantics` domain and `v1`
 schema. It binds ordered feature IDs, QC, normalization, feature selection,
-and the fixed `raw.X`/fit-scope contract into the prepared-output receipt. The
-execution receipt records those matrix/scope values as separate fields too.
+and the fixed `raw.X`/fit-scope contract into the prepared-output receipt. A
+fitted-state identity is derived only from protocol, seed, canonical training
+membership, training values, and selected features; outer prepared/execution
+receipts bind the full independent artifact and split. The execution receipt
+records those matrix/scope values as separate fields too.
 This is pre-release protocol work: older receipts are not accepted and must be
 regenerated under this schema.

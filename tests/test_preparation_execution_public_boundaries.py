@@ -188,8 +188,8 @@ def test_record_rejects_unsupported_expression_input_even_when_manifest_matches(
             )
         )
 
-    # Then: the one supported matrix source is explicit and fail-closed.
-    assert captured.value.field == "expression_input"
+    # Then: the registered transform contract rejects an unsupported matrix source.
+    assert captured.value.field == "registered_canonical_derivation"
 
 
 def test_record_recomputes_concordance_statuses_before_attachment(

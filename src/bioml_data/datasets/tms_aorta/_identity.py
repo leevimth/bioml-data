@@ -4,6 +4,7 @@ from typing import Final
 
 from bioml_data._artifact_derivation import ArtifactDerivationParameter
 from bioml_data._artifact_types import ArtifactId, TransformProtocolId
+from bioml_data._artifacts import ArtifactDerivation
 from bioml_data._domain import (
     DatasetName,
     DatasetSnapshotIdentity,
@@ -27,6 +28,11 @@ TMS_AORTA_SOURCE_SHA256: Final = (
     "0fbf73145f2b50f956b9946aa2fa17e5fce0e40ddfc5ba922a1d503d65ced3c3"
 )
 TMS_AORTA_SOURCE_ARTIFACT: Final = ArtifactId(f"sha256:{TMS_AORTA_SOURCE_SHA256}")
+TMS_AORTA_CANONICAL_DERIVATION: Final = ArtifactDerivation(
+    parent_artifacts=(TMS_AORTA_SOURCE_ARTIFACT,),
+    transform_protocol=TMS_AORTA_TRANSFORM_PROTOCOL,
+    parameters=TMS_AORTA_TRANSFORM_PARAMETERS,
+)
 TMS_AORTA_ARTIFACT_SCOPE: Final = SplitArtifactScope(
     source_artifact=TMS_AORTA_SOURCE_ARTIFACT,
     transform_protocol=TMS_AORTA_TRANSFORM_PROTOCOL,

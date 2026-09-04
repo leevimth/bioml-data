@@ -4,7 +4,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Protocol
 
-from bioml_data._artifacts import ArtifactManifest
+from bioml_data._artifacts import ArtifactDerivation, ArtifactManifest
 from bioml_data._dataset_definition import DatasetDefinition
 from bioml_data._domain import DatasetSnapshotIdentity
 from bioml_data._split_capability_models import SplitArtifactScope, SplitCapability
@@ -36,3 +36,4 @@ class DatasetRegistration:
     materialize: DatasetAdapter
     split_capabilities: tuple[SplitCapability, ...]
     artifact_scope: SplitArtifactScope | None = None
+    canonical_derivation: ArtifactDerivation | None = None

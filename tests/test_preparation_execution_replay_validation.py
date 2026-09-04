@@ -54,7 +54,7 @@ def _coherently_rehashed_prepared(
         output_artifact_identity=prepared_output_artifact_identity(
             PreparedOutputIdentityInput(
                 input_artifact_identity=prepared.input_artifact_identity,
-                independent_artifact_identity=fitted.independent_artifact_identity,
+                independent_artifact_identity=prepared.independent_artifact_identity,
                 fitted_state=fitted,
                 protocol_semantic_identity=prepared.protocol_semantic_identity,
                 split_assignment_identity=prepared.split_assignment_identity,

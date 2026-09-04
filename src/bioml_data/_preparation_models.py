@@ -15,6 +15,7 @@ from bioml_data._preparation_errors import (
     FittedStateMismatchError,
     InsufficientPreparationDataError,
     InvalidNormalizationTargetError,
+    InvalidPreparedValueError,
     SplitAssignmentRequiredError,
     UnknownAlignmentFeatureError,
 )
@@ -24,7 +25,6 @@ from bioml_data._single_cell import (
     FeatureId,
 )
 from bioml_data._split import (
-    AssignmentIdentity,
     ObservationId,
     SplitAssignmentReceipt,
 )
@@ -32,6 +32,7 @@ from bioml_data._split import (
 PreparedArtifactIdentity = NewType("PreparedArtifactIdentity", str)
 PreparationReceiptIdentity = NewType("PreparationReceiptIdentity", str)
 PreparationStateIdentity = NewType("PreparationStateIdentity", str)
+TrainingMembershipIdentity = NewType("TrainingMembershipIdentity", str)
 PreparationProtocolSemanticIdentity = NewType(
     "PreparationProtocolSemanticIdentity", str
 )
@@ -42,6 +43,7 @@ __all__ = (
     "FittedStateMismatchError",
     "InsufficientPreparationDataError",
     "InvalidNormalizationTargetError",
+    "InvalidPreparedValueError",
     "SplitAssignmentRequiredError",
     "UnknownAlignmentFeatureError",
 )
@@ -137,6 +139,11 @@ class PreparedValue:
     feature_id: FeatureId
     value: float
 
+    def __post_init__(self) -> None:
+        """Reject non-finite values before they can reach identity rendering."""
+        if type(self.value) not in (int, float) or not isfinite(self.value):
+            raise InvalidPreparedValueError(value=self.value)
+
 
 @dataclass(frozen=True, slots=True)
 class PreparedObservation:
@@ -144,6 +151,10 @@ class PreparedObservation:
 
     observation_id: ObservationId
     values: tuple[PreparedValue, ...]
+
+    def __post_init__(self) -> None:
+        """Revalidate nested values at this broader immutable boundary."""
+        validate_prepared_observations((self,))
 
 
 @dataclass(frozen=True, slots=True)
@@ -164,12 +175,11 @@ class FittedPreparationState(BaseModel):
     model_config: ClassVar[ConfigDict] = ConfigDict(frozen=True)
 
     state_identity: PreparationStateIdentity
-    independent_artifact_identity: PreparedArtifactIdentity
     protocol_id: str
     protocol_version: str
     protocol_semantic_identity: PreparationProtocolSemanticIdentity
     seed: int
-    split_assignment_identity: AssignmentIdentity
+    training_membership_identity: TrainingMembershipIdentity
     training_observation_ids: tuple[ObservationId, ...]
     selected_feature_ids: tuple[FeatureId, ...]
 
@@ -191,6 +201,7 @@ class PreparedBenchmarkReceipt:
     receipt_identity: PreparationReceiptIdentity
     input_artifact_identity: ArtifactId
     output_artifact_identity: PreparedArtifactIdentity
+    independent_artifact_identity: PreparedArtifactIdentity
     protocol_id: str
     protocol_version: str
     protocol_semantic_identity: PreparationProtocolSemanticIdentity
@@ -198,3 +209,13 @@ class PreparedBenchmarkReceipt:
     split_assignment_identity: str
     fitted_state: FittedPreparationState
     observations: tuple[PreparedObservation, ...]
+
+
+def validate_prepared_observations(
+    observations: tuple[PreparedObservation, ...],
+) -> None:
+    """Reject hostile nested numeric values before deterministic identity work."""
+    for observation in observations:
+        for value in observation.values:
+            if type(value.value) not in (int, float) or not isfinite(value.value):
+                raise InvalidPreparedValueError(value=value.value)
