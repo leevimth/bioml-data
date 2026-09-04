@@ -1,99 +1,50 @@
 """Deterministic grouped split assignment."""
 
 from dataclasses import dataclass, replace
-from enum import StrEnum, unique
-from hashlib import sha256
-from typing import Final, NewType, override
+from typing import override
 
-from bioml_data._domain import (
-    DatasetSnapshotIdentity,
-    ProtocolId,
-    TaskId,
+from bioml_data._assignment_receipt_identity import (
+    AssignmentReceiptIdentityFields,
+    canonical_assignment_receipt_identity,
+)
+from bioml_data._domain import DatasetSnapshotIdentity, TaskId
+from bioml_data._group_held_out_rules import (
+    GROUP_HELD_OUT_ALLOCATION_RULE,
+    group_held_out_partition_counts,
+    ordered_group_ids,
 )
 from bioml_data._split_capability import (
     SplitCapability,
     SplitCapabilityQuery,
     query_split_capability,
 )
+from bioml_data._split_models import (
+    AssignmentIdentity,
+    GroupId,
+    MetadataColumn,
+    MetadataValue,
+    ObservationId,
+    PartitionFractions,
+    PartitionGroupCounts,
+    SplitAssignment,
+    SplitAssignmentReceipt,
+    SplitObservation,
+    SplitPartition,
+)
 
-AssignmentIdentity = NewType("AssignmentIdentity", str)
-GroupId = NewType("GroupId", str)
-MetadataColumn = NewType("MetadataColumn", str)
-ObservationId = NewType("ObservationId", str)
-
-_GROUP_WEIGHT_TOTAL: Final = 10
-_MINIMUM_GROUP_COUNT: Final = 3
-_TRAIN_WEIGHT: Final = 8
-_VALIDATION_WEIGHT: Final = 1
-_TEST_WEIGHT: Final = 1
-
-
-@unique
-class SplitPartition(StrEnum):
-    """Benchmark partition assigned to an observation."""
-
-    TRAIN = "train"
-    VALIDATION = "validation"
-    TEST = "test"
-
-
-@dataclass(frozen=True, slots=True)
-class MetadataValue:
-    """One canonical metadata value supplied by a dataset adapter."""
-
-    column: MetadataColumn
-    value: str
-
-
-@dataclass(frozen=True, slots=True)
-class SplitObservation:
-    """Stable observation identity plus canonical split metadata."""
-
-    observation_id: ObservationId
-    metadata: tuple[MetadataValue, ...]
-
-
-@dataclass(frozen=True, slots=True)
-class SplitAssignment:
-    """Partition membership for one observation and biological group."""
-
-    observation_id: ObservationId
-    group: GroupId
-    partition: SplitPartition
-
-
-@dataclass(frozen=True, slots=True)
-class PartitionGroupCounts:
-    """Group counts for train, validation, and test partitions."""
-
-    train: int
-    validation: int
-    test: int
-
-
-@dataclass(frozen=True, slots=True)
-class PartitionFractions:
-    """Requested partition fractions embedded in a versioned protocol."""
-
-    train: float
-    validation: float
-    test: float
-
-
-@dataclass(frozen=True, slots=True)
-class SplitAssignmentReceipt:
-    """Reproducible identity and realized allocation for one assignment."""
-
-    dataset: DatasetSnapshotIdentity
-    task: TaskId
-    protocol: ProtocolId
-    seed: int
-    assignment_identity: AssignmentIdentity
-    assignments: tuple[SplitAssignment, ...]
-    requested_group_fractions: PartitionFractions
-    realized_group_counts: PartitionGroupCounts
-    observation_count: int
-    group_count: int
+__all__ = (
+    "AssignmentIdentity",
+    "GroupId",
+    "MetadataColumn",
+    "MetadataValue",
+    "ObservationId",
+    "PartitionFractions",
+    "PartitionGroupCounts",
+    "SplitAssignment",
+    "SplitAssignmentReceipt",
+    "SplitObservation",
+    "SplitPartition",
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -175,12 +126,7 @@ def _assign(
         (observation, _group_for(observation, capability=capability))
         for observation in assigner.observations
     )
-    groups = tuple(
-        sorted(
-            {group for _, group in grouped},
-            key=lambda group: sha256(f"{seed}\0{group}".encode()).digest(),
-        )
-    )
+    groups = ordered_group_ids(tuple(str(group) for _, group in grouped), seed=seed)
     counts = _realized_counts(len(groups))
     train_end = counts.train
     validation_end = train_end + counts.validation
@@ -213,9 +159,18 @@ def _assign(
         assignment_identity=AssignmentIdentity(""),
         assignments=assignments,
         requested_group_fractions=PartitionFractions(
-            train=_TRAIN_WEIGHT / _GROUP_WEIGHT_TOTAL,
-            validation=_VALIDATION_WEIGHT / _GROUP_WEIGHT_TOTAL,
-            test=_TEST_WEIGHT / _GROUP_WEIGHT_TOTAL,
+            train=(
+                GROUP_HELD_OUT_ALLOCATION_RULE.train_weight
+                / GROUP_HELD_OUT_ALLOCATION_RULE.total_weight
+            ),
+            validation=(
+                GROUP_HELD_OUT_ALLOCATION_RULE.validation_weight
+                / GROUP_HELD_OUT_ALLOCATION_RULE.total_weight
+            ),
+            test=(
+                GROUP_HELD_OUT_ALLOCATION_RULE.test_weight
+                / GROUP_HELD_OUT_ALLOCATION_RULE.total_weight
+            ),
         ),
         realized_group_counts=counts,
         observation_count=len(assignments),
@@ -230,16 +185,33 @@ def _assign(
 def assignment_receipt_identity(
     receipt: SplitAssignmentReceipt,
 ) -> AssignmentIdentity:
-    """Recompute the deterministic identity covering receipt headers and rows."""
-    header = (
-        f"{receipt.dataset.name}\0{receipt.dataset.version}\0{receipt.task}\0"
-        f"{receipt.protocol}\0{receipt.seed}"
+    return AssignmentIdentity(
+        canonical_assignment_receipt_identity(
+            AssignmentReceiptIdentityFields(
+                dataset_name=str(receipt.dataset.name),
+                dataset_version=str(receipt.dataset.version),
+                task=str(receipt.task),
+                protocol=str(receipt.protocol),
+                seed=receipt.seed,
+                assignments=tuple(
+                    (str(item.observation_id), str(item.group), str(item.partition))
+                    for item in receipt.assignments
+                ),
+                requested_group_fractions=(
+                    receipt.requested_group_fractions.train,
+                    receipt.requested_group_fractions.validation,
+                    receipt.requested_group_fractions.test,
+                ),
+                realized_group_counts=(
+                    receipt.realized_group_counts.train,
+                    receipt.realized_group_counts.validation,
+                    receipt.realized_group_counts.test,
+                ),
+                observation_count=receipt.observation_count,
+                group_count=receipt.group_count,
+            )
+        )
     )
-    rows = "".join(
-        f"\0{item.observation_id}\0{item.group}\0{item.partition}"
-        for item in receipt.assignments
-    )
-    return AssignmentIdentity(sha256(f"{header}{rows}".encode()).hexdigest())
 
 
 def _group_for(
@@ -261,31 +233,15 @@ def _group_for(
 
 
 def _realized_counts(group_count: int) -> PartitionGroupCounts:
-    if group_count < _MINIMUM_GROUP_COUNT:
+    rule = GROUP_HELD_OUT_ALLOCATION_RULE
+    if group_count < rule.minimum_group_count:
         raise InsufficientSplitGroupsError(
             group_count=group_count,
-            required_group_count=_MINIMUM_GROUP_COUNT,
+            required_group_count=rule.minimum_group_count,
         )
-    counts = [
-        max(1, group_count * _TRAIN_WEIGHT // _GROUP_WEIGHT_TOTAL),
-        max(1, group_count * _VALIDATION_WEIGHT // _GROUP_WEIGHT_TOTAL),
-        max(1, group_count * _TEST_WEIGHT // _GROUP_WEIGHT_TOTAL),
-    ]
-    counts[0] -= max(0, sum(counts) - group_count)
-    remaining = group_count - sum(counts)
-    remainders = (
-        group_count * _TRAIN_WEIGHT % _GROUP_WEIGHT_TOTAL,
-        group_count * _VALIDATION_WEIGHT % _GROUP_WEIGHT_TOTAL,
-        group_count * _TEST_WEIGHT % _GROUP_WEIGHT_TOTAL,
-    )
-    allocation_order = sorted(
-        range(len(counts)),
-        key=lambda index: (-remainders[index], index),
-    )
-    for index in allocation_order[:remaining]:
-        counts[index] += 1
+    counts = group_held_out_partition_counts(group_count)
     return PartitionGroupCounts(
-        train=counts[0],
-        validation=counts[1],
-        test=counts[2],
+        train=counts.train,
+        validation=counts.validation,
+        test=counts.test,
     )

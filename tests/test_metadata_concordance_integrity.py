@@ -6,6 +6,7 @@ import pytest
 
 import bioml_data as bio
 from bioml_data._domain import DatasetName, DatasetSnapshotIdentity, DatasetVersion
+from bioml_data._metadata_concordance_reporting import metadata_concordance_identity
 from bioml_data._split import (
     PartitionGroupCounts,
     SplitAssignment,
@@ -56,6 +57,40 @@ def test_compare_accepts_multiple_citations_for_one_scientific_scope() -> None:
     assert tuple(item.status for item in report.dataset_comparisons) == (
         bio.MetadataConcordance.MATCH,
         bio.MetadataConcordance.MATCH,
+    )
+
+
+def test_concordance_identity_covers_assignment_and_full_report_content() -> None:
+    """Canonical identity changes for a different receipt or reported evidence."""
+    # Given: one complete concordance report and an identical frozen copy.
+    dataset = metadata_dataset()
+    assignment = make_split(dataset)
+    report = bio.compare_metadata_concordance(
+        dataset,
+        assignment,
+        expectations=(
+            bio.PublicationMetadataExpectation.not_reported(
+                scope=metadata_scope(),
+                partition=None,
+                metric=bio.MetadataMetric.OBSERVATION_COUNT,
+            ),
+            *explicit_partition_evidence(metadata_scope()),
+        ),
+    )
+
+    # When: either the receipt join or one reported invariant changes.
+    changed_identity = replace(report, assignment_identity="different-assignment")
+    changed_overlap = replace(report, cross_partition_groups=("forged-group",))
+
+    # Then: stable equal content hashes identically and distinct content does not.
+    assert metadata_concordance_identity(report) == metadata_concordance_identity(
+        replace(report)
+    )
+    assert metadata_concordance_identity(report) != metadata_concordance_identity(
+        changed_identity
+    )
+    assert metadata_concordance_identity(report) != metadata_concordance_identity(
+        changed_overlap
     )
 
 

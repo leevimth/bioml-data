@@ -264,7 +264,8 @@ while `bioml-data` records the resulting source and artifact identity.
 
 See [the TMS Aorta dataset and protocol contract](docs/tms-aorta.md) for the
 canary's exact role, transform behavior, split behavior, preparation parameters,
-and audit coverage.
+and audit coverage. Use [protocol inspection](docs/protocol-inspection.md) to
+read the exact declared split contract before acquiring or preparing data.
 
 Literature evidence for [TMS protocol roles](docs/tms-literature-protocols.md)
 and the candidate [human pancreas cross-study annotation
