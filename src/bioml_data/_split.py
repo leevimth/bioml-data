@@ -28,6 +28,26 @@ _VALIDATION_WEIGHT: Final = 1
 _TEST_WEIGHT: Final = 1
 
 
+@dataclass(frozen=True, slots=True)
+class GroupHeldOutAllocationRule:
+    """Executable allocation rule shared by assignment and inspection."""
+
+    train_weight: int
+    validation_weight: int
+    test_weight: int
+    total_weight: int
+    minimum_group_count: int
+
+
+GROUP_HELD_OUT_ALLOCATION_RULE: Final = GroupHeldOutAllocationRule(
+    train_weight=_TRAIN_WEIGHT,
+    validation_weight=_VALIDATION_WEIGHT,
+    test_weight=_TEST_WEIGHT,
+    total_weight=_GROUP_WEIGHT_TOTAL,
+    minimum_group_count=_MINIMUM_GROUP_COUNT,
+)
+
+
 @unique
 class SplitPartition(StrEnum):
     """Benchmark partition assigned to an observation."""
@@ -178,7 +198,7 @@ def _assign(
     groups = tuple(
         sorted(
             {group for _, group in grouped},
-            key=lambda group: sha256(f"{seed}\0{group}".encode()).digest(),
+            key=lambda group: (sha256(f"{seed}\0{group}".encode()).digest(), group),
         )
     )
     counts = _realized_counts(len(groups))
@@ -213,9 +233,18 @@ def _assign(
         assignment_identity=AssignmentIdentity(""),
         assignments=assignments,
         requested_group_fractions=PartitionFractions(
-            train=_TRAIN_WEIGHT / _GROUP_WEIGHT_TOTAL,
-            validation=_VALIDATION_WEIGHT / _GROUP_WEIGHT_TOTAL,
-            test=_TEST_WEIGHT / _GROUP_WEIGHT_TOTAL,
+            train=(
+                GROUP_HELD_OUT_ALLOCATION_RULE.train_weight
+                / GROUP_HELD_OUT_ALLOCATION_RULE.total_weight
+            ),
+            validation=(
+                GROUP_HELD_OUT_ALLOCATION_RULE.validation_weight
+                / GROUP_HELD_OUT_ALLOCATION_RULE.total_weight
+            ),
+            test=(
+                GROUP_HELD_OUT_ALLOCATION_RULE.test_weight
+                / GROUP_HELD_OUT_ALLOCATION_RULE.total_weight
+            ),
         ),
         realized_group_counts=counts,
         observation_count=len(assignments),
@@ -261,22 +290,23 @@ def _group_for(
 
 
 def _realized_counts(group_count: int) -> PartitionGroupCounts:
-    if group_count < _MINIMUM_GROUP_COUNT:
+    rule = GROUP_HELD_OUT_ALLOCATION_RULE
+    if group_count < rule.minimum_group_count:
         raise InsufficientSplitGroupsError(
             group_count=group_count,
-            required_group_count=_MINIMUM_GROUP_COUNT,
+            required_group_count=rule.minimum_group_count,
         )
     counts = [
-        max(1, group_count * _TRAIN_WEIGHT // _GROUP_WEIGHT_TOTAL),
-        max(1, group_count * _VALIDATION_WEIGHT // _GROUP_WEIGHT_TOTAL),
-        max(1, group_count * _TEST_WEIGHT // _GROUP_WEIGHT_TOTAL),
+        max(1, group_count * rule.train_weight // rule.total_weight),
+        max(1, group_count * rule.validation_weight // rule.total_weight),
+        max(1, group_count * rule.test_weight // rule.total_weight),
     ]
     counts[0] -= max(0, sum(counts) - group_count)
     remaining = group_count - sum(counts)
     remainders = (
-        group_count * _TRAIN_WEIGHT % _GROUP_WEIGHT_TOTAL,
-        group_count * _VALIDATION_WEIGHT % _GROUP_WEIGHT_TOTAL,
-        group_count * _TEST_WEIGHT % _GROUP_WEIGHT_TOTAL,
+        group_count * rule.train_weight % rule.total_weight,
+        group_count * rule.validation_weight % rule.total_weight,
+        group_count * rule.test_weight % rule.total_weight,
     )
     allocation_order = sorted(
         range(len(counts)),

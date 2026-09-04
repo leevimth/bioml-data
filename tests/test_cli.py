@@ -187,3 +187,30 @@ def test_cli_reports_missing_content_without_traceback(
         artifact.manifest_path,
         bio.ArtifactReceiptFailure.MISSING_CONTENT,
     )
+
+
+def test_cli_inspect_json_matches_the_public_python_contract() -> None:
+    # Given: the equivalent explicit public protocol selection.
+    expected = bio.inspect_protocol(
+        "tms-aorta",
+        task="cell-type-annotation-v1",
+        protocol="animal-held-out-v1",
+    ).to_json()
+
+    # When: the inspection command requests stable JSON.
+    result = CliRunner().invoke(
+        bio.cli_app,
+        [
+            "inspect",
+            "tms-aorta",
+            "--task",
+            "cell-type-annotation-v1",
+            "--protocol",
+            "animal-held-out-v1",
+            "--json",
+        ],
+    )
+
+    # Then: the CLI delegates to the canonical public representation.
+    assert result.exit_code == 0
+    assert result.stdout == f"{expected}\n"
