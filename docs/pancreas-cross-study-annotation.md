@@ -29,6 +29,25 @@ feature fitting. Consequently this protocol is a `LITERATURE_REFERENCE`: it
 records historical comparability, not a claim of modern leakage-safe
 preprocessing or universal generalization.
 
+## Publication metadata boundary
+
+Abdelaal *et al.* report whole-cohort counts for the four source studies. The
+package records these values in
+`bioml_data.datasets.pancreas.PANCREAS_LODO_COHORT_METADATA`:
+
+| Cohort | Cells | Genes | Distinct labels |
+| --- | ---: | ---: | ---: |
+| Baron Human | 8,569 | 17,499 | 14 |
+| Muraro | 2,122 | 18,915 | 9 |
+| Segerstolpe | 2,133 | 22,757 | 13 |
+| Xin | 1,449 | 33,889 | 4 |
+
+These are whole-cohort observations, not post-harmonization train/test
+statistics. The paper does not report train/test sample counts, post-
+harmonization feature dimensions, or per-label counts for each fold. Those
+fields therefore remain `NOT_REPORTED` in metadata concordance; they must not
+be reconstructed from the cohort totals.
+
 Donor-held-out evaluation, where adequate donor metadata can be verified, would
 be a separate package-defined protocol with a different target of
 generalization. The OpenProblems label-projection pancreas artifact is likewise
