@@ -4,11 +4,20 @@ import json
 from dataclasses import dataclass
 from hashlib import sha256
 from math import isfinite
-from typing import ClassVar, NewType, override
+from typing import ClassVar, NewType
 
 from pydantic import BaseModel, ConfigDict
 
 from bioml_data._artifacts import ArtifactId
+from bioml_data._preparation_errors import (
+    FittedProtocolSemanticMismatchError,
+    FittedSplitMismatchError,
+    FittedStateMismatchError,
+    InsufficientPreparationDataError,
+    InvalidNormalizationTargetError,
+    SplitAssignmentRequiredError,
+    UnknownAlignmentFeatureError,
+)
 from bioml_data._single_cell import (
     CanonicalSingleCellDataset,
     FeatureId,
@@ -24,6 +33,16 @@ PreparationReceiptIdentity = NewType("PreparationReceiptIdentity", str)
 PreparationStateIdentity = NewType("PreparationStateIdentity", str)
 PreparationProtocolSemanticIdentity = NewType(
     "PreparationProtocolSemanticIdentity", str
+)
+
+__all__ = (
+    "FittedProtocolSemanticMismatchError",
+    "FittedSplitMismatchError",
+    "FittedStateMismatchError",
+    "InsufficientPreparationDataError",
+    "InvalidNormalizationTargetError",
+    "SplitAssignmentRequiredError",
+    "UnknownAlignmentFeatureError",
 )
 
 
@@ -178,86 +197,3 @@ class PreparedBenchmarkReceipt:
     split_assignment_identity: str
     fitted_state: FittedPreparationState
     observations: tuple[PreparedObservation, ...]
-
-
-@dataclass(frozen=True, slots=True)
-class SplitAssignmentRequiredError(Exception):
-    """Raised when train-fitted preprocessing is attempted before splitting."""
-
-    protocol_id: str
-
-    @override
-    def __str__(self) -> str:
-        return f"split assignment required before fitting {self.protocol_id!r}"
-
-
-@dataclass(frozen=True, slots=True)
-class InsufficientPreparationDataError(Exception):
-    """Raised when preparation filters leave no usable rows or features."""
-
-    phase: str
-
-    @override
-    def __str__(self) -> str:
-        return f"preparation has no usable data after {self.phase}"
-
-
-@dataclass(frozen=True, slots=True)
-class InvalidNormalizationTargetError(Exception):
-    """Raised when library-size normalization cannot be represented safely."""
-
-    target_sum: float
-
-    @override
-    def __str__(self) -> str:
-        return f"normalization target must be finite; received {self.target_sum!r}"
-
-
-@dataclass(frozen=True, slots=True)
-class UnknownAlignmentFeatureError(Exception):
-    """Raised when a fixed alignment requests a feature absent from the input."""
-
-    feature_id: FeatureId
-
-    @override
-    def __str__(self) -> str:
-        return f"alignment feature {self.feature_id!r} is absent"
-
-
-@dataclass(frozen=True, slots=True)
-class FittedStateMismatchError(Exception):
-    """Raised when fitted state is applied to a different prepared artifact."""
-
-    expected: PreparedArtifactIdentity
-    actual: PreparedArtifactIdentity
-
-    @override
-    def __str__(self) -> str:
-        return f"fitted state expects {self.expected}; received {self.actual}"
-
-
-@dataclass(frozen=True, slots=True)
-class FittedSplitMismatchError(Exception):
-    """Raised when fitted state is applied under a different split receipt."""
-
-    expected: AssignmentIdentity
-    actual: AssignmentIdentity
-
-    @override
-    def __str__(self) -> str:
-        return f"fitted state expects split {self.expected}; received {self.actual}"
-
-
-@dataclass(frozen=True, slots=True)
-class FittedProtocolSemanticMismatchError(Exception):
-    """Raised when fitted state belongs to another protocol semantic identity."""
-
-    expected: PreparationProtocolSemanticIdentity
-    actual: PreparationProtocolSemanticIdentity
-
-    @override
-    def __str__(self) -> str:
-        return (
-            f"fitted state expects protocol semantics {self.expected}; "
-            f"received {self.actual}"
-        )

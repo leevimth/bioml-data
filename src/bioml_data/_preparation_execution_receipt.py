@@ -2,9 +2,7 @@
 
 import json
 from dataclasses import asdict, dataclass
-from enum import StrEnum
 from hashlib import sha256
-from typing import NoReturn
 
 from bioml_data._artifacts import ArtifactId, ArtifactReceipt
 from bioml_data._dataset_preparation_models import (
@@ -13,26 +11,18 @@ from bioml_data._dataset_preparation_models import (
 )
 from bioml_data._domain import DatasetSnapshotIdentity, ProtocolId, TaskId
 from bioml_data._metadata_concordance import MetadataConcordanceReport
-from bioml_data._preparation_execution_errors import (
-    PreparationExecutionReceiptMismatchError,
-)
 from bioml_data._preparation_execution_models import (
     ExpressionInput,
     MetadataConcordanceAttachment,
-    MetadataConcordanceAttachmentStatus,
     PreparationExecutionReceiptIdentity,
     PreparationFitScope,
     PreparationSemanticParameters,
-    validate_semantic_parameters,
 )
-from bioml_data._preparation_execution_runtime import (
-    PreparationExecutionRuntime,
-    validate_runtime_metadata,
+from bioml_data._preparation_execution_receipt_validation import (
+    raise_mismatch,
+    validate_receipt_structure,
 )
-from bioml_data._preparation_execution_tokens import (
-    validate_safe_identifier,
-    validate_sha256,
-)
+from bioml_data._preparation_execution_runtime import PreparationExecutionRuntime
 from bioml_data._preparation_models import (
     PreparationProtocol,
     PreparationReceiptIdentity,
@@ -89,7 +79,9 @@ class PreparationExecutionReceipt:
         """Return only fully validated canonical JSON."""
         expected = preparation_execution_receipt_identity(self)
         if self.receipt_identity != expected:
-            _raise("receipt_identity", str(expected), str(self.receipt_identity))
+            raise_mismatch(
+                "receipt_identity", str(expected), str(self.receipt_identity)
+            )
         return _canonical_json_unchecked(self, include_receipt_identity=True)
 
 
@@ -106,17 +98,7 @@ def validate_preparation_execution_receipt_structure(
     receipt: PreparationExecutionReceipt,
 ) -> None:
     """Reject hostile rehashed nested values before identity or JSON rendering."""
-    _require_semantic_parameters(receipt.semantic_parameters)
-    _require_runtime(receipt.runtime)
-    _require_enum(
-        "materialization_outcome",
-        receipt.materialization_outcome,
-        DatasetPreparationOutcome,
-    )
-    _require_enum("expression_input", receipt.expression_input, ExpressionInput)
-    _require_fit_scopes(receipt)
-    _require_attachment(receipt.metadata_concordance)
-    _require_execution_scalars(receipt)
+    validate_receipt_structure(receipt)
 
 
 def _canonical_json_unchecked(
@@ -129,133 +111,3 @@ def _canonical_json_unchecked(
     if not include_receipt_identity:
         del payload["receipt_identity"]
     return json.dumps(payload, sort_keys=True, separators=(",", ":"), allow_nan=False)
-
-
-def _require_semantic_parameters(value: PreparationSemanticParameters | str) -> None:
-    if not isinstance(value, PreparationSemanticParameters):
-        _raise(
-            "semantic_parameters", "PreparationSemanticParameters", type(value).__name__
-        )
-    validate_semantic_parameters(value)
-
-
-def _require_runtime(value: PreparationExecutionRuntime | str) -> None:
-    if not isinstance(value, PreparationExecutionRuntime):
-        _raise("runtime", "PreparationExecutionRuntime", type(value).__name__)
-    validate_runtime_metadata(value)
-
-
-def _require_enum(field: str, value: StrEnum, enum: type[StrEnum]) -> None:
-    try:
-        _ = enum(value)
-    except (TypeError, ValueError):
-        _raise(field, "/".join(item.value for item in enum), repr(value))
-
-
-def _require_fit_scopes(receipt: PreparationExecutionReceipt) -> None:
-    _require_enum(
-        "canonical_materialization_fit_scope",
-        receipt.canonical_materialization_fit_scope,
-        PreparationFitScope,
-    )
-    _require_enum("prepared_fit_scope", receipt.prepared_fit_scope, PreparationFitScope)
-    if receipt.canonical_materialization_fit_scope != PreparationFitScope.NONE:
-        _raise(
-            "canonical_materialization_fit_scope",
-            "none",
-            str(receipt.canonical_materialization_fit_scope),
-        )
-    if receipt.prepared_fit_scope != PreparationFitScope.TRAIN_ONLY:
-        _raise("prepared_fit_scope", "train_only", str(receipt.prepared_fit_scope))
-
-
-def _require_attachment(value: MetadataConcordanceAttachment | str | None) -> None:
-    if value is None:
-        return
-    if not isinstance(value, MetadataConcordanceAttachment):
-        _raise(
-            "metadata_concordance",
-            "MetadataConcordanceAttachment or none",
-            type(value).__name__,
-        )
-    _require_enum(
-        "metadata_concordance_status", value.status, MetadataConcordanceAttachmentStatus
-    )
-    _ = validate_sha256(
-        field="metadata_concordance_identity",
-        value=value.report_identity,
-        prefixed=False,
-    )
-
-
-def _require_execution_scalars(receipt: PreparationExecutionReceipt) -> None:
-    if type(receipt.dataset) is not DatasetSnapshotIdentity:
-        _raise(
-            "dataset",
-            "DatasetSnapshotIdentity",
-            type(receipt.dataset).__name__,
-        )
-    if type(receipt.seed) is not int or receipt.seed < 0:
-        _raise("seed", "non-negative integer", repr(receipt.seed))
-    parent_ids = receipt.materialization_parent_artifact_identities
-    if type(parent_ids) is not tuple:
-        _raise(
-            "materialization_parent_artifact_identities",
-            "tuple of artifact identities",
-            type(parent_ids).__name__,
-        )
-    if not parent_ids:
-        _raise(
-            "materialization_parent_artifact_identities", "at least one parent", "empty"
-        )
-    if len(set(parent_ids)) != len(parent_ids):
-        _raise(
-            "materialization_parent_artifact_identities",
-            "unique artifact identities",
-            "duplicate",
-        )
-    for field, value in (
-        ("dataset_name", receipt.dataset.name),
-        ("dataset_version", receipt.dataset.version),
-        ("task", receipt.task),
-        ("preparation_protocol_id", receipt.preparation_protocol_id),
-        ("preparation_protocol_version", receipt.preparation_protocol_version),
-        ("split_protocol", receipt.split_protocol),
-    ):
-        _ = validate_safe_identifier(field=field, value=value)
-    for field, value, prefixed in (
-        ("input_artifact_identity", receipt.input_artifact_identity, True),
-        ("canonical_artifact_identity", receipt.canonical_artifact_identity, True),
-        (
-            "preparation_protocol_semantic_identity",
-            receipt.preparation_protocol_semantic_identity,
-            False,
-        ),
-        ("split_assignment_identity", receipt.split_assignment_identity, False),
-        (
-            "prepared_benchmark_receipt_identity",
-            receipt.prepared_benchmark_receipt_identity,
-            False,
-        ),
-        (
-            "prepared_output_artifact_identity",
-            receipt.prepared_output_artifact_identity,
-            False,
-        ),
-        ("fitted_state_identity", receipt.fitted_state_identity, False),
-    ):
-        _ = validate_sha256(field=field, value=value, prefixed=prefixed)
-    for parent_identity in parent_ids:
-        _ = validate_sha256(
-            field="materialization_parent_artifact_identity",
-            value=parent_identity,
-            prefixed=True,
-        )
-
-
-def _raise(field: str, expected: str, actual: str) -> NoReturn:
-    raise PreparationExecutionReceiptMismatchError(
-        field=field,
-        expected=expected,
-        actual=actual,
-    )
