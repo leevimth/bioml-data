@@ -7,10 +7,10 @@ reference, not a generic pancreas benchmark or an integration benchmark. Its
 historical anchor is the comparison by Abdelaal and Michielsen *et al.*
 ([Genome Biology, 2019](https://pmc.ncbi.nlm.nih.gov/articles/PMC6734286/)).
 
-The acquisition candidate is the benchmark dataset v2 at Zenodo DOI
+The acquisition source is benchmark dataset v2 at Zenodo DOI
 [`10.5281/zenodo.3357167`](https://zenodo.org/records/3357167), whose archive is
-named `scRNAseq_Benchmark_datasets.zip`. This is a candidate snapshot, not yet
-a supported package dataset.
+named `scRNAseq_Benchmark_datasets.zip`. This is a pinned inspection source,
+not yet a supported `load_dataset()` artifact.
 
 ## Literature-reference protocol
 
@@ -67,19 +67,54 @@ generalization. The OpenProblems label-projection pancreas artifact is likewise
 a separate community task with its own labels and upstream preparation; it must
 not be treated as a replacement for this four-cohort reference.
 
-## Rights and implementation gate
+## Verified archive boundary
 
-Public access to the Zenodo record does not by itself clear redistribution. The
-record/file license, access conditions, archive bytes, and compatibility with
-upstream cohort terms must be verified before implementation or release.
+The official [Zenodo record API](https://zenodo.org/api/records/3357167) reports
+open access and `cc-by-4.0`; the prior claim that its redistribution license was
+unresolved was incorrect. The package still uses a fetch-only local cache and
+does not host or mirror the 3.67 GB archive.
 
-Until that gate closes, this protocol is non-executable only because the rights,
-exact archive bytes, and schema are unresolved—not because its historical split
-is considered unusable. The appropriate product boundary is a provenance-aware
-local acquisition/cache recipe, not hosting or mirroring the archive. A future
-supported snapshot must record the exact record and file metadata, byte size,
-published checksum where available, locally verified SHA-256, and the resolved
-upstream terms.
+On 2026-09-04, the record API and downloaded bytes were verified as follows:
+
+| Field | Verified value |
+| --- | --- |
+| Zenodo record / file ID | `3357167` / `4282cdc9-55cd-4b4d-aa13-2ff780c742bf` |
+| archive / URL | `scRNAseq_Benchmark_datasets.zip` / official API content URL |
+| byte size | 3,671,466,589 |
+| provider MD5 | `b799a660b8bcaf5f3580a9b6f9372e5b` |
+| local SHA-256 | `038d0a61ed3891c3d5f4ebd1dab5956465223e38b89859e1bf4792a9aeffbf06` |
+| record license | `CC-BY-4.0` |
+
+The ZIP integrity test completed with no errors. The package inspection path
+reads, without extraction, the four `Intra-dataset/Pancreatic_data/<study>/`
+member pairs: `Labels.csv` and `Filtered_*_HumanPancreas_data.csv`. Label rows
+give whole-cohort cell and label counts; the matrix CSV header gives the whole
+cohort feature dimension.
+
+For the paper's four leave-one-study-out test cohorts, the selection rule is
+the exact four labels `alpha`, `beta`, `delta`, and `gamma`; the Muraro archive
+spells the last label `pp`, which the inspection normalizes to `gamma`. The
+sum of those four observed label counts is the directly reported S2 held-out
+test-cell count. This does not infer a train set: the paper does not report
+train partition metadata or fold feature dimensions, so those remain
+`NOT_REPORTED`.
+
+The opt-in real-data check first imports already downloaded exact bytes into a
+caller-selected content-addressed cache, then compares every whole cohort and
+four-label held-out test cohort with the package's publication metadata:
+
+```bash
+BIOML_RUN_LIVE_PANCREAS=1 \
+BIOML_PANCREAS_DATA_DIR=.cache/bioml-data \
+BIOML_PANCREAS_ARCHIVE=/path/to/scRNAseq_Benchmark_datasets.zip \
+uv run pytest tests/test_pancreas_live_metadata.py
+```
+
+The checked result is recorded in
+[`evidence/pancreas-zenodo-3357167-metadata-v1.json`](evidence/pancreas-zenodo-3357167-metadata-v1.json).
+A future supported snapshot still needs a canonical materialization and an
+explicit decision about the benchmark's historical preprocessing—not a new
+rights or source-byte investigation.
 
 ## Sources
 

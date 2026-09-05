@@ -183,6 +183,18 @@ from bioml_data.datasets._materialization_verification import (
     DatasetMaterializationLineageMismatchError,
     DatasetMaterializationProvenanceMismatchError,
 )
+from bioml_data.datasets.pancreas import (
+    PANCREAS_ZENODO_ARCHIVE,
+    InvalidPancreasArchiveError,
+    PancreasArchiveInspection,
+    PancreasArchiveReceipt,
+    PancreasArchiveSourcePin,
+    PancreasStudyInspection,
+    UnexpectedPancreasArchiveError,
+    cache_pancreas_archive,
+    fetch_pancreas_archive,
+    inspect_pancreas_archive,
+)
 from bioml_data.datasets.tms_aorta._adapter import UnlinkedTmsArtifactError
 from bioml_data.datasets.tms_aorta._h5ad_transform import (
     InvalidRawTmsArtifactError,
@@ -194,7 +206,8 @@ __version__: Final = version("bioml-data")
 
 # fmt: off
 __all__ = [
-    "DEFAULT_HTTP_CLIENT_CONFIGURATION", "FIGSHARE_PROVIDER", "ArtifactCache",
+    "DEFAULT_HTTP_CLIENT_CONFIGURATION", "FIGSHARE_PROVIDER", "PANCREAS_ZENODO_ARCHIVE",
+    "ArtifactCache",
     "ArtifactCollisionError", "ArtifactDerivation", "ArtifactDerivationParameter",
     "ArtifactHttpError", "ArtifactLineageReceipt", "ArtifactLineageRequiredError",
     "ArtifactManifest", "ArtifactReceipt", "ArtifactReceiptFailure",
@@ -211,6 +224,7 @@ __all__ = [
     "EvaluationRequest", "FittedPreparationState", "HttpArtifactDownload",
     "HttpClientConfiguration", "IncompleteDownloadError", "InsecureArtifactUrlError",
     "InvalidMetadataExpectationError", "InvalidMetadataPartitionError",
+    "InvalidPancreasArchiveError",
     "InvalidRawTmsArtifactError", "InvalidSplitCanaryUsageError",
     "InvalidSplitProtocolRoleError", "InvalidSplitSemanticTypeError", "LabelRecord",
     "LeakageAuditReport", "LeakageAuditRequest",
@@ -220,7 +234,9 @@ __all__ = [
     "MetadataFoldId", "MetadataMetric", "MetadataObservedValue",
     "MetadataPartitionReport", "MetadataPartitionViolation",
     "MissingSplitProtocolError",
-    "OversizedDownloadError", "PredictionRecord", "PreparationProtocol",
+    "OversizedDownloadError", "PancreasArchiveInspection", "PancreasArchiveReceipt",
+    "PancreasArchiveSourcePin", "PancreasStudyInspection", "PredictionRecord",
+    "PreparationProtocol",
     "PreparationRequest", "PreparedBenchmarkReceipt", "PreparedDatasetCacheError",
     "ProtocolCitationInspection", "ProtocolEvidenceInspection", "ProtocolInspection",
     "ProtocolInspectionReceiptMismatchError", "ProtocolInspectionRequest",
@@ -240,14 +256,17 @@ __all__ = [
     "SplitPlan", "SplitProtocolCompatibilityRoleError", "SplitProtocolDefinition",
     "SplitProtocolEvidence", "SplitProtocolRole", "SplitStrategy",
     "SupportedSplitCapability",
-    "TaskDefinition", "UnexpectedDatasetSourceError", "UnknownDatasetError",
+    "TaskDefinition", "UnexpectedDatasetSourceError", "UnexpectedPancreasArchiveError",
+    "UnknownDatasetError",
     "UnknownDatasetVersionError", "UnknownSplitCapability", "UnknownTaskError",
     "UnlinkedTmsArtifactError", "UnsupportedSplitCapability",
     "UnsupportedSplitProtocolError", "VerifiedArtifactChangedError", "__version__",
-    "acquire_provider_artifact", "apply_fitted_preprocessing", "audit_split", "cli_app",
+    "acquire_provider_artifact", "apply_fitted_preprocessing", "audit_split",
+    "cache_pancreas_archive", "cli_app",
     "compare_metadata_concordance",
     "create_http_client", "download_artifact", "download_dataset", "evaluate",
-    "fit_train_preprocessing", "get_dataset_download_pin", "inspect_protocol",
+    "fetch_pancreas_archive", "fit_train_preprocessing", "get_dataset_download_pin",
+    "inspect_pancreas_archive", "inspect_protocol",
     "load_anndata",
     "load_artifact_receipt", "load_dataset", "prepare_benchmark", "prepare_dataset",
     "prepare_train_independent", "query_split_capability", "run_tms_aorta_canary",

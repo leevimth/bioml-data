@@ -45,7 +45,7 @@ That claim remains bounded by the cited evidence and by post-split leakage audit
 | Dataset snapshot | Artifact scope | Task | Protocol | Status | Evidence basis | Split semantics | Package usage | Fit scope and leakage caveat |
 |---|---|---|---|---|---|---|---|---|
 | `tms-aorta@figshare-project-64982` | Figshare file `23872460`, SHA-256 `0fbf731…ced3c3`, transformed by `tms-aorta-csr-v1` | `cell-type-annotation-v1` | `animal-held-out-v1` | Executable | `PACKAGE_DEFINED`, [TMS Aorta contract](tms-aorta.md) | `group-held-out`; animal held out; mouse leakage unit; `donor_id` grouping; target: unseen animal | `is_canary=true` | Feature selection fits training rows only. Mouse groups do not cross partitions. This is neither a literature-reference split nor a performance reference. |
-| Human pancreas benchmark v2 candidate | Zenodo record `3357167`, candidate archive `scRNAseq_Benchmark_datasets.zip`; exact local SHA-256 and upstream rights unresolved | Cross-study cell-type annotation over shared alpha, beta, delta, and gamma labels | `pancreas-four-study-lodo-reference-v1` | Documented candidate; not registered or executable | `LITERATURE_REFERENCE`, Abdelaal, Michielsen *et al.* (2019) | `leave-one-study-out`; study held out; study leakage unit; `study_id` grouping; target: unseen study | none | Four whole-study holdouts reproduce the paper. It remains available for historical performance comparability even though it is not presented as a modern leakage-safe recommendation. |
+| Human pancreas benchmark v2 candidate | Zenodo record `3357167`, file `4282cdc9-55cd-4b4d-aa13-2ff780c742bf`, SHA-256 `038d0a61…bf06`, `CC-BY-4.0` | Cross-study cell-type annotation over shared alpha, beta, delta, and gamma labels | `pancreas-four-study-lodo-reference-v1` | Fetch/cache/inspection available; not registered as a canonical dataset | `LITERATURE_REFERENCE`, Abdelaal, Michielsen *et al.* (2019) | `leave-one-study-out`; study held out; study leakage unit; `study_id` grouping; target: unseen study | exact raw ZIP inspection only | Four whole-study holdouts reproduce the paper. Actual whole-cohort and four-label held-out-test metadata are verified; this is not presented as a modern leakage-safe recommendation. |
 
 ## Inspection from Python
 
@@ -68,9 +68,9 @@ for evidence in capability.evidence:
     print(evidence.basis, evidence.citations, evidence.leakage_caveat)
 ```
 
-The pancreas row intentionally remains documentation-only until artifact
-rights, bytes, schema, and an executable registration are verified. It must not
-appear in `load_dataset()` or capability queries before that gate closes.
+The pancreas row intentionally remains outside `load_dataset()` and capability
+queries until a canonical materialization and executable dataset registration
+are defined. Its archive rights, bytes, and source CSV schema are now verified.
 
 ## Artifact-lineage trust boundary
 

@@ -1,0 +1,39 @@
+{
+  "schema_version": "pancreas-zenodo-3357167-metadata-v1",
+  "verification": {
+    "date": "2026-09-04",
+    "scope": "whole-cohort and four-label leave-one-study-out test metadata"
+  },
+  "source": {
+    "provider": "zenodo",
+    "record_id": "3357167",
+    "file_id": "4282cdc9-55cd-4b4d-aa13-2ff780c742bf",
+    "url": "https://zenodo.org/api/records/3357167/files/scRNAseq_Benchmark_datasets.zip/content",
+    "filename": "scRNAseq_Benchmark_datasets.zip",
+    "byte_size": 3671466589,
+    "official_md5": "b799a660b8bcaf5f3580a9b6f9372e5b",
+    "sha256": "038d0a61ed3891c3d5f4ebd1dab5956465223e38b89859e1bf4792a9aeffbf06",
+    "license": "CC-BY-4.0"
+  },
+  "schema": {
+    "member_root": "Intra-dataset/Pancreatic_data",
+    "labels_member": "Labels.csv",
+    "matrix_member": "Filtered_*_HumanPancreas_data.csv",
+    "muraro_label_normalization": {
+      "pp": "gamma"
+    }
+  },
+  "whole_cohorts": [
+    {"study": "Baron Human", "sample_count": 8569, "feature_dimension": 17499, "distinct_label_count": 14},
+    {"study": "Muraro", "sample_count": 2122, "feature_dimension": 18915, "distinct_label_count": 9},
+    {"study": "Segerstolpe", "sample_count": 2133, "feature_dimension": 22757, "distinct_label_count": 13},
+    {"study": "Xin", "sample_count": 1449, "feature_dimension": 33889, "distinct_label_count": 4}
+  ],
+  "held_out_test_subsets": [
+    {"study": "Baron Human", "sample_count": 5707, "label_counts": {"alpha": 2326, "beta": 2525, "delta": 601, "gamma": 255}},
+    {"study": "Muraro", "sample_count": 1554, "label_counts": {"alpha": 812, "beta": 448, "delta": 193, "gamma": 101}},
+    {"study": "Segerstolpe", "sample_count": 1440, "label_counts": {"alpha": 872, "beta": 263, "delta": 110, "gamma": 195}},
+    {"study": "Xin", "sample_count": 1449, "label_counts": {"alpha": 855, "beta": 466, "delta": 46, "gamma": 82}}
+  ],
+  "not_reported": ["train metadata", "fold feature dimension", "validation metadata"]
+}

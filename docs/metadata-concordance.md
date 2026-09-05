@@ -27,7 +27,9 @@ for the separate leakage audit; metadata concordance does not label a split safe
 or unsafe and makes no model-performance claim.
 
 Fold identity is retained as an optional report scope for future leave-one-
-entity-out receipts. BIO-33 owns fold construction and real Pancreas execution.
+entity-out receipts. The current Pancreas check directly verifies whole-cohort
+and held-out four-label test metadata from its exact Zenodo archive; it does
+not derive the paper's unreported train or fold-feature metadata.
 
 ## TMS Aorta boundary
 
