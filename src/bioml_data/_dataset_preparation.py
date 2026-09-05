@@ -13,6 +13,9 @@ from bioml_data._artifacts import ArtifactReceipt
 from bioml_data._dataset_downloads import provider_target_for_pin
 from bioml_data._dataset_preparation_models import DatasetPreparationReceipt
 from bioml_data.datasets._registry import DATASET_REGISTRY
+from bioml_data.datasets.pancreas._identity import PANCREAS_SNAPSHOT
+from bioml_data.datasets.pancreas._materialization import prepare_pancreas
+from bioml_data.datasets.pancreas._source import PANCREAS_ZENODO_ARCHIVE
 from bioml_data.datasets.tms_aorta._definition import TMS_AORTA_DOWNLOAD_PIN
 from bioml_data.datasets.tms_aorta._identity import TMS_AORTA_SNAPSHOT
 from bioml_data.datasets.tms_aorta._transform import prepare_tms_aorta
@@ -51,14 +54,17 @@ def prepare_dataset(
 ) -> DatasetPreparationReceipt:
     """Transform a verified upstream artifact into a canonical artifact."""
     registration = DATASET_REGISTRY.resolve(name, version=version)
-    if registration.definition.snapshot != TMS_AORTA_SNAPSHOT:
-        raise DatasetPreparationUnavailableError(name=name)
     verified = load_artifact_receipt(artifact.manifest_path)
     if verified.artifact_id != artifact.artifact_id:
         raise ArtifactReceiptLoadError(
             manifest_path=artifact.manifest_path,
             reason=ArtifactReceiptFailure.CONTENT_INTEGRITY,
         )
+    if registration.definition.snapshot == PANCREAS_SNAPSHOT:
+        _require_pancreas_source(verified, name=name)
+        return prepare_pancreas(verified, data_dir=data_dir)
+    if registration.definition.snapshot != TMS_AORTA_SNAPSHOT:
+        raise DatasetPreparationUnavailableError(name=name)
     manifest = verified.manifest
     target = provider_target_for_pin(TMS_AORTA_DOWNLOAD_PIN)
     expectation = target.artifact_expectation
@@ -75,3 +81,19 @@ def prepare_dataset(
     if not source_matches:
         raise UnexpectedDatasetSourceError(name=name)
     return prepare_tms_aorta(verified, data_dir=data_dir)
+
+
+def _require_pancreas_source(artifact: ArtifactReceipt, *, name: str) -> None:
+    pin = PANCREAS_ZENODO_ARCHIVE
+    manifest = artifact.manifest
+    matches = (
+        manifest.sha256 == pin.sha256
+        and manifest.byte_size == pin.byte_size
+        and manifest.logical_name == pin.filename
+        and manifest.source_uri == pin.source_uri
+        and manifest.accession == f"zenodo-record-{pin.record_id}:file-{pin.file_id}"
+        and manifest.release == f"record-{pin.record_id}"
+        and manifest.derivation is None
+    )
+    if not matches:
+        raise UnexpectedDatasetSourceError(name=name)

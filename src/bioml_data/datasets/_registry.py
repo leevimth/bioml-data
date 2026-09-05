@@ -26,6 +26,7 @@ from bioml_data.datasets._split_contract_validation import (
     valid_split_capability_contract_mode,
     valid_split_semantics,
 )
+from bioml_data.datasets.pancreas._registration import PANCREAS_REGISTRATION
 from bioml_data.datasets.tms_aorta._registration import TMS_AORTA_REGISTRATION
 
 
@@ -218,7 +219,9 @@ def _validate_registration(registration: DatasetRegistration) -> None:
             )
 
 
-DATASET_REGISTRY = DatasetRegistry(registrations=(TMS_AORTA_REGISTRATION,))
+DATASET_REGISTRY = DatasetRegistry(
+    registrations=(TMS_AORTA_REGISTRATION, PANCREAS_REGISTRATION),
+)
 publish_registry_capabilities(DATASET_REGISTRY.registrations)
 
 

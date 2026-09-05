@@ -9,8 +9,8 @@ historical anchor is the comparison by Abdelaal and Michielsen *et al.*
 
 The acquisition source is benchmark dataset v2 at Zenodo DOI
 [`10.5281/zenodo.3357167`](https://zenodo.org/records/3357167), whose archive is
-named `scRNAseq_Benchmark_datasets.zip`. This is a pinned inspection source,
-not yet a supported `load_dataset()` artifact.
+named `scRNAseq_Benchmark_datasets.zip`. The package fetches it only into the
+researcher's caller-selected verified cache; it never ships or hosts the archive.
 
 ## Literature-reference protocol
 
@@ -112,9 +112,46 @@ uv run pytest tests/test_pancreas_live_metadata.py
 
 The checked result is recorded in
 [`evidence/pancreas-zenodo-3357167-metadata-v1.json`](evidence/pancreas-zenodo-3357167-metadata-v1.json).
-A future supported snapshot still needs a canonical materialization and an
-explicit decision about the benchmark's historical preprocessing—not a new
-rights or source-byte investigation.
+## Executable reference artifact
+
+`pancreas-four-study` is now a supported, source-pinned historical reference.
+`download_dataset()` fetches/reuses the Zenodo ZIP in `data_dir`; `prepare_dataset()`
+materializes its source-provided
+`Inter-dataset/Pancreatic/Combined_HumanPancreas_data.csv` into sparse CSR;
+and `load_dataset()` opens that canonical artifact. The source's companion
+README identifies this combined matrix as the original counts of the four
+concatenated datasets. It has 10,150 cells and 15,642 source-provided features.
+
+The package does not infer a cross-study gene mapping. The source also contains
+an aligned matrix, but it is a distinct historical condition and is not silently
+substituted for the raw-count reference.
+
+There is no default split. Select exactly one study for each fold:
+
+```python
+import bioml_data as bio
+
+raw = bio.download_dataset("pancreas-four-study", data_dir="/data/bioml").artifact
+prepared = bio.prepare_dataset(
+    "pancreas-four-study", artifact=raw, data_dir="/data/bioml"
+)
+dataset = bio.load_dataset("pancreas-four-study", artifact=prepared.lineage)
+fold = bio.pancreas_lodo_split(dataset, held_out_study="Muraro")
+report = bio.pancreas_metadata_concordance(dataset, held_out_study="Muraro")
+```
+
+The four explicit choices are Baron Human, Muraro, Segerstolpe, and Xin. The
+source-defined concatenation order is used to identify them: `1:5707`,
+`5708:7261`, `7262:8701`, and `8702:10150` respectively (one-based ranges in
+the upstream `Statistics.xlsx`). The test sample count and four-label counts
+are compared directly to Table S2. Whole-dataset, train, and feature-dimension
+claims that the paper does not directly publish stay `NOT_REPORTED`.
+
+Equivalent CLI:
+
+```console
+bioml-data pancreas --data-dir /data/bioml --held-out-study Muraro
+```
 
 ## Sources
 

@@ -7,6 +7,14 @@ from bioml_data._domain import DatasetSnapshotIdentity
 
 
 @unique
+class DatasetDownloadOutcome(StrEnum):
+    """Whether a dataset invocation transferred bytes or reused its cache."""
+
+    CACHE_HIT = "cache_hit"
+    DOWNLOADED = "downloaded"
+
+
+@unique
 class Sha256Provenance(StrEnum):
     """Evidence source for a catalog SHA-256 value."""
 

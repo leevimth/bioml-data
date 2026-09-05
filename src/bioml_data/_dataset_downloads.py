@@ -2,10 +2,9 @@
 
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from enum import StrEnum, unique
 from importlib.metadata import version as package_version
 from pathlib import Path
-from typing import Final, final, override
+from typing import Final, Protocol, final, override
 
 import httpx2
 
@@ -15,7 +14,11 @@ from bioml_data._artifacts import (
     ArtifactReceipt,
     ArtifactRequest,
 )
-from bioml_data._dataset_download_models import DatasetDownloadPin, Sha256Provenance
+from bioml_data._dataset_download_models import (
+    DatasetDownloadOutcome,
+    DatasetDownloadPin,
+    Sha256Provenance,
+)
 from bioml_data._domain import DatasetSnapshotIdentity
 from bioml_data._http_artifacts import HttpArtifactDownload, download_artifact
 from bioml_data._provider_adapters import (
@@ -28,6 +31,7 @@ from bioml_data._provider_adapters import (
     acquire_provider_artifact,
 )
 from bioml_data.datasets._registry import DATASET_REGISTRY
+from bioml_data.datasets.pancreas._identity import PANCREAS_SNAPSHOT
 from bioml_data.datasets.tms_aorta._definition import TMS_AORTA_DOWNLOAD_PIN
 
 _DOWNLOAD_PINS: Final = (TMS_AORTA_DOWNLOAD_PIN,)
@@ -36,14 +40,6 @@ FIGSHARE_PROVIDER: Final = ProviderDescriptor(
     adapter_version="verified-http-v1",
     optional_dependency=None,
 )
-
-
-@unique
-class DatasetDownloadOutcome(StrEnum):
-    """Whether a dataset invocation transferred bytes or reused its cache."""
-
-    CACHE_HIT = "cache_hit"
-    DOWNLOADED = "downloaded"
 
 
 @dataclass(frozen=True, slots=True)
@@ -70,6 +66,22 @@ class DatasetDownloadReceipt:
     def downloaded(self) -> bool:
         """Return whether this invocation transferred the pinned bytes."""
         return self.outcome is DatasetDownloadOutcome.DOWNLOADED
+
+
+class DatasetDownloadResult(Protocol):
+    """Shared receipt surface for provider-specific dataset acquisition."""
+
+    @property
+    def artifact(self) -> ArtifactReceipt: ...
+
+    @property
+    def outcome(self) -> DatasetDownloadOutcome: ...
+
+    @property
+    def cache_hit(self) -> bool: ...
+
+    @property
+    def downloaded(self) -> bool: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -154,8 +166,15 @@ def download_dataset(
     *,
     data_dir: Path,
     version: str | None = None,
-) -> DatasetDownloadReceipt:
+) -> DatasetDownloadResult:
     """Download or integrity-check one dataset in a caller-selected cache root."""
+    registration = DATASET_REGISTRY.resolve(name, version=version)
+    if registration.definition.snapshot == PANCREAS_SNAPSHOT:
+        from bioml_data.datasets.pancreas._source import (  # noqa: PLC0415
+            fetch_pancreas_archive,
+        )
+
+        return fetch_pancreas_archive(data_dir=data_dir)
     pin = get_dataset_download_pin(name, version=version)
     return download_pinned_dataset(pin, data_dir=data_dir)
 
