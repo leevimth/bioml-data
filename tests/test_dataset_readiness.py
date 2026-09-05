@@ -96,10 +96,7 @@ def test_cited_field_qualification_is_the_only_way_to_accept_a_failed_gate() -> 
         for field in report.qualified_fields
         if field.dimension is ReadinessDimension.DETERMINISTIC_PREPARATION
     )
-    assert (
-        preparation.citation
-        is metadata.citation
-    )
+    assert preparation.citation is metadata.citation
     assert ReadinessDimension.DETERMINISTIC_PREPARATION not in tuple(
         field.dimension for field in report.failing_fields
     )

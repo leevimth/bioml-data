@@ -104,8 +104,7 @@ def _source_checksum_ready(registration: DatasetRegistration) -> bool:
 
 def _canonical_schema_ready(registration: DatasetRegistration) -> bool:
     return (
-        registration.artifact_scope is not None
-        and registration.materialize is not None
+        registration.artifact_scope is not None and registration.materialize is not None
     )
 
 
@@ -124,16 +123,20 @@ def _preparation_ready(registration: DatasetRegistration) -> bool:
 def _split_ready(registration: DatasetRegistration) -> bool:
     definitions = registration.definition.supported_splits
     capabilities = registration.split_capabilities
-    return bool(definitions) and len(definitions) == len(capabilities) and all(
-        capability.dataset == registration.definition.snapshot
-        and capability.task == definition.task
-        and capability.protocol == definition.id
-        and capability.artifact == registration.artifact_scope
-        and bool(capability.evidence)
-        and valid_split_capability_contract_mode(capability)
-        and valid_split_semantics(capability)
-        and all(item.citations for item in capability.evidence)
-        for definition, capability in zip(definitions, capabilities, strict=True)
+    return (
+        bool(definitions)
+        and len(definitions) == len(capabilities)
+        and all(
+            capability.dataset == registration.definition.snapshot
+            and capability.task == definition.task
+            and capability.protocol == definition.id
+            and capability.artifact == registration.artifact_scope
+            and bool(capability.evidence)
+            and valid_split_capability_contract_mode(capability)
+            and valid_split_semantics(capability)
+            and all(item.citations for item in capability.evidence)
+            for definition, capability in zip(definitions, capabilities, strict=True)
+        )
     )
 
 
