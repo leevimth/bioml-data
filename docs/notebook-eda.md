@@ -14,6 +14,12 @@ export BIOML_DATA_DIR=/data/bioml-data
 jupyter notebook examples/tms_aorta_eda.ipynb
 ```
 
+For the pancreas literature reference, use
+`examples/pancreas_lodo_eda.ipynb`. It uses the same `BIOML_DATA_DIR` cache and
+defaults to holding out Muraro; set `BIOML_HELD_OUT_STUDY` to Baron Human,
+Segerstolpe, or Xin before execution. The notebook materializes the pinned
+Zenodo source locally and reports the realized train/test metadata concordance.
+
 The notebook calls `download_dataset("tms-aorta", data_dir=...)`. A valid
 artifact already present in that directory is fully checked and reused without
 an HTTP request. `load_anndata()` then reopens the receipt from its manifest and

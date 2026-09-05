@@ -23,7 +23,7 @@ def load_dataset(
 
 @overload
 def load_dataset(
-    name: Literal["tms-aorta"],
+    name: Literal["tms-aorta", "pancreas-four-study"],
     *,
     version: str | None = None,
     artifact: ArtifactLineageReceipt,

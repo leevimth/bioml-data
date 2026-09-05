@@ -18,7 +18,7 @@ from bioml_data._artifact_receipts import (
     load_artifact_receipt,
 )
 from bioml_data._artifacts import ArtifactCache, ArtifactReceipt, ArtifactRequest
-from bioml_data._dataset_downloads import DatasetDownloadOutcome
+from bioml_data._dataset_download_models import DatasetDownloadOutcome
 from bioml_data._http_artifacts import HttpArtifactDownload, download_artifact
 from bioml_data._metadata_concordance_models import MetadataCount
 
@@ -58,6 +58,16 @@ class PancreasArchiveReceipt:
 
     artifact: ArtifactReceipt
     outcome: DatasetDownloadOutcome
+
+    @property
+    def cache_hit(self) -> bool:
+        """Return whether this call reused fully verified local archive bytes."""
+        return self.outcome is DatasetDownloadOutcome.CACHE_HIT
+
+    @property
+    def downloaded(self) -> bool:
+        """Return whether this call transferred the pinned archive bytes."""
+        return self.outcome is DatasetDownloadOutcome.DOWNLOADED
 
 
 @dataclass(frozen=True, slots=True)

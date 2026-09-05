@@ -48,7 +48,7 @@ class SparseCountMatrix:
 
     format: SparseFormat
     shape: MatrixShape
-    values: tuple[int, ...]
+    values: tuple[float, ...]
     column_indices: tuple[int, ...]
     row_offsets: tuple[int, ...]
 

@@ -60,7 +60,7 @@ def test_load_dataset_reports_an_unknown_dataset() -> None:
 
     # Then: the error identifies the request and available dataset names.
     assert captured.value.name == dataset_name
-    assert captured.value.available == ("tms-aorta",)
+    assert captured.value.available == ("tms-aorta", "pancreas-four-study")
 
 
 def test_load_dataset_reports_an_unknown_version() -> None:

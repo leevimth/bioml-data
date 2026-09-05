@@ -30,7 +30,7 @@ def aligned_row(
     dataset: CanonicalSingleCellDataset,
     row_index: int,
     source_positions: tuple[int, ...],
-) -> tuple[int, ...]:
+) -> tuple[float, ...]:
     start = dataset.counts.row_offsets[row_index]
     end = dataset.counts.row_offsets[row_index + 1]
     values_by_position = dict(
@@ -44,7 +44,7 @@ def aligned_row(
 
 
 def normalize_row(
-    row: tuple[int, ...],
+    row: tuple[float, ...],
     supported: SupportedFeatures,
     normalization: NormalizationParameters,
 ) -> tuple[PreparedValue, ...]:

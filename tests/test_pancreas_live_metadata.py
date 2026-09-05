@@ -73,3 +73,41 @@ def test_official_pancreas_archive_matches_publication_metadata() -> None:
     )
     assert whole_actual == whole_expected
     assert test_actual == test_expected
+
+    prepared = bio.prepare_dataset(
+        "pancreas-four-study",
+        artifact=archive,
+        data_dir=Path(cache_value),
+    )
+    dataset = bio.load_dataset("pancreas-four-study", artifact=prepared.lineage)
+
+    # When: every explicit study-held-out fold is compared to Table S2.
+    reports = tuple(
+        bio.pancreas_metadata_concordance(dataset, held_out_study=study)
+        for study in ("Baron Human", "Muraro", "Segerstolpe", "Xin")
+    )
+
+    # Then: direct test values match; unreported whole/train fields remain unknown.
+    assert all(
+        all(
+            item.status is bio.MetadataConcordance.NOT_REPORTED
+            for item in report.dataset_comparisons
+        )
+        for report in reports
+    )
+    for report in reports:
+        train = next(
+            item for item in report.partition_reports if item.partition == "train"
+        )
+        test = next(
+            item for item in report.partition_reports if item.partition == "test"
+        )
+        assert all(
+            item.status is bio.MetadataConcordance.NOT_REPORTED
+            for item in train.comparisons
+        )
+        assert tuple(item.status for item in test.comparisons) == (
+            bio.MetadataConcordance.MATCH,
+            bio.MetadataConcordance.NOT_REPORTED,
+            bio.MetadataConcordance.MATCH,
+        )
