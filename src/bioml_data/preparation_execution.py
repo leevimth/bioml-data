@@ -17,6 +17,7 @@ from bioml_data._preparation_execution_models import (
 from bioml_data._preparation_execution_receipt import (
     PreparationExecutionReceipt,
     PreparationExecutionRequest,
+    preparation_execution_receipt_from_json,
     preparation_execution_receipt_identity,
 )
 from bioml_data._preparation_execution_runtime import (
@@ -38,6 +39,7 @@ __all__ = [
     "PreparationFitScope",
     "PreparationSemanticParameters",
     "RuntimeComponent",
+    "preparation_execution_receipt_from_json",
     "preparation_execution_receipt_identity",
     "record_preparation_execution",
     "validate_preparation_execution_receipt",
