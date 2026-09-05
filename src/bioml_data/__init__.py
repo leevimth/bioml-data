@@ -51,6 +51,14 @@ from bioml_data._dataset_preparation_models import (
     DatasetPreparationReceipt,
     PreparedDatasetCacheError,
 )
+from bioml_data._dataset_readiness import assess_dataset_readiness
+from bioml_data._dataset_readiness_models import (
+    DatasetReadinessReport,
+    ReadinessDimension,
+    ReadinessField,
+    ReadinessFieldStatus,
+    ReadinessVerdict,
+)
 from bioml_data._domain import (
     CatalogKeyError,
     DatasetLifecycle,
@@ -251,6 +259,7 @@ __all__ = [
     "DatasetPreparationOutcome",
     "DatasetPreparationReceipt",
     "DatasetPreparationUnavailableError",
+    "DatasetReadinessReport",
     "DatasetSnapshotIdentity",
     "DatasetVersionRequiredError",
     "EvaluationReceipt",
@@ -316,6 +325,10 @@ __all__ = [
     "ProviderTargetMismatchError",
     "PublicationMetadataExpectation",
     "RawTmsViolation",
+    "ReadinessDimension",
+    "ReadinessField",
+    "ReadinessFieldStatus",
+    "ReadinessVerdict",
     "RealizedAssignmentInspection",
     "ResolvedProviderArtifact",
     "ScientificArtifactIdentity",
@@ -357,6 +370,7 @@ __all__ = [
     "__version__",
     "acquire_provider_artifact",
     "apply_fitted_preprocessing",
+    "assess_dataset_readiness",
     "audit_split",
     "cache_pancreas_archive",
     "cli_app",

@@ -29,9 +29,20 @@ bioml-data inspect tms-aorta \
 The report always states the exact dataset snapshot, upstream source URI, task,
 artifact scope, protocol, evidence basis and citations, split strategy,
 grouping column, leakage unit, held-out axis, deployment target, lifecycle, and
-canary usage. It separately states readiness: the current TMS value is
-`unresolved`, because BIO-31 owns the support-readiness evaluation and the
-package must not infer support from lifecycle or a successful canary. It also
+canary usage. Its protocol-readiness field remains `unresolved`: it is not a
+dataset-support decision and must not be inferred from lifecycle or a successful
+canary. Use the separate typed support gate for that decision:
+
+```python
+report = bio.assess_dataset_readiness("tms-aorta")
+assert report.verdict is bio.ReadinessVerdict.READY_WITH_QUALIFICATIONS
+```
+
+The report lists every source/checksum, rights, canonical-schema, task,
+deterministic-preparation, split, evaluation, and metadata-concordance field as
+`satisfied`, `missing`, `failing`, or cited `qualified`; no composite score is
+used. A missing or failing field blocks readiness. A cited qualification remains
+visible and does not change the catalog lifecycle. It also
 describes the executable allocation rule rather than a
 separate prose copy: for `animal-held-out-v1`, group IDs are ordered by the
 SHA-256 digest of `seed + NUL + group_id`, with group ID as the deterministic
